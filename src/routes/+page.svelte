@@ -5,6 +5,8 @@
   type ActionForm = {
     errors?: string[];
     preview?: TransitionPreview;
+    applied?: string;
+    message?: string;
     values?: { packetId: string; nextState: PacketState; owner: string; evidence: string; remainder: string };
   };
 
@@ -71,7 +73,8 @@
         <button type="submit">Generate preview</button>
       </form>
       {#if form?.errors?.length}<div class="action-errors" role="alert">{#each form.errors as error}<p>{error}</p>{/each}</div>{/if}
-      {#if form?.preview}<section class="preview" aria-live="polite"><h3>{form.preview.packetId} → {form.preview.nextState}</h3><p>{form.preview.message}</p><pre>{form.preview.diff}</pre></section>{/if}
+      {#if form?.message}<p class="success" role="status">{form.message}</p>{/if}
+      {#if form?.preview}<section class="preview" aria-live="polite"><h3>{form.preview.packetId} → {form.preview.nextState}</h3><p>{form.preview.message}</p><pre>{form.preview.diff}</pre><form method="POST" action="?/applyTransition" class="apply-form"><input type="hidden" name="packetId" value={form.preview.packetId} /><input type="hidden" name="nextState" value={form.values?.nextState ?? form.preview.nextState} /><input type="hidden" name="owner" value={form.values?.owner ?? ''} /><input type="hidden" name="evidence" value={form.values?.evidence ?? ''} /><input type="hidden" name="remainder" value={form.values?.remainder ?? ''} /><input type="hidden" name="sourceHash" value={form.preview.sourceHash} /><label>Type {form.preview.packetId} to apply <input name="confirmation" autocomplete="off" required /></label><button type="submit">Apply exact preview</button></form></section>{/if}
     </aside>{/if}
   </div>
 </main>

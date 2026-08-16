@@ -1,4 +1,8 @@
 import { createTwoFilesPatch } from 'diff';
+import { createHash, randomUUID } from 'node:crypto';
+import { chmod, open, rename, rm, stat } from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import type { Packet, PacketState, TransitionPreview } from '$lib/types';
 
 const states: PacketState[] = ['OPEN', 'ACTIVE', 'PARTIAL', 'BLOCKED', 'CLOSED', 'DROPPED'];
@@ -33,7 +37,18 @@ function replaceField(source: string, name: string, value: string): string {
   return source.replace(pattern, `${name}: ${value.trim() || 'none'}`);
 }
 
-export function buildPreview(source: string, packet: Packet, request: TransitionRequest, ready: boolean): TransitionPreview {
+function replaceLedgerRow(source: string, packet: Packet, request: TransitionRequest): string {
+  const row = new RegExp(`^\\| ${packet.id} \\|.*$`, 'm');
+  if (!row.test(source)) throw new Error(`Ledger row for ${packet.id} was not found.`);
+  const evidence = request.evidence.trim() || 'none';
+  return source.replace(row, `| ${packet.id} | ${request.nextState} | ${request.owner.trim() || 'unassigned'} | ${packet.milestone} | ${evidence} |`);
+}
+
+export function sourceHash(source: string): string {
+  return createHash('sha256').update(source).digest('hex');
+}
+
+export function buildProposedSource(source: string, packet: Packet, request: TransitionRequest, ready: boolean): string {
   const errors = validateTransition(packet, request, ready);
   if (errors.length) throw new Error(errors.join(' '));
   const heading = `### ${packet.id} — ${packet.title}`;
@@ -46,7 +61,33 @@ export function buildPreview(source: string, packet: Packet, request: Transition
   block = replaceField(block, 'Owner', request.owner);
   block = replaceField(block, 'Evidence', request.evidence);
   block = replaceField(block, 'Remainder', request.remainder);
-  const proposed = `${source.slice(0, start)}${block}${source.slice(boundary)}`;
+  const withPacket = `${source.slice(0, start)}${block}${source.slice(boundary)}`;
+  return replaceLedgerRow(withPacket, packet, request);
+}
+
+export function buildPreview(source: string, packet: Packet, request: TransitionRequest, ready: boolean): TransitionPreview {
+  const errors = validateTransition(packet, request, ready);
+  if (errors.length) throw new Error(errors.join(' '));
+  const proposed = buildProposedSource(source, packet, request, ready);
   const diff = createTwoFilesPatch('UNITY_PLAN.md', 'UNITY_PLAN.md', source, proposed, 'current', 'preview', { context: 3 });
-  return { packetId: packet.id, nextState: request.nextState, diff, message: 'Preview generated in memory. No source file was changed.' };
+  return { packetId: packet.id, nextState: request.nextState, diff, sourceHash: sourceHash(source), message: 'Preview generated in memory. No source file was changed.' };
+}
+
+export async function replaceValidated(target: string, proposed: string, validateTemporary: (path: string) => Promise<void>): Promise<void> {
+  const original = await stat(target);
+  const temporary = join(dirname(target), `.${basename(target)}.${randomUUID()}.tmp`);
+  let handle: FileHandle | undefined;
+  try {
+    handle = await open(temporary, 'wx', original.mode);
+    await handle.writeFile(proposed, 'utf8');
+    await handle.sync();
+    await handle.close();
+    handle = undefined;
+    await validateTemporary(temporary);
+    await chmod(temporary, original.mode);
+    await rename(temporary, target);
+  } finally {
+    await handle?.close();
+    await rm(temporary, { force: true });
+  }
 }

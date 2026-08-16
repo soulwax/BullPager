@@ -28,5 +28,6 @@ export type TransitionPreview = {
   packetId: string;
   nextState: PacketState;
   diff: string;
+  sourceHash: string;
   message: string;
 };

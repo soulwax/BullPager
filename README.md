@@ -19,6 +19,6 @@ The default source paths are `../../UNITY_PLAN.md` and
 `../../tmp/HUMAN_AGILE_GUIDE.md`. Override them with `HAP_UNITY_PATH` and
 `HAP_GUIDE_PATH` when using fixtures.
 
-The packet detail panel includes a preview-only state transition form. It
-validates required fields and shows a unified diff in memory; this release does
-not write either authority document.
+The packet detail panel includes a validated transition form. Preview validates
+required fields and shows a unified diff in memory. Apply requires the exact
+packet ID and the unchanged source hash, then replaces the source atomically.
