@@ -23,3 +23,10 @@ export type PlanView = {
   stateCounts: Record<PacketState, number>;
   readyIds: string[];
 };
+
+export type TransitionPreview = {
+  packetId: string;
+  nextState: PacketState;
+  diff: string;
+  message: string;
+};

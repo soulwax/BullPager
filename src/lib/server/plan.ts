@@ -62,12 +62,11 @@ function readyIds(packets: Packet[]): string[] {
 }
 
 export async function loadPlan(): Promise<PlanView> {
-  const unityPath = resolve(env.HAP_UNITY_PATH || '../../UNITY_PLAN.md');
-  const guidePath = resolve(env.HAP_GUIDE_PATH || '../../tmp/HUMAN_AGILE_GUIDE.md');
+  const { unityPath, guidePath } = sourcePaths();
   const errors: string[] = [];
   let packets: Packet[] = [];
   try {
-    const [unity, guide] = await Promise.all([readFile(unityPath, 'utf8'), readFile(guidePath, 'utf8')]);
+    const [unity, guide] = await readSources();
     packets = parsePackets(unity);
     if (!guide.includes('HUMAN AGILE GUIDE')) errors.push('The operating guide marker was not found.');
     if (packets.length === 0) errors.push('No migration packets were found.');
@@ -84,6 +83,18 @@ export async function loadPlan(): Promise<PlanView> {
     stateCounts,
     readyIds: readyIds(packets)
   };
+}
+
+export function sourcePaths() {
+  return {
+    unityPath: resolve(env.HAP_UNITY_PATH || '../../UNITY_PLAN.md'),
+    guidePath: resolve(env.HAP_GUIDE_PATH || '../../tmp/HUMAN_AGILE_GUIDE.md')
+  };
+}
+
+export async function readSources() {
+  const { unityPath, guidePath } = sourcePaths();
+  return Promise.all([readFile(unityPath, 'utf8'), readFile(guidePath, 'utf8')]);
 }
 
 export function sourceDigest(content: string): string {

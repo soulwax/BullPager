@@ -1,8 +1,14 @@
 <script lang="ts">
   import PacketCard from '$lib/components/PacketCard.svelte';
-  import type { Packet, PlanView, PacketState } from '$lib/types';
+  import type { Packet, PlanView, PacketState, TransitionPreview } from '$lib/types';
 
-  let { data }: { data: { plan: PlanView } } = $props();
+  type ActionForm = {
+    errors?: string[];
+    preview?: TransitionPreview;
+    values?: { packetId: string; nextState: PacketState; owner: string; evidence: string; remainder: string };
+  };
+
+  let { data, form }: { data: { plan: PlanView }; form?: ActionForm } = $props();
   let query = $state('');
   let selectedState = $state<'ALL' | PacketState>('ALL');
   let milestone = $state('ALL');
@@ -54,6 +60,18 @@
       {/each}
     </section>
 
-    {#if selected}<aside class="detail" aria-label="Selected packet"><p class="eyebrow">SELECTED PACKET</p><h2>{selected.id}</h2><h3>{selected.title}</h3><p class="meta">{selected.state} · {selected.owner} · {selected.milestone}</p>{#if data.plan.readyIds.includes(selected.id)}<p class="ready-banner">Dependencies are closed. This packet is ready to pull.</p>{/if}<dl><dt>Outcome</dt><dd>{selected.outcome || 'Not recorded.'}</dd><dt>Dependencies</dt><dd>{selected.dependsOn.length ? selected.dependsOn.join(', ') : 'None'}</dd><dt>Checks</dt><dd>{selected.checks || 'Not recorded.'}</dd><dt>Evidence</dt><dd>{selected.evidence || 'None recorded.'}</dd><dt>Remainder</dt><dd>{selected.remainder || 'None recorded.'}</dd></dl></aside>{/if}
+    {#if selected}<aside class="detail" aria-label="Selected packet"><p class="eyebrow">SELECTED PACKET</p><h2>{selected.id}</h2><h3>{selected.title}</h3><p class="meta">{selected.state} · {selected.owner} · {selected.milestone}</p>{#if data.plan.readyIds.includes(selected.id)}<p class="ready-banner">Dependencies are closed. This packet is ready to pull.</p>{/if}<dl><dt>Outcome</dt><dd>{selected.outcome || 'Not recorded.'}</dd><dt>Dependencies</dt><dd>{selected.dependsOn.length ? selected.dependsOn.join(', ') : 'None'}</dd><dt>Checks</dt><dd>{selected.checks || 'Not recorded.'}</dd><dt>Evidence</dt><dd>{selected.evidence || 'None recorded.'}</dd><dt>Remainder</dt><dd>{selected.remainder || 'None recorded.'}</dd></dl>
+      <form method="POST" action="?/previewTransition" class="transition-form">
+        <h3>Preview a state change</h3>
+        <input type="hidden" name="packetId" value={selected.id} />
+        <label>Next state <select name="nextState" required><option value="OPEN">OPEN</option><option value="ACTIVE">ACTIVE</option><option value="PARTIAL">PARTIAL</option><option value="BLOCKED">BLOCKED</option><option value="CLOSED">CLOSED</option><option value="DROPPED">DROPPED</option></select></label>
+        <label>Contributor <input name="owner" value={form?.values?.owner ?? selected.owner} /></label>
+        <label>Evidence <textarea name="evidence" rows="2" placeholder="What proves this state?">{form?.values?.evidence ?? ''}</textarea></label>
+        <label>Remainder / blocker <textarea name="remainder" rows="2" placeholder="What remains or blocks progress?">{form?.values?.remainder ?? ''}</textarea></label>
+        <button type="submit">Generate preview</button>
+      </form>
+      {#if form?.errors?.length}<div class="action-errors" role="alert">{#each form.errors as error}<p>{error}</p>{/each}</div>{/if}
+      {#if form?.preview}<section class="preview" aria-live="polite"><h3>{form.preview.packetId} → {form.preview.nextState}</h3><p>{form.preview.message}</p><pre>{form.preview.diff}</pre></section>{/if}
+    </aside>{/if}
   </div>
 </main>
