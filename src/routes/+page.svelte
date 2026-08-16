@@ -1,0 +1,59 @@
+<script lang="ts">
+  import PacketCard from '$lib/components/PacketCard.svelte';
+  import type { Packet, PlanView, PacketState } from '$lib/types';
+
+  let { data }: { data: { plan: PlanView } } = $props();
+  let query = $state('');
+  let selectedState = $state<'ALL' | PacketState>('ALL');
+  let milestone = $state('ALL');
+  let readyOnly = $state(false);
+  let selectedId = $state('');
+  const columns: { label: string; states: PacketState[] }[] = [
+    { label: 'Ready / Open', states: ['OPEN'] },
+    { label: 'In progress', states: ['ACTIVE', 'PARTIAL'] },
+    { label: 'Blocked', states: ['BLOCKED'] },
+    { label: 'Complete', states: ['CLOSED', 'DROPPED'] }
+  ];
+
+  const milestones = $derived([...new Set(data.plan.packets.map((packet) => packet.milestone))]);
+  const selected = $derived(data.plan.packets.find((packet) => packet.id === selectedId) ?? data.plan.packets[0]);
+  const filtered = $derived(data.plan.packets.filter((packet) => {
+    const text = `${packet.id} ${packet.title} ${packet.outcome}`.toLowerCase();
+    return (!query || text.includes(query.toLowerCase())) &&
+      (selectedState === 'ALL' || packet.state === selectedState) &&
+      (milestone === 'ALL' || packet.milestone === milestone) &&
+      (!readyOnly || data.plan.readyIds.includes(packet.id));
+  }));
+
+  function inColumn(packet: Packet, states: PacketState[]) { return states.includes(packet.state); }
+</script>
+
+<svelte:head><title>Project Agile Board</title><meta name="description" content="A local project plan board backed by the migration authority." /></svelte:head>
+
+<main>
+  <header class="topbar">
+    <div><p class="eyebrow">LOCAL PROJECT TOOL</p><h1>Project Agile Board</h1><p class="subtitle">A readable view of the migration plan and its next actionable work.</p></div>
+    <div class:valid={data.plan.valid} class="health">{data.plan.valid ? 'Plan valid' : 'Plan needs attention'}</div>
+  </header>
+
+  {#if data.plan.errors.length}<section class="errors" aria-live="polite"><h2>Plan issues</h2>{#each data.plan.errors as error}<p>{error}</p>{/each}</section>{/if}
+
+  <section class="toolbar" aria-label="Board filters">
+    <label>Search <input bind:value={query} placeholder="ID, title, or outcome" /></label>
+    <label>State <select bind:value={selectedState}><option value="ALL">All states</option>{#each Object.keys(data.plan.stateCounts) as item}<option value={item}>{item}</option>{/each}</select></label>
+    <label>Milestone <select bind:value={milestone}><option value="ALL">All milestones</option>{#each milestones as item}<option value={item}>{item}</option>{/each}</select></label>
+    <label class="check"><input type="checkbox" bind:checked={readyOnly} /> Ready next</label>
+  </section>
+
+  <div class="layout">
+    <section class="board" aria-label="Migration packets">
+      {#each columns as column}
+        <section class="column"><h2>{column.label} <span>{filtered.filter((packet) => inColumn(packet, column.states)).length}</span></h2>
+          {#each filtered.filter((packet) => inColumn(packet, column.states)) as packet}<PacketCard {packet} ready={data.plan.readyIds.includes(packet.id)} selected={selected?.id === packet.id} />{:else}<p class="empty">No packets</p>{/each}
+        </section>
+      {/each}
+    </section>
+
+    {#if selected}<aside class="detail" aria-label="Selected packet"><p class="eyebrow">SELECTED PACKET</p><h2>{selected.id}</h2><h3>{selected.title}</h3><p class="meta">{selected.state} · {selected.owner} · {selected.milestone}</p>{#if data.plan.readyIds.includes(selected.id)}<p class="ready-banner">Dependencies are closed. This packet is ready to pull.</p>{/if}<dl><dt>Outcome</dt><dd>{selected.outcome || 'Not recorded.'}</dd><dt>Dependencies</dt><dd>{selected.dependsOn.length ? selected.dependsOn.join(', ') : 'None'}</dd><dt>Checks</dt><dd>{selected.checks || 'Not recorded.'}</dd><dt>Evidence</dt><dd>{selected.evidence || 'None recorded.'}</dd><dt>Remainder</dt><dd>{selected.remainder || 'None recorded.'}</dd></dl></aside>{/if}
+  </div>
+</main>
