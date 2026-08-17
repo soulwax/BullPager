@@ -1,10 +1,10 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { BoardProject, BoardUser, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectChecklistItem, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
+import type { BoardProject, BoardUser, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectChecklistItem, ProjectComment, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
 import { defaultProjectTags, slugifyTag, tagColors, tagId } from '$lib/projectTags';
 import { databaseConfigured, db, neonClient } from './db';
-import { boardProjectActivity, boardProjectCardTags, boardProjectCards, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
+import { boardProjectActivity, boardProjectCardTags, boardProjectCards, boardProjectComments, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
 
 export type PersistedTransition = {
   packetId: string;
@@ -118,6 +118,15 @@ async function initializeSchema() {
       action TEXT NOT NULL,
       card_id TEXT NOT NULL DEFAULT '',
       summary TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_project_comments (
+      id BIGSERIAL PRIMARY KEY,
+      project_slug TEXT NOT NULL,
+      card_id TEXT NOT NULL,
+      author TEXT NOT NULL,
+      body TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `]);
@@ -372,6 +381,7 @@ export async function deleteProjectCard(projectSlug: string, id: string) {
   await ensureSchema();
   const database = requireDatabase();
   await database.delete(boardProjectCardTags).where(eq(boardProjectCardTags.cardId, id));
+  await database.delete(boardProjectComments).where(and(eq(boardProjectComments.projectSlug, projectSlug), eq(boardProjectComments.cardId, id)));
   await database.delete(boardProjectCards).where(and(eq(boardProjectCards.id, id), eq(boardProjectCards.projectSlug, projectSlug)));
 }
 
@@ -398,6 +408,31 @@ export async function listProjectActivity(projectSlug: string, limit = 30): Prom
   await ensureSchema();
   const rows = await requireDatabase().select().from(boardProjectActivity).where(eq(boardProjectActivity.projectSlug, projectSlug)).orderBy(desc(boardProjectActivity.createdAt), desc(boardProjectActivity.id)).limit(limit);
   return rows.map((row) => ({ id: String(row.id), projectSlug: row.projectSlug, actor: row.actor, action: row.action, cardId: row.cardId, summary: row.summary, createdAt: row.createdAt }));
+}
+
+export async function listProjectComments(projectSlug: string, cardId?: string, limit = 100): Promise<ProjectComment[]> {
+  if (!databaseConfigured()) return [];
+  await ensureSchema();
+  const conditions = cardId ? and(eq(boardProjectComments.projectSlug, projectSlug), eq(boardProjectComments.cardId, cardId)) : eq(boardProjectComments.projectSlug, projectSlug);
+  const rows = await requireDatabase().select().from(boardProjectComments).where(conditions).orderBy(desc(boardProjectComments.createdAt), desc(boardProjectComments.id)).limit(limit);
+  return rows.map((row) => ({ id: String(row.id), projectSlug: row.projectSlug, cardId: row.cardId, author: row.author, body: row.body, createdAt: row.createdAt }));
+}
+
+export async function createProjectComment(projectSlug: string, cardId: string, author: string, body: string): Promise<ProjectComment> {
+  await ensureSchema();
+  const cleanBody = body.trim().slice(0, 4000);
+  if (!cleanBody) throw new Error('COMMENT_EMPTY');
+  const inserted = await requireDatabase().insert(boardProjectComments).values({ projectSlug, cardId, author: author.trim().slice(0, 120) || 'unknown', body: cleanBody }).returning();
+  const row = inserted[0];
+  if (!row) throw new Error('The comment could not be saved.');
+  return { id: String(row.id), projectSlug: row.projectSlug, cardId: row.cardId, author: row.author, body: row.body, createdAt: row.createdAt };
+}
+
+export async function deleteProjectComment(projectSlug: string, id: string, author: string, canDeleteAny = false) {
+  await ensureSchema();
+  const database = requireDatabase();
+  const condition = canDeleteAny ? and(eq(boardProjectComments.projectSlug, projectSlug), eq(boardProjectComments.id, Number(id))) : and(eq(boardProjectComments.projectSlug, projectSlug), eq(boardProjectComments.id, Number(id)), eq(boardProjectComments.author, author));
+  await database.delete(boardProjectComments).where(condition);
 }
 
 export async function createBoardUser(username: string, password: string, role: Exclude<UserRole, 'superadmin'>) {

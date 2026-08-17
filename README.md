@@ -93,10 +93,18 @@ their history.
 Each project also gets a small Trello-style label palette in
 `board_project_tags`. Editors can create color-coded labels, assign several to a
 card, filter the board by label, and remove labels without losing card history.
+Cards can be assigned to known board users through the owner suggestions, and
+the board toolbar can filter down to one assignee or unassigned work. That
+filter is saved per user alongside search, labels, priority, density, and lane
+collapse preferences.
 Cards can also carry up to 30 persistent checklist items. The editor shows
 completion progress directly on each card, while confirmed card edits preserve
 checked state, labels, ordering, archive state, and checklist text across
 reloads and duplication.
+Each card has a durable comments thread for decisions, handoffs, and status
+updates. Editors can add comments; authors can remove their own comments, while
+administrators can moderate any comment. Comment changes are also reflected in
+the project activity trail.
 
 The packet detail panel includes a validated transition form. Preview validates
 required fields and shows a unified diff in memory. Apply requires the exact

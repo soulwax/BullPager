@@ -40,7 +40,7 @@ describe('project state helpers', () => {
   });
 
   it('sanitizes per-user view state', () => {
-    expect(sanitizeProjectViewState({ density: 'compact', collapsed: { Ready: true, Done: false, bad: 'yes' } })).toEqual({ density: 'compact', collapsed: { Ready: true, Done: false }, query: undefined, priority: undefined, tag: undefined, showArchived: false });
+    expect(sanitizeProjectViewState({ density: 'compact', collapsed: { Ready: true, Done: false, bad: 'yes' } })).toEqual({ density: 'compact', collapsed: { Ready: true, Done: false }, query: undefined, priority: undefined, tag: undefined, assignee: undefined, showArchived: false });
     expect(sanitizeProjectViewState({ density: 'wide', collapsed: null })).toEqual({ density: undefined, collapsed: {}, query: undefined, priority: undefined, tag: undefined, showArchived: false });
     expect(sanitizeProjectViewState(null)).toEqual({});
   });

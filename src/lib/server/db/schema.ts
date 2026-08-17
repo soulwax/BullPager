@@ -91,4 +91,13 @@ export const boardProjectActivity = pgTable('board_project_activity', {
   createdAt: createdAt()
 }, (table) => ({ projectCreatedIndex: index('board_project_activity_project_created_idx').on(table.projectSlug, table.createdAt) }));
 
-export const schema = { packetTransitions, packetNotes, boardUsers, boardProjects, boardSettings, boardProjectCards, boardProjectTags, boardProjectCardTags, boardProjectViews, boardProjectActivity };
+export const boardProjectComments = pgTable('board_project_comments', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  projectSlug: text('project_slug').notNull(),
+  cardId: text('card_id').notNull(),
+  author: text('author').notNull(),
+  body: text('body').notNull(),
+  createdAt: createdAt()
+}, (table) => ({ cardCreatedIndex: index('board_project_comments_card_created_idx').on(table.cardId, table.createdAt) }));
+
+export const schema = { packetTransitions, packetNotes, boardUsers, boardProjects, boardSettings, boardProjectCards, boardProjectTags, boardProjectCardTags, boardProjectViews, boardProjectActivity, boardProjectComments };

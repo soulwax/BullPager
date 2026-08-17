@@ -146,9 +146,9 @@ button { min-height: 2.4rem; padding: .45rem .7rem; border: 0; border-radius: .4
 .save-status { color: var(--good); }
 .project-board { display: flex; gap: .8rem; overflow-x: auto; padding: .15rem .15rem .8rem; }
 .project-lane-wrap .project-board { flex-wrap: wrap; overflow-x: visible; }
-.project-column { flex: 0 0 260px; min-height: 18rem; padding: .7rem; background: #151c25; border: 1px solid var(--line); border-radius: .8rem; }
+.project-column { flex: 0 0 min(340px, 78vw); min-height: 18rem; padding: .7rem; background: #151c25; border: 1px solid var(--line); border-radius: .8rem; }
 .project-column.collapsed { min-height: 0; }
-.project-lane-wrap .project-column { flex-basis: min(320px, calc(50% - .4rem)); }
+.project-lane-wrap .project-column { flex-basis: min(380px, calc(50% - .4rem)); }
 .project-column h2 { display: flex; justify-content: space-between; align-items: start; gap: .5rem; padding: .2rem .25rem .65rem; margin: 0 0 .65rem; border-bottom: 1px solid var(--line); font-size: .9rem; }
 .project-column h2 > span { display: grid; gap: .16rem; }
 .project-column h2 span { color: var(--muted); font-size: .67rem; font-weight: 500; }
@@ -161,7 +161,7 @@ button { min-height: 2.4rem; padding: .45rem .7rem; border: 0; border-radius: .4
 .project-card { padding: .75rem; border: 1px solid var(--line); border-radius: .6rem; background: #1b2430; }
 .project-board-compact .project-card { padding: .55rem; }
 .project-card-heading { display: flex; justify-content: space-between; gap: .5rem; align-items: start; }
-.project-card-heading strong { line-height: 1.35; }
+.project-card-heading strong { min-width: 0; overflow-wrap: anywhere; line-height: 1.35; }
 .priority-badge, .due-date { padding: .15rem .38rem; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: .64rem; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
 .priority-high { color: #ffd28b; border-color: #80683b; }
 .priority-urgent { color: #ffc19e; border-color: #9a6249; }
@@ -170,7 +170,7 @@ button { min-height: 2.4rem; padding: .45rem .7rem; border: 0; border-radius: .4
 .due-date { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); text-transform: none; }
 .due-today { color: #ffd28b; border-color: #80683b; }
 .due-overdue { color: #ffc19e; border-color: #9a6249; }
-.project-card > p { margin: .45rem 0 0; color: #c4ceda; font-size: .78rem; line-height: 1.4; white-space: pre-wrap; }
+.project-card > p { max-width: 100%; margin: .45rem 0 0; color: #c4ceda; font-size: .78rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
 .project-card details { margin-top: .65rem; padding-top: .55rem; border-top: 1px solid var(--line); }
 .project-card summary { color: var(--accent); cursor: pointer; font-size: .74rem; font-weight: 700; }
 .card-edit-form, .card-composer { display: grid; gap: .55rem; margin-top: .6rem; }
@@ -195,7 +195,7 @@ button { min-height: 2.4rem; padding: .45rem .7rem; border: 0; border-radius: .4
 @media (max-width: 700px) { .policy-form { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .user-form { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .project-fields { grid-template-columns: 1fr; } }
-@media (max-width: 520px) { .template-grid { grid-template-columns: 1fr; } .empty-slate-copy, .launch-card, .project-summary-card, .project-welcome, .project-next-steps, .project-toolbar { display: grid; } .empty-slate-copy img, .project-empty-intro img { width: 90px; } .project-workspace { padding: 1rem; } .project-column { flex-basis: min(260px, calc(100vw - 2.8rem)); } }
+@media (max-width: 520px) { .template-grid { grid-template-columns: 1fr; } .empty-slate-copy, .launch-card, .project-summary-card, .project-welcome, .project-next-steps, .project-toolbar { display: grid; } .empty-slate-copy img, .project-empty-intro img { width: 90px; } .project-workspace { padding: 1rem; } .project-column { flex-basis: min(300px, calc(100vw - 2.8rem)); } }
 
 /* Shared workspace refresh: calmer surfaces, clearer hierarchy, and better scanning. */
 :root {
@@ -471,6 +471,22 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .checklist-done { width: 1rem !important; min-height: 1rem !important; accent-color: var(--good); }
 .checklist-new-row { padding-top: .45rem; border-top: 1px dashed var(--line-soft); }
 .checklist-new-marker { display: grid; width: 1rem; height: 1rem; place-items: center; color: var(--muted); font-size: .95rem; }
+.card-comments { display: grid; gap: .55rem; padding-top: .8rem; margin-top: .2rem; border-top: 1px solid var(--line-soft); }
+.card-comments-heading { display: flex; align-items: center; gap: .45rem; }
+.card-comments-heading h3 { margin: 0; font-size: .86rem; }
+.card-comments-heading > span { display: inline-grid; min-width: 1.25rem; min-height: 1.25rem; place-items: center; padding-inline: .25rem; border: 1px solid var(--line-soft); border-radius: 99px; color: var(--muted); font-size: .65rem; }
+.card-comment-list { display: grid; gap: .55rem; max-height: 15rem; overflow: auto; padding: 0; margin: 0; list-style: none; }
+.card-comment-list li { padding: .55rem .65rem; border: 1px solid var(--line-soft); border-radius: .45rem; background: color-mix(in srgb, var(--surface-0) 32%, transparent); }
+.card-comment-list li > div { display: flex; align-items: center; gap: .45rem; color: var(--muted); font-size: .68rem; }
+.card-comment-list li strong { color: var(--accent-strong); }
+.card-comment-list li time { font-size: .63rem; }
+.card-comment-list li p { margin: .3rem 0 0; color: #d7e0ea; font-size: .76rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.comment-delete { width: 1.35rem; min-height: 1.35rem; padding: 0; margin-left: auto; border: 0; color: var(--muted); background: transparent; box-shadow: none; font-size: .9rem; line-height: 1; }
+.comment-delete:hover { color: #ff9d9d; transform: none; }
+.comment-empty { margin: 0; color: var(--muted); font-size: .73rem; }
+.comment-form { display: grid; gap: .45rem; }
+.comment-form textarea { min-height: 4.4rem; resize: vertical; font-size: .75rem; }
+.comment-form button { justify-self: end; min-height: 2rem; padding: .35rem .65rem; font-size: .72rem; }
 .project-card { cursor: grab; }
 .project-card:active, .project-card.dragging { cursor: grabbing; opacity: .58; }
 .project-card.archived { opacity: .64; border-style: dashed; }

@@ -2,12 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const persistence = vi.hoisted(() => ({
   createProjectCard: vi.fn(),
+  createProjectComment: vi.fn(),
   createProjectTag: vi.fn(),
   deleteProjectCard: vi.fn(),
+  deleteProjectComment: vi.fn(),
   deleteProjectTag: vi.fn(),
   getBoardProject: vi.fn(),
   listProjectActivity: vi.fn(),
   listProjectCards: vi.fn(),
+  listProjectComments: vi.fn(),
   loadBoardSettings: vi.fn(),
   loadProjectViewState: vi.fn(),
   recordProjectActivity: vi.fn(),
@@ -40,6 +43,8 @@ describe('project card actions', () => {
     persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]' });
     persistence.listProjectCards.mockResolvedValue([]);
     persistence.createProjectCard.mockResolvedValue(undefined);
+    persistence.createProjectComment.mockResolvedValue(undefined);
+    persistence.deleteProjectComment.mockResolvedValue(undefined);
     persistence.updateProjectCard.mockResolvedValue(undefined);
     persistence.reorderProjectCard.mockResolvedValue(undefined);
     persistence.recordProjectActivity.mockResolvedValue(undefined);
@@ -92,7 +97,7 @@ describe('project card actions', () => {
       params: { slug: 'demo' }
     } as never);
     expect(result).toEqual({ message: 'View saved.' });
-    expect(persistence.saveProjectViewState).toHaveBeenCalledWith('demo', 'ada', { density: 'compact', collapsed: { Ready: true, Done: false }, query: '', priority: 'all', tag: 'all', showArchived: false });
+    expect(persistence.saveProjectViewState).toHaveBeenCalledWith('demo', 'ada', { density: 'compact', collapsed: { Ready: true, Done: false }, query: '', priority: 'all', tag: 'all', assignee: 'all', showArchived: false });
   });
 
   it('creates a tag for editors and rejects viewers', async () => {
@@ -127,5 +132,20 @@ describe('project card actions', () => {
       { id: 'old', text: 'Review copy', done: true },
       expect.objectContaining({ text: 'Capture release note', done: false })
     ] }));
+  });
+
+  it('lets editors add a durable comment and blocks viewers', async () => {
+    persistence.listProjectCards.mockResolvedValue([{ id: 'card-1', projectSlug: 'demo', title: 'Ship board', details: '', lane: 'Ready', owner: 'ada', priority: 'normal', dueDate: null, archived: false, checklist: [], tags: [], position: 0, createdAt: '', updatedAt: '' }]);
+    const created = await actions.createComment({ request: request({ cardId: 'card-1', body: 'Decision: ship this in the next cut.' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+    expect(created).toEqual({ message: 'Comment saved.' });
+    expect(persistence.createProjectComment).toHaveBeenCalledWith('demo', 'card-1', 'ada', 'Decision: ship this in the next cut.');
+    const blocked = await actions.createComment({ request: request({ cardId: 'card-1', body: 'Nope' }), locals: { role: 'viewer', username: 'sam' }, params: { slug: 'demo' } } as never);
+    expect(blocked).toMatchObject({ status: 403 });
+  });
+
+  it('allows comment authors to remove their own comment', async () => {
+    const result = await actions.deleteComment({ request: request({ id: '42' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+    expect(result).toEqual({ message: 'Comment removed.' });
+    expect(persistence.deleteProjectComment).toHaveBeenCalledWith('demo', '42', 'ada', false);
   });
 });

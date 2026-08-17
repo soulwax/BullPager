@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { createProjectCard, createProjectTag, deleteProjectCard, deleteProjectTag, getBoardProject, listProjectActivity, listProjectCards, listProjectTags, loadBoardSettings, loadProjectViewState, recordProjectActivity, reorderProjectCard, saveProjectViewState, updateProjectCard } from '$lib/server/persistence';
+import { createProjectCard, createProjectComment, createProjectTag, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, loadBoardSettings, loadProjectViewState, recordProjectActivity, reorderProjectCard, saveProjectViewState, updateProjectCard } from '$lib/server/persistence';
 import { lanesFromSettings, mergeProjectLanes, projectPrefix, sanitizeProjectViewState, validProjectCardInput } from '$lib/projectState';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
@@ -20,7 +20,7 @@ export async function load({ params, url, locals }) {
   const cards = await listProjectCards(params.slug);
   const tags = await listProjectTags(params.slug);
   const configuredLanes = lanesFromSettings(settings, prefix);
-  return { project, prefix, settings, lanes: mergeProjectLanes(configuredLanes, cards), cards, tags, activity: await listProjectActivity(params.slug), viewState: await loadProjectViewState(params.slug, username), canEdit: canEdit(locals.role), created: url.searchParams.get('created') === '1' };
+  return { project, prefix, settings, lanes: mergeProjectLanes(configuredLanes, cards), cards, tags, members: await listBoardUsers(), activity: await listProjectActivity(params.slug), comments: await listProjectComments(params.slug), viewState: await loadProjectViewState(params.slug, username), canEdit: canEdit(locals.role), username, role: locals.role ?? '', created: url.searchParams.get('created') === '1' };
 }
 
 function readCard(form: FormData, projectSlug: string, fallbackId?: string) {
@@ -154,6 +154,33 @@ export const actions = {
     }
     return { message: 'Card deleted.' };
   },
+  createComment: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to comment on project cards.' });
+    const form = await request.formData();
+    const cardId = String(form.get('cardId') ?? '').trim();
+    const body = String(form.get('body') ?? '').trim();
+    const card = (await listProjectCards(params.slug)).find((item) => item.id === cardId);
+    if (!card) return fail(400, { error: 'Choose a valid card.' });
+    if (!body) return fail(400, { error: 'Write a comment before saving.' });
+    try {
+      await createProjectComment(params.slug, cardId, locals.username || card.owner || 'unknown', body);
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId, summary: `Commented on “${card.title}”.` });
+    } catch (error) {
+      return persistenceFailure('create comment failed', error);
+    }
+    return { message: 'Comment saved.' };
+  },
+  deleteComment: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to remove comments.' });
+    const id = String((await request.formData()).get('id') ?? '').trim();
+    if (!/^\d+$/.test(id)) return fail(400, { error: 'Choose a valid comment.' });
+    try {
+      await deleteProjectComment(params.slug, id, locals.username || '', ['superadmin', 'admin'].includes(locals.role ?? ''));
+    } catch (error) {
+      return persistenceFailure('delete comment failed', error);
+    }
+    return { message: 'Comment removed.' };
+  },
   createTag: async ({ request, locals, params }) => {
     if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to create project tags.' });
     const form = await request.formData();
@@ -186,6 +213,7 @@ export const actions = {
     const query = String(form.get('query') ?? '').trim().slice(0, 120);
     const priority = String(form.get('priority') ?? 'all');
     const tag = String(form.get('tag') ?? 'all').trim().slice(0, 120);
+    const assignee = String(form.get('assignee') ?? 'all').trim().slice(0, 120);
     const showArchived = String(form.get('showArchived') ?? 'false') === 'true';
     let collapsed: Record<string, boolean> = {};
     try {
@@ -195,7 +223,7 @@ export const actions = {
     if (!['comfortable', 'compact'].includes(density)) return fail(400, { error: 'Choose a valid board density.' });
     if (!['all', 'low', 'normal', 'high', 'urgent'].includes(priority)) return fail(400, { error: 'Choose a valid priority filter.' });
     try {
-      await saveProjectViewState(params.slug, locals.username, { density: density as 'comfortable' | 'compact', collapsed, query, priority: priority as 'all' | 'low' | 'normal' | 'high' | 'urgent', tag, showArchived });
+      await saveProjectViewState(params.slug, locals.username, { density: density as 'comfortable' | 'compact', collapsed, query, priority: priority as 'all' | 'low' | 'normal' | 'high' | 'urgent', tag, assignee, showArchived });
     } catch (error) {
       return persistenceFailure('save view failed', error);
     }

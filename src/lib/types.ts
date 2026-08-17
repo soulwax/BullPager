@@ -77,6 +77,15 @@ export type ProjectChecklistItem = {
   done: boolean;
 };
 
+export type ProjectComment = {
+  id: string;
+  projectSlug: string;
+  cardId: string;
+  author: string;
+  body: string;
+  createdAt: string;
+};
+
 export type ProjectCard = {
   id: string;
   projectSlug: string;
@@ -100,6 +109,7 @@ export type ProjectViewState = {
   query?: string;
   priority?: 'all' | 'low' | 'normal' | 'high' | 'urgent';
   tag?: string;
+  assignee?: string;
   showArchived?: boolean;
 };
 
