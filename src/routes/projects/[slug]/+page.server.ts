@@ -10,7 +10,6 @@ const persistenceFailure = (message: string, error: unknown) => {
 };
 
 export async function load({ params, url, locals }) {
-  if (params.slug === 'unity-plan') throw redirect(303, '/');
   const project = await getBoardProject(params.slug);
   if (!project) throw redirect(303, '/settings');
   const allSettings = await loadBoardSettings();
@@ -93,6 +92,7 @@ export const actions = {
     if (card.lane === lane) return { message: 'Card is already in that lane.' };
     try {
       await updateProjectCard({ ...card, lane, tagIds: (card.tags ?? []).map((tag) => tag.id) });
+      await reorderProjectCard(params.slug, id, lane);
       await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || card.owner || 'unassigned', action: 'updated', cardId: card.id, summary: `Moved “${card.title}” to ${lane}.` });
     } catch (error) {
       return persistenceFailure('move card failed', error);

@@ -85,6 +85,7 @@ describe('project card actions', () => {
     const result = await actions.moveCard(context({ id: 'card-1', lane: 'Done' }, 'editor'));
     expect(result).toEqual({ message: 'Card moved.' });
     expect(persistence.updateProjectCard).toHaveBeenCalledWith(expect.objectContaining({ id: 'card-1', lane: 'Done' }));
+    expect(persistence.reorderProjectCard).toHaveBeenCalledWith('demo', 'card-1', 'Done');
     expect(persistence.recordProjectActivity).toHaveBeenCalledWith(expect.objectContaining({ summary: expect.stringContaining('Done') }));
   });
 

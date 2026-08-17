@@ -2,11 +2,21 @@ import { fail } from '@sveltejs/kit';
 import { sessionCookie } from '$lib/server/auth';
 import { loadPlan, readSources, sourcePaths } from '$lib/server/plan';
 import { buildPreview, buildProposedSource, replaceValidated, sourceHash, validateTransition, type TransitionRequest } from '$lib/server/transition';
-import { persistenceEnabled, savePacketNote, saveTransition } from '$lib/server/persistence';
+import { persistenceEnabled, savePacketNote, saveTransition, syncUnityPlannerCards } from '$lib/server/persistence';
 import type { PacketState } from '$lib/types';
 
 export async function load({ locals }) {
-  return { plan: await loadPlan(), role: locals.role };
+  const plan = await loadPlan();
+  if (persistenceEnabled() && plan.packets.length) {
+    try {
+      await syncUnityPlannerCards(plan.packets);
+    } catch (error) {
+      // The planner remains usable if a transient database failure occurs;
+      // the next load will retry the additive sync.
+      console.error('[planner sync] unable to mirror packets into the board', error);
+    }
+  }
+  return { plan, role: locals.role };
 }
 
 export const actions = {

@@ -316,6 +316,80 @@ async function ensureDefaultProjectTags(projectSlug: string) {
   await database.insert(boardProjectTags).values(defaultProjectTags.map((tag) => ({ id: tagId(projectSlug, tag.slug), projectSlug, name: tag.name, color: tag.color }))).onConflictDoNothing();
 }
 
+/**
+ * Keep the Unity planner and its Kanban project in step without replacing
+ * cards that have already been edited on the board. Packet IDs are used as
+ * stable card IDs, so this operation is safe to run on every planner load.
+ */
+export async function syncUnityPlannerCards(packets: Packet[]): Promise<number> {
+  if (!databaseConfigured()) return 0;
+  await ensureSchema();
+  const database = requireDatabase();
+  const projectSlug = 'unity-plan';
+  const owner = env.APP_LOGIN || 'superadmin';
+  await database.insert(boardProjects).values({ slug: projectSlug, name: 'Unity migration plan', owner, visibility: 'private' }).onConflictDoNothing();
+  await database.insert(boardSettings).values({ key: `project_${projectSlug}_lanes`, value: JSON.stringify(['Backlog', 'In progress', 'Blocked', 'Done']) }).onConflictDoNothing();
+  await database.insert(boardSettings).values({ key: `project_${projectSlug}_theme`, value: 'midnight' }).onConflictDoNothing();
+  await ensureDefaultProjectTags(projectSlug);
+  const rows = await database.select({ id: boardProjectCards.id }).from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug));
+  const existing = new Set(rows.map((row) => row.id));
+  const positions = new Map<string, number>();
+  const current = await database.select({ lane: boardProjectCards.lane, position: boardProjectCards.position }).from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug));
+  for (const row of current) positions.set(row.lane, Math.max(positions.get(row.lane) ?? -1, row.position));
+  const stateLane = (state: PacketState) => state === 'BLOCKED' ? 'Blocked' : state === 'ACTIVE' || state === 'PARTIAL' ? 'In progress' : state === 'CLOSED' || state === 'DROPPED' ? 'Done' : 'Backlog';
+  const stateColor = (state: PacketState) => state === 'BLOCKED' ? '#F17878' : state === 'ACTIVE' || state === 'PARTIAL' ? '#5E9CFF' : state === 'CLOSED' ? '#68D6A4' : '#A7B1C2';
+  const priority = (state: PacketState): ProjectCard['priority'] => state === 'BLOCKED' ? 'urgent' : state === 'ACTIVE' || state === 'PARTIAL' ? 'high' : state === 'CLOSED' || state === 'DROPPED' ? 'low' : 'normal';
+  const checklist = (steps: string, packetId: string): ProjectChecklistItem[] => steps
+    .split(/\r?\n/)
+    .map((line) => line.match(/^\s*(?:\d+[.)]|[-*])\s+(.+)$/)?.[1]?.trim())
+    .filter((item): item is string => Boolean(item))
+    .slice(0, 20)
+    .map((text, index) => ({ id: `${packetId.toLowerCase()}-step-${index + 1}`, text: text.slice(0, 240), done: false }));
+  const details = (packet: Packet) => [
+    `Unity planner packet ${packet.id}`,
+    `Milestone: ${packet.milestone} · State: ${packet.state} · Owner: ${packet.owner || 'unassigned'}`,
+    packet.outcome ? `Outcome: ${packet.outcome}` : '',
+    packet.inputs ? `Inputs: ${packet.inputs}` : '',
+    packet.files ? `Files: ${packet.files}` : '',
+    packet.checks ? `Checks: ${packet.checks}` : '',
+    packet.evidence ? `Evidence: ${packet.evidence}` : '',
+    packet.remainder ? `Remainder: ${packet.remainder}` : '',
+    packet.dependsOn.length ? `Depends on: ${packet.dependsOn.join(', ')}` : ''
+  ].filter(Boolean).join('\n\n').slice(0, 4000);
+  const tagIds = (packet: Packet) => {
+    const tags = [tagId(projectSlug, 'content')];
+    if (packet.state === 'BLOCKED') tags.push(tagId(projectSlug, 'blocked'));
+    if (packet.state === 'ACTIVE' || packet.state === 'PARTIAL') tags.push(tagId(projectSlug, 'priority'));
+    return tags;
+  };
+  const missing = packets.filter((packet) => !existing.has(`unity-${packet.id.toLowerCase()}`));
+  if (!missing.length) return 0;
+  for (const packet of missing) {
+    const lane = stateLane(packet.state);
+    const position = (positions.get(lane) ?? -1) + 1;
+    positions.set(lane, position);
+    const id = `unity-${packet.id.toLowerCase()}`;
+    // Neon's HTTP driver does not expose interactive transactions. Each
+    // insert is idempotent and the next request resumes any partial sync.
+    await database.insert(boardProjectCards).values({
+      id,
+      projectSlug,
+      title: `${packet.id} · ${packet.title}`,
+      details: details(packet),
+      lane,
+      position,
+      archived: false,
+      checklist: JSON.stringify(checklist(packet.steps, packet.id)),
+      coverColor: stateColor(packet.state),
+      owner: packet.owner || 'unassigned',
+      priority: priority(packet.state),
+      dueDate: null
+    }).onConflictDoNothing();
+    await replaceCardTags(projectSlug, id, tagIds(packet), database);
+  }
+  return missing.length;
+}
+
 export async function listProjectTags(projectSlug: string): Promise<ProjectTag[]> {
   if (!databaseConfigured()) return [];
   await ensureSchema();
