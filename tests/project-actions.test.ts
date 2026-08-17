@@ -16,6 +16,7 @@ const persistence = vi.hoisted(() => ({
   recordProjectActivity: vi.fn(),
   reorderProjectCard: vi.fn(),
   saveProjectViewState: vi.fn(),
+  setProjectCardWatching: vi.fn(),
   updateProjectCard: vi.fn()
 }));
 
@@ -45,6 +46,7 @@ describe('project card actions', () => {
     persistence.createProjectCard.mockResolvedValue(undefined);
     persistence.createProjectComment.mockResolvedValue(undefined);
     persistence.deleteProjectComment.mockResolvedValue(undefined);
+    persistence.setProjectCardWatching.mockResolvedValue(undefined);
     persistence.updateProjectCard.mockResolvedValue(undefined);
     persistence.reorderProjectCard.mockResolvedValue(undefined);
     persistence.recordProjectActivity.mockResolvedValue(undefined);
@@ -57,9 +59,9 @@ describe('project card actions', () => {
   });
 
   it('persists a valid card and records activity', async () => {
-    const result = await actions.createCard(context({ title: 'Prepare brief', details: 'Write the first draft.', lane: 'Ready', owner: 'ada', priority: 'high', dueDate: '2026-08-20' }, 'editor'));
+    const result = await actions.createCard(context({ title: 'Prepare brief', details: 'Write the first draft.', lane: 'Ready', owner: 'ada', priority: 'high', dueDate: '2026-08-20', coverColor: '#5E9CFF' }, 'editor'));
     expect(result).toEqual({ message: 'Card saved.' });
-    expect(persistence.createProjectCard).toHaveBeenCalledWith(expect.objectContaining({ title: 'Prepare brief', lane: 'Ready', priority: 'high', dueDate: '2026-08-20', owner: 'ada' }));
+    expect(persistence.createProjectCard).toHaveBeenCalledWith(expect.objectContaining({ title: 'Prepare brief', lane: 'Ready', priority: 'high', dueDate: '2026-08-20', owner: 'ada', coverColor: '#5E9CFF' }));
     expect(persistence.recordProjectActivity).toHaveBeenCalledWith(expect.objectContaining({ action: 'created', summary: expect.stringContaining('Prepare brief') }));
   });
 
@@ -147,5 +149,12 @@ describe('project card actions', () => {
     const result = await actions.deleteComment({ request: request({ id: '42' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
     expect(result).toEqual({ message: 'Comment removed.' });
     expect(persistence.deleteProjectComment).toHaveBeenCalledWith('demo', '42', 'ada', false);
+  });
+
+  it('lets signed-in viewers watch and unwatch a card', async () => {
+    persistence.listProjectCards.mockResolvedValue([{ id: 'card-1', projectSlug: 'demo', title: 'Observe', details: '', lane: 'Ready', owner: 'ada', priority: 'normal', dueDate: null, archived: false, checklist: [], coverColor: '', tags: [], position: 0, createdAt: '', updatedAt: '' }]);
+    const watched = await actions.toggleWatch({ request: request({ id: 'card-1', watching: 'true' }), locals: { role: 'viewer', username: 'sam' }, params: { slug: 'demo' } } as never);
+    expect(watched).toEqual({ message: 'Card is now being watched.' });
+    expect(persistence.setProjectCardWatching).toHaveBeenCalledWith('demo', 'card-1', 'sam', true);
   });
 });

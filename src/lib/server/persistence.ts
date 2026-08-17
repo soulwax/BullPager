@@ -1,10 +1,10 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { BoardProject, BoardUser, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectChecklistItem, ProjectComment, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
+import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectChecklistItem, ProjectComment, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
 import { defaultProjectTags, slugifyTag, tagColors, tagId } from '$lib/projectTags';
 import { databaseConfigured, db, neonClient } from './db';
-import { boardProjectActivity, boardProjectCardTags, boardProjectCards, boardProjectComments, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
+import { boardProjectActivity, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
 
 export type PersistedTransition = {
   packetId: string;
@@ -80,6 +80,7 @@ async function initializeSchema() {
       position INTEGER NOT NULL DEFAULT 0,
       archived BOOLEAN NOT NULL DEFAULT FALSE,
       checklist TEXT NOT NULL DEFAULT '[]',
+      cover_color TEXT NOT NULL DEFAULT '',
       owner TEXT NOT NULL DEFAULT '',
       priority TEXT NOT NULL DEFAULT 'normal',
       due_date DATE,
@@ -101,6 +102,13 @@ async function initializeSchema() {
       tag_id TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (card_id, tag_id)
+    )
+  `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_project_card_watchers (
+      card_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (card_id, username)
     )
   `, rawSql`
     CREATE TABLE IF NOT EXISTS board_project_views (
@@ -129,8 +137,47 @@ async function initializeSchema() {
       body TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_project_graphs (
+      project_slug TEXT PRIMARY KEY,
+      revision INTEGER NOT NULL DEFAULT 1,
+      settings TEXT NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_project_graph_nodes (
+      id TEXT PRIMARY KEY,
+      project_slug TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('note', 'card', 'group')),
+      card_id TEXT,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      x INTEGER NOT NULL DEFAULT 80,
+      y INTEGER NOT NULL DEFAULT 80,
+      width INTEGER NOT NULL DEFAULT 220,
+      height INTEGER NOT NULL DEFAULT 130,
+      color TEXT NOT NULL DEFAULT '#5E9CFF',
+      collapsed BOOLEAN NOT NULL DEFAULT FALSE,
+      archived BOOLEAN NOT NULL DEFAULT FALSE,
+      created_by TEXT NOT NULL DEFAULT 'unknown',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_project_graph_edges (
+      id TEXT PRIMARY KEY,
+      project_slug TEXT NOT NULL,
+      source_node_id TEXT NOT NULL,
+      target_node_id TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('relates_to', 'depends_on', 'leads_to', 'blocks')),
+      label TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT 'unknown',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
   `]);
-  await rawSql`ALTER TABLE board_project_cards ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS due_date DATE, ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS checklist TEXT NOT NULL DEFAULT '[]'`;
+  await rawSql`ALTER TABLE board_project_cards ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS due_date DATE, ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS checklist TEXT NOT NULL DEFAULT '[]', ADD COLUMN IF NOT EXISTS cover_color TEXT NOT NULL DEFAULT ''`;
   await rawSql`ALTER TABLE board_users ADD COLUMN IF NOT EXISTS github_id TEXT UNIQUE`;
   await rawSql`
     INSERT INTO board_projects (slug, name, owner, visibility)
@@ -297,9 +344,8 @@ export async function deleteProjectTag(projectSlug: string, id: string) {
   await requireDatabase().delete(boardProjectTags).where(and(eq(boardProjectTags.id, id), eq(boardProjectTags.projectSlug, projectSlug)));
 }
 
-async function replaceCardTags(projectSlug: string, cardId: string, tagIds: string[]) {
+async function replaceCardTags(projectSlug: string, cardId: string, tagIds: string[], database = requireDatabase()) {
   const uniqueIds = [...new Set(tagIds.filter(Boolean))].slice(0, 12);
-  const database = requireDatabase();
   if (uniqueIds.length) {
     const valid = await database.select({ id: boardProjectTags.id }).from(boardProjectTags).where(and(eq(boardProjectTags.projectSlug, projectSlug), inArray(boardProjectTags.id, uniqueIds)));
     if (valid.length !== uniqueIds.length) throw new Error('One or more selected tags do not belong to this project.');
@@ -322,7 +368,7 @@ function parseChecklist(value: string | null | undefined): ProjectChecklistItem[
   }
 }
 
-export async function listProjectCards(projectSlug: string): Promise<ProjectCard[]> {
+export async function listProjectCards(projectSlug: string, username = ''): Promise<ProjectCard[]> {
   if (!databaseConfigured()) return [];
   await ensureSchema();
   const database = requireDatabase();
@@ -330,15 +376,22 @@ export async function listProjectCards(projectSlug: string): Promise<ProjectCard
   const tags = await listProjectTags(projectSlug);
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
   const cardTags = rows.length ? await database.select({ cardId: boardProjectCardTags.cardId, tagId: boardProjectCardTags.tagId }).from(boardProjectCardTags).where(inArray(boardProjectCardTags.cardId, rows.map((row) => row.id))) : [];
+  const watchers = rows.length ? await database.select({ cardId: boardProjectCardWatchers.cardId, username: boardProjectCardWatchers.username }).from(boardProjectCardWatchers).where(inArray(boardProjectCardWatchers.cardId, rows.map((row) => row.id))) : [];
+  const watcherCounts = new Map<string, number>();
+  const watchedByUser = new Set<string>();
+  for (const watcher of watchers) {
+    watcherCounts.set(watcher.cardId, (watcherCounts.get(watcher.cardId) ?? 0) + 1);
+    if (username && watcher.username === username) watchedByUser.add(watcher.cardId);
+  }
   const tagsByCard = new Map<string, ProjectTag[]>();
   for (const entry of cardTags) {
     const tag = tagById.get(entry.tagId);
     if (tag) tagsByCard.set(entry.cardId, [...(tagsByCard.get(entry.cardId) ?? []), tag]);
   }
-  return rows.map((row) => ({ id: row.id, projectSlug: row.projectSlug, title: row.title, details: row.details, lane: row.lane, position: row.position, archived: row.archived, checklist: parseChecklist(row.checklist), owner: row.owner, priority: row.priority, dueDate: row.dueDate, tags: tagsByCard.get(row.id) ?? [], createdAt: row.createdAt, updatedAt: row.updatedAt }));
+  return rows.map((row) => ({ id: row.id, projectSlug: row.projectSlug, title: row.title, details: row.details, lane: row.lane, position: row.position, archived: row.archived, checklist: parseChecklist(row.checklist), coverColor: row.coverColor, watcherCount: watcherCounts.get(row.id) ?? 0, watching: watchedByUser.has(row.id), owner: row.owner, priority: row.priority, dueDate: row.dueDate, tags: tagsByCard.get(row.id) ?? [], createdAt: row.createdAt, updatedAt: row.updatedAt }));
 }
 
-type ProjectCardWrite = Pick<ProjectCard, 'id' | 'projectSlug' | 'title' | 'details' | 'lane' | 'owner' | 'priority' | 'dueDate' | 'archived' | 'checklist'> & { tagIds?: string[] };
+type ProjectCardWrite = Pick<ProjectCard, 'id' | 'projectSlug' | 'title' | 'details' | 'lane' | 'owner' | 'priority' | 'dueDate' | 'archived' | 'checklist' | 'coverColor'> & { tagIds?: string[] };
 
 export async function createProjectCard(card: ProjectCardWrite) {
   await ensureSchema();
@@ -346,43 +399,61 @@ export async function createProjectCard(card: ProjectCardWrite) {
   const database = requireDatabase();
   const laneCards = await database.select({ position: boardProjectCards.position }).from(boardProjectCards).where(and(eq(boardProjectCards.projectSlug, card.projectSlug), eq(boardProjectCards.lane, card.lane)));
   const position = laneCards.reduce((max, item) => Math.max(max, item.position), -1) + 1;
-  await database.insert(boardProjectCards).values({ ...values, checklist: JSON.stringify(checklist), position });
-  await replaceCardTags(card.projectSlug, card.id, tagIds);
+  await database.transaction(async (tx) => {
+    await tx.insert(boardProjectCards).values({ ...values, checklist: JSON.stringify(checklist), coverColor: values.coverColor || '', position });
+    await replaceCardTags(card.projectSlug, card.id, tagIds, tx as any);
+  });
 }
 
 export async function updateProjectCard(card: ProjectCardWrite) {
   await ensureSchema();
   const { tagIds = [], checklist = [], ...values } = card;
-  await requireDatabase().update(boardProjectCards).set({ title: values.title, details: values.details, lane: values.lane, owner: values.owner, priority: values.priority, dueDate: values.dueDate, archived: values.archived, checklist: JSON.stringify(checklist), updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, values.id), eq(boardProjectCards.projectSlug, values.projectSlug)));
-  await replaceCardTags(card.projectSlug, card.id, tagIds);
+  const database = requireDatabase();
+  await database.transaction(async (tx) => {
+    await tx.update(boardProjectCards).set({ title: values.title, details: values.details, lane: values.lane, owner: values.owner, priority: values.priority, dueDate: values.dueDate, archived: values.archived, checklist: JSON.stringify(checklist), coverColor: values.coverColor || '', updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, values.id), eq(boardProjectCards.projectSlug, values.projectSlug)));
+    await replaceCardTags(card.projectSlug, card.id, tagIds, tx as any);
+  });
 }
 
 export async function reorderProjectCard(projectSlug: string, cardId: string, lane: string, beforeId = '') {
   await ensureSchema();
   const database = requireDatabase();
-  const rows = await database.select().from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug)).orderBy(boardProjectCards.lane, boardProjectCards.position, boardProjectCards.createdAt, boardProjectCards.id);
-  const moving = rows.find((row) => row.id === cardId);
-  if (!moving) throw new Error('Card not found.');
-  const destination = rows.filter((row) => row.lane === lane && row.id !== cardId);
-  if (beforeId && !destination.some((row) => row.id === beforeId)) throw new Error('Destination card not found.');
-  const insertAt = beforeId ? destination.findIndex((row) => row.id === beforeId) : destination.length;
-  destination.splice(insertAt < 0 ? destination.length : insertAt, 0, { ...moving, lane });
-  const updates = new Map<string, { lane: string; position: number }>();
-  for (const [index, row] of destination.entries()) updates.set(row.id, { lane, position: index });
-  let otherPosition = 0;
-  for (const row of rows) {
-    if (row.lane === lane || row.id === cardId) continue;
-    updates.set(row.id, { lane: row.lane, position: otherPosition++ });
-  }
-  await Promise.all([...updates.entries()].map(([id, update]) => database.update(boardProjectCards).set({ lane: update.lane, position: update.position, updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, id), eq(boardProjectCards.projectSlug, projectSlug)))));
+  await database.transaction(async (tx: any) => {
+    const rows = await tx.select().from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug)).orderBy(boardProjectCards.lane, boardProjectCards.position, boardProjectCards.createdAt, boardProjectCards.id);
+    const moving = rows.find((row: typeof rows[number]) => row.id === cardId);
+    if (!moving) throw new Error('Card not found.');
+    const destination = rows.filter((row: typeof rows[number]) => row.lane === lane && row.id !== cardId);
+    if (beforeId && !destination.some((row: typeof rows[number]) => row.id === beforeId)) throw new Error('Destination card not found.');
+    const insertAt = beforeId ? destination.findIndex((row: typeof rows[number]) => row.id === beforeId) : destination.length;
+    destination.splice(insertAt < 0 ? destination.length : insertAt, 0, { ...moving, lane });
+    const updates = new Map<string, { lane: string; position: number }>();
+    for (const [index, row] of destination.entries()) updates.set(row.id, { lane, position: index });
+    const otherLanes = new Map<string, typeof rows>();
+    for (const row of rows) {
+      if (row.lane === lane || row.id === cardId) continue;
+      otherLanes.set(row.lane, [...(otherLanes.get(row.lane) ?? []), row]);
+    }
+    for (const [otherLane, laneRows] of otherLanes) for (const [index, row] of laneRows.entries()) updates.set(row.id, { lane: otherLane, position: index });
+    for (const [id, update] of updates) await tx.update(boardProjectCards).set({ lane: update.lane, position: update.position, updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, id), eq(boardProjectCards.projectSlug, projectSlug)));
+  });
 }
 
 export async function deleteProjectCard(projectSlug: string, id: string) {
   await ensureSchema();
   const database = requireDatabase();
-  await database.delete(boardProjectCardTags).where(eq(boardProjectCardTags.cardId, id));
-  await database.delete(boardProjectComments).where(and(eq(boardProjectComments.projectSlug, projectSlug), eq(boardProjectComments.cardId, id)));
-  await database.delete(boardProjectCards).where(and(eq(boardProjectCards.id, id), eq(boardProjectCards.projectSlug, projectSlug)));
+  await database.transaction(async (tx) => {
+    await tx.delete(boardProjectCardTags).where(eq(boardProjectCardTags.cardId, id));
+    await tx.delete(boardProjectCardWatchers).where(eq(boardProjectCardWatchers.cardId, id));
+    await tx.delete(boardProjectComments).where(and(eq(boardProjectComments.projectSlug, projectSlug), eq(boardProjectComments.cardId, id)));
+    await tx.delete(boardProjectCards).where(and(eq(boardProjectCards.id, id), eq(boardProjectCards.projectSlug, projectSlug)));
+  });
+}
+
+export async function setProjectCardWatching(projectSlug: string, cardId: string, username: string, watching: boolean) {
+  await ensureSchema();
+  const database = requireDatabase();
+  if (watching) await database.insert(boardProjectCardWatchers).values({ cardId, username }).onConflictDoNothing();
+  else await database.delete(boardProjectCardWatchers).where(and(eq(boardProjectCardWatchers.cardId, cardId), eq(boardProjectCardWatchers.username, username)));
 }
 
 export async function loadProjectViewState(projectSlug: string, username: string): Promise<ProjectViewState> {
@@ -433,6 +504,117 @@ export async function deleteProjectComment(projectSlug: string, id: string, auth
   const database = requireDatabase();
   const condition = canDeleteAny ? and(eq(boardProjectComments.projectSlug, projectSlug), eq(boardProjectComments.id, Number(id))) : and(eq(boardProjectComments.projectSlug, projectSlug), eq(boardProjectComments.id, Number(id)), eq(boardProjectComments.author, author));
   await database.delete(boardProjectComments).where(condition);
+}
+
+function graphSettings(value: string | null | undefined, revision: number): GraphSettings {
+  let parsed: Record<string, unknown> = {};
+  try { parsed = JSON.parse(value ?? '{}') as Record<string, unknown>; } catch { /* use defaults */ }
+  return {
+    revision,
+    snap: parsed.snap !== false,
+    gridSize: typeof parsed.gridSize === 'number' && parsed.gridSize >= 4 && parsed.gridSize <= 64 ? Math.round(parsed.gridSize) : 8,
+    background: parsed.background === 'ocean' || parsed.background === 'light' ? parsed.background : 'midnight'
+  };
+}
+
+async function ensureProjectGraph(projectSlug: string) {
+  const database = requireDatabase();
+  await database.insert(boardProjectGraphs).values({ projectSlug, revision: 1, settings: JSON.stringify({ snap: true, gridSize: 8, background: 'midnight' }) }).onConflictDoNothing();
+}
+
+export async function loadProjectGraph(projectSlug: string): Promise<{ settings: GraphSettings; nodes: GraphNode[]; edges: GraphEdge[] }> {
+  if (!databaseConfigured()) return { settings: { revision: 1, snap: true, gridSize: 8, background: 'midnight' }, nodes: [], edges: [] };
+  await ensureSchema();
+  await ensureProjectGraph(projectSlug);
+  const database = requireDatabase();
+  const graph = (await database.select().from(boardProjectGraphs).where(eq(boardProjectGraphs.projectSlug, projectSlug)).limit(1))[0];
+  const nodeRows = await database.select().from(boardProjectGraphNodes).where(eq(boardProjectGraphNodes.projectSlug, projectSlug)).orderBy(boardProjectGraphNodes.createdAt, boardProjectGraphNodes.id);
+  const edgeRows = await database.select().from(boardProjectGraphEdges).where(eq(boardProjectGraphEdges.projectSlug, projectSlug)).orderBy(boardProjectGraphEdges.createdAt, boardProjectGraphEdges.id);
+  return {
+    settings: graphSettings(graph?.settings, graph?.revision ?? 1),
+    nodes: nodeRows.map((row) => ({ id: row.id, projectSlug: row.projectSlug, kind: row.kind, cardId: row.cardId, title: row.title, body: row.body, x: row.x, y: row.y, width: row.width, height: row.height, color: row.color, collapsed: row.collapsed, archived: row.archived, createdBy: row.createdBy, createdAt: row.createdAt, updatedAt: row.updatedAt })),
+    edges: edgeRows.map((row) => ({ id: row.id, projectSlug: row.projectSlug, sourceNodeId: row.sourceNodeId, targetNodeId: row.targetNodeId, kind: row.kind, label: row.label, createdBy: row.createdBy, createdAt: row.createdAt, updatedAt: row.updatedAt }))
+  };
+}
+
+async function bumpGraphRevision(projectSlug: string, expectedRevision?: number, database: any = requireDatabase()) {
+  const where = expectedRevision === undefined ? eq(boardProjectGraphs.projectSlug, projectSlug) : and(eq(boardProjectGraphs.projectSlug, projectSlug), eq(boardProjectGraphs.revision, expectedRevision));
+  const rows = await database.update(boardProjectGraphs).set({ revision: sql`${boardProjectGraphs.revision} + 1`, updatedAt: new Date().toISOString() }).where(where).returning({ revision: boardProjectGraphs.revision });
+  if (!rows[0]) throw new Error('GRAPH_CONFLICT');
+  return rows[0].revision;
+}
+
+export async function createGraphNode(node: Omit<GraphNode, 'createdAt' | 'updatedAt'>) {
+  await ensureSchema();
+  await ensureProjectGraph(node.projectSlug);
+  const values = { ...node, title: node.title.trim().slice(0, 160), body: node.body.trim().slice(0, 4000), x: Math.round(node.x), y: Math.round(node.y), width: Math.max(160, Math.min(640, Math.round(node.width))), height: Math.max(80, Math.min(640, Math.round(node.height))) };
+  await requireDatabase().insert(boardProjectGraphNodes).values(values);
+  return bumpGraphRevision(node.projectSlug);
+}
+
+export async function updateGraphNode(projectSlug: string, nodeId: string, values: Partial<Pick<GraphNode, 'title' | 'body' | 'x' | 'y' | 'width' | 'height' | 'color' | 'collapsed' | 'archived' | 'cardId'>>, expectedRevision?: number) {
+  await ensureSchema();
+  const update = { ...values, ...(values.title !== undefined ? { title: values.title.trim().slice(0, 160) } : {}), ...(values.body !== undefined ? { body: values.body.trim().slice(0, 4000) } : {}), ...(values.x !== undefined ? { x: Math.round(values.x) } : {}), ...(values.y !== undefined ? { y: Math.round(values.y) } : {}), updatedAt: new Date().toISOString() };
+  const database = requireDatabase();
+  if (expectedRevision === undefined) {
+    await database.update(boardProjectGraphNodes).set(update).where(and(eq(boardProjectGraphNodes.projectSlug, projectSlug), eq(boardProjectGraphNodes.id, nodeId)));
+    return bumpGraphRevision(projectSlug);
+  }
+  return database.transaction(async (tx) => {
+    await tx.update(boardProjectGraphNodes).set(update).where(and(eq(boardProjectGraphNodes.projectSlug, projectSlug), eq(boardProjectGraphNodes.id, nodeId)));
+    return bumpGraphRevision(projectSlug, expectedRevision, tx);
+  });
+}
+
+export async function deleteGraphNode(projectSlug: string, nodeId: string, expectedRevision?: number) {
+  await ensureSchema();
+  const database = requireDatabase();
+  const remove = async (tx: any) => {
+    await tx.delete(boardProjectGraphEdges).where(and(eq(boardProjectGraphEdges.projectSlug, projectSlug), eq(boardProjectGraphEdges.sourceNodeId, nodeId)));
+    await tx.delete(boardProjectGraphEdges).where(and(eq(boardProjectGraphEdges.projectSlug, projectSlug), eq(boardProjectGraphEdges.targetNodeId, nodeId)));
+    await tx.delete(boardProjectGraphNodes).where(and(eq(boardProjectGraphNodes.projectSlug, projectSlug), eq(boardProjectGraphNodes.id, nodeId)));
+    return bumpGraphRevision(projectSlug, expectedRevision, tx);
+  };
+  return expectedRevision === undefined ? remove(database) : database.transaction(remove);
+}
+
+export async function createGraphEdge(edge: Omit<GraphEdge, 'createdAt' | 'updatedAt'>, expectedRevision?: number) {
+  await ensureSchema();
+  await ensureProjectGraph(edge.projectSlug);
+  if (edge.sourceNodeId === edge.targetNodeId) throw new Error('GRAPH_SELF_EDGE');
+  const database = requireDatabase();
+  const insert = async (tx: any) => {
+    const nodes = await tx.select({ id: boardProjectGraphNodes.id }).from(boardProjectGraphNodes).where(and(eq(boardProjectGraphNodes.projectSlug, edge.projectSlug), inArray(boardProjectGraphNodes.id, [edge.sourceNodeId, edge.targetNodeId])));
+    if (nodes.length !== 2) throw new Error('GRAPH_NODE_NOT_FOUND');
+    await tx.insert(boardProjectGraphEdges).values({ ...edge, label: edge.label.trim().slice(0, 120) });
+    return bumpGraphRevision(edge.projectSlug, expectedRevision, tx);
+  };
+  return expectedRevision === undefined ? insert(database) : database.transaction(insert);
+}
+
+export async function deleteGraphEdge(projectSlug: string, edgeId: string, expectedRevision?: number) {
+  await ensureSchema();
+  const database = requireDatabase();
+  const remove = async (tx: any) => {
+    await tx.delete(boardProjectGraphEdges).where(and(eq(boardProjectGraphEdges.projectSlug, projectSlug), eq(boardProjectGraphEdges.id, edgeId)));
+    return bumpGraphRevision(projectSlug, expectedRevision, tx);
+  };
+  return expectedRevision === undefined ? remove(database) : database.transaction(remove);
+}
+
+export async function saveGraphSettings(projectSlug: string, settings: Pick<GraphSettings, 'snap' | 'gridSize' | 'background'>, expectedRevision?: number) {
+  await ensureSchema();
+  await ensureProjectGraph(projectSlug);
+  const clean = graphSettings(JSON.stringify(settings), 1);
+  const database = requireDatabase();
+  if (expectedRevision === undefined) {
+    await database.update(boardProjectGraphs).set({ settings: JSON.stringify({ snap: clean.snap, gridSize: clean.gridSize, background: clean.background }), updatedAt: new Date().toISOString() }).where(eq(boardProjectGraphs.projectSlug, projectSlug));
+    return bumpGraphRevision(projectSlug);
+  }
+  return database.transaction(async (tx) => {
+    await tx.update(boardProjectGraphs).set({ settings: JSON.stringify({ snap: clean.snap, gridSize: clean.gridSize, background: clean.background }), updatedAt: new Date().toISOString() }).where(and(eq(boardProjectGraphs.projectSlug, projectSlug), eq(boardProjectGraphs.revision, expectedRevision)));
+    return bumpGraphRevision(projectSlug, expectedRevision, tx);
+  });
 }
 
 export async function createBoardUser(username: string, password: string, role: Exclude<UserRole, 'superadmin'>) {

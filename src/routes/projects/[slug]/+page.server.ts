@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { createProjectCard, createProjectComment, createProjectTag, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, loadBoardSettings, loadProjectViewState, recordProjectActivity, reorderProjectCard, saveProjectViewState, updateProjectCard } from '$lib/server/persistence';
+import { createProjectCard, createProjectComment, createProjectTag, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, loadBoardSettings, loadProjectViewState, recordProjectActivity, reorderProjectCard, saveProjectViewState, setProjectCardWatching, updateProjectCard } from '$lib/server/persistence';
 import { lanesFromSettings, mergeProjectLanes, projectPrefix, sanitizeProjectViewState, validProjectCardInput } from '$lib/projectState';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
@@ -17,10 +17,11 @@ export async function load({ params, url, locals }) {
   const prefix = projectPrefix(params.slug);
   const settings = Object.fromEntries(Object.entries(allSettings).filter(([key]) => key.startsWith(prefix)));
   const username = locals.username ?? 'anonymous';
-  const cards = await listProjectCards(params.slug);
+  const cards = await listProjectCards(params.slug, username);
   const tags = await listProjectTags(params.slug);
   const configuredLanes = lanesFromSettings(settings, prefix);
-  return { project, prefix, settings, lanes: mergeProjectLanes(configuredLanes, cards), cards, tags, members: await listBoardUsers(), activity: await listProjectActivity(params.slug), comments: await listProjectComments(params.slug), viewState: await loadProjectViewState(params.slug, username), canEdit: canEdit(locals.role), username, role: locals.role ?? '', created: url.searchParams.get('created') === '1' };
+  const openCard = url.searchParams.get('card');
+  return { project, prefix, settings, lanes: mergeProjectLanes(configuredLanes, cards), cards, tags, members: await listBoardUsers(), activity: await listProjectActivity(params.slug), comments: await listProjectComments(params.slug), viewState: await loadProjectViewState(params.slug, username), canEdit: canEdit(locals.role), username, role: locals.role ?? '', openCard, created: url.searchParams.get('created') === '1' };
 }
 
 function readCard(form: FormData, projectSlug: string, fallbackId?: string) {
@@ -30,13 +31,14 @@ function readCard(form: FormData, projectSlug: string, fallbackId?: string) {
   const owner = String(form.get('owner') ?? '').trim();
   const priority = String(form.get('priority') ?? 'normal') as 'low' | 'normal' | 'high' | 'urgent';
   const dueDate = String(form.get('dueDate') ?? '').trim();
+  const coverColor = String(form.get('coverColor') ?? '').trim();
   const archived = form.has('archived') ? String(form.get('archived')) === 'true' : String(form.get('cardArchived') ?? 'false') === 'true';
   const tagIds = form.getAll('tagId').map((value) => String(value)).filter(Boolean).slice(0, 12);
   const itemIds = form.getAll('checkItemId').map((value) => String(value).trim());
   const itemTexts = form.getAll('checkItemText').map((value) => String(value).trim());
   const doneIds = new Set(form.getAll('checkItemDone').map((value) => String(value)));
   const checklist = itemIds.map((id, index) => ({ id: id === 'new' ? `check-${Date.now()}-${index}-${randomBytes(3).toString('hex')}` : id.slice(0, 80), text: (itemTexts[index] ?? '').slice(0, 240), done: doneIds.has(id) })).filter((item) => item.id && item.text).slice(0, 30);
-  return { id: fallbackId ?? `card-${Date.now()}-${randomBytes(6).toString('hex')}`, projectSlug, title, details, lane, owner, priority, dueDate: dueDate || null, archived, checklist, tagIds };
+  return { id: fallbackId ?? `card-${Date.now()}-${randomBytes(6).toString('hex')}`, projectSlug, title, details, lane, owner, priority, dueDate: dueDate || null, archived, checklist, coverColor, tagIds };
 }
 
 async function validLanes(slug: string) {
@@ -52,7 +54,7 @@ export const actions = {
     if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to change project cards.' });
     const card = readCard(await request.formData(), params.slug);
     const lanes = await validLanes(params.slug);
-    if (!validProjectCardInput(card, lanes)) return fail(400, { error: 'Add a title and choose valid lane, priority, and due-date values.' });
+    if (!validProjectCardInput(card, lanes) || (card.coverColor && !/^#[0-9a-f]{6}$/i.test(card.coverColor))) return fail(400, { error: 'Add a title and choose valid lane, priority, due-date, and cover values.' });
     const owner = card.owner.slice(0, 120) || locals.username || 'unassigned';
     try {
       await createProjectCard({ ...card, owner });
@@ -68,7 +70,7 @@ export const actions = {
     const id = String(form.get('id') ?? '').trim();
     const card = readCard(form, params.slug, id);
     const lanes = await validLanes(params.slug);
-    if (!id || !validProjectCardInput(card, lanes)) return fail(400, { error: 'Choose valid card values.' });
+    if (!id || !validProjectCardInput(card, lanes) || (card.coverColor && !/^#[0-9a-f]{6}$/i.test(card.coverColor))) return fail(400, { error: 'Choose valid card values.' });
     const owner = card.owner.slice(0, 120) || locals.username || 'unassigned';
     const existing = (await listProjectCards(params.slug)).find((item) => item.id === id);
     try {
@@ -133,7 +135,7 @@ export const actions = {
     const id = String((await request.formData()).get('id') ?? '').trim();
     const source = (await listProjectCards(params.slug)).find((item) => item.id === id);
     if (!source) return fail(400, { error: 'Choose a valid card.' });
-    const copy = { id: `card-${Date.now()}-${randomBytes(6).toString('hex')}`, projectSlug: params.slug, title: `Copy of ${source.title}`, details: source.details, lane: source.lane, owner: source.owner, priority: source.priority, dueDate: source.dueDate, archived: false, checklist: source.checklist.map((item, index) => ({ ...item, id: `check-${Date.now()}-${index}-${randomBytes(3).toString('hex')}` })), tagIds: source.tags.map((tag) => tag.id) };
+    const copy = { id: `card-${Date.now()}-${randomBytes(6).toString('hex')}`, projectSlug: params.slug, title: `Copy of ${source.title}`, details: source.details, lane: source.lane, owner: source.owner, priority: source.priority, dueDate: source.dueDate, archived: false, checklist: source.checklist.map((item, index) => ({ ...item, id: `check-${Date.now()}-${index}-${randomBytes(3).toString('hex')}` })), coverColor: source.coverColor, tagIds: source.tags.map((tag) => tag.id) };
     try {
       await createProjectCard(copy);
       await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'created', cardId: copy.id, summary: `Duplicated “${source.title}”.` });
@@ -153,6 +155,16 @@ export const actions = {
       return persistenceFailure('delete card failed', error);
     }
     return { message: 'Card deleted.' };
+  },
+  toggleWatch: async ({ request, locals, params }) => {
+    if (!locals.username) return fail(401, { error: 'Sign in to watch project cards.' });
+    const form = await request.formData();
+    const id = String(form.get('id') ?? '').trim();
+    const watching = String(form.get('watching') ?? 'true') === 'true';
+    const card = (await listProjectCards(params.slug)).find((item) => item.id === id);
+    if (!card) return fail(400, { error: 'Choose a valid card.' });
+    try { await setProjectCardWatching(params.slug, id, locals.username, watching); } catch (error) { return persistenceFailure('toggle card watch failed', error); }
+    return { message: watching ? 'Card is now being watched.' : 'Card watch removed.' };
   },
   createComment: async ({ request, locals, params }) => {
     if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to comment on project cards.' });

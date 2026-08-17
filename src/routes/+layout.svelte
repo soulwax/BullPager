@@ -5,6 +5,7 @@
 </script>
 
 <div class={`app-theme theme-${data.settings.theme || 'midnight'}`} style={`--accent: ${data.settings.accent || '#73b6ff'}`}>
+  <a class="skip-link" href="#main-content">Skip to workspace</a>
   <WorkspaceNav username={data.username} role={data.role} />
-  {@render children()}
+  <div id="main-content">{@render children()}</div>
 </div>

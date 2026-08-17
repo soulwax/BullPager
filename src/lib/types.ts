@@ -86,6 +86,48 @@ export type ProjectComment = {
   createdAt: string;
 };
 
+export type GraphNodeKind = 'note' | 'card' | 'group';
+
+export type GraphNode = {
+  id: string;
+  projectSlug: string;
+  kind: GraphNodeKind;
+  cardId: string | null;
+  title: string;
+  body: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+  collapsed: boolean;
+  archived: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GraphEdgeKind = 'relates_to' | 'depends_on' | 'leads_to' | 'blocks';
+
+export type GraphEdge = {
+  id: string;
+  projectSlug: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  kind: GraphEdgeKind;
+  label: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GraphSettings = {
+  revision: number;
+  snap: boolean;
+  gridSize: number;
+  background: 'midnight' | 'ocean' | 'light';
+};
+
 export type ProjectCard = {
   id: string;
   projectSlug: string;
@@ -95,6 +137,9 @@ export type ProjectCard = {
   position: number;
   archived: boolean;
   checklist: ProjectChecklistItem[];
+  coverColor: string;
+  watcherCount: number;
+  watching: boolean;
   owner: string;
   priority: 'low' | 'normal' | 'high' | 'urgent';
   dueDate: string | null;

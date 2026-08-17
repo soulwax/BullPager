@@ -86,9 +86,10 @@ same project on another device restores the saved project data and that user's
 last board view. Cards also retain priority and an optional due date, while
 `board_project_activity` keeps a compact audit trail of card changes.
 Card order is stored explicitly, so lane moves and within-lane reordering
-survive reloads. Larger edits open in a confirmation modal before they are
-written. Cards can be duplicated or archived and restored without deleting
-their history.
+survive reloads; reorder writes now commit as one transaction so a partial lane
+update cannot leave the board in an impossible order. Larger edits open in a
+confirmation modal before they are written. Cards can be duplicated or
+archived and restored without deleting their history.
 
 Each project also gets a small Trello-style label palette in
 `board_project_tags`. Editors can create color-coded labels, assign several to a
@@ -101,6 +102,12 @@ Cards can also carry up to 30 persistent checklist items. The editor shows
 completion progress directly on each card, while confirmed card edits preserve
 checked state, labels, ordering, archive state, and checklist text across
 reloads and duplication.
+Optional color covers add a fast visual cue to cards and are persisted with the
+same transactional edit. Every card can also expose a copyable deep link using
+`?card=<id>`, so handoffs reopen the exact card editor.
+Signed-in viewers can watch cards without being assigned to them. Watchers are
+stored per user, shown as a compact card badge, and survive reloads and lane
+changes.
 Each card has a durable comments thread for decisions, handoffs, and status
 updates. Editors can add comments; authors can remove their own comments, while
 administrators can moderate any comment. Comment changes are also reflected in
@@ -123,6 +130,18 @@ The Unity migration plan remains the bundled reference board. New project
 metadata and defaults are persisted in `board_projects` and `board_settings`, so
 the creation flow is useful immediately while project-specific packet sources can
 be attached in a later iteration.
+
+The planned secondary visual workspace is documented in
+[`docs/GRAPH_MODE_PLAN.md`](docs/GRAPH_MODE_PLAN.md). It keeps Kanban as the
+default while adding a focused, persisted graph canvas for relationships,
+dependencies, journeys, and free-form project notes.
+
+The first graph-mode slice is now available at `/projects/<slug>/graph`. It
+supports persisted note, group, and linked-card objects, SVG pan/zoom, snapping,
+object editing, connections, canvas settings, and read-only viewer access.
+Graph writes use Postgres transactions and an atomic per-project revision. A
+stale editor receives a conflict response instead of overwriting a newer graph;
+card/tag/checklist writes also commit as one transaction.
 
 ## Visual assets
 
