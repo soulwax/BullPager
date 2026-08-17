@@ -1,10 +1,15 @@
 <script lang="ts">
   import type { BoardProject, BoardUser, ProjectActivity, ProjectCard, ProjectComment, ProjectTag, ProjectViewState } from '$lib/types';
+  import { moveProjectCard } from '$lib/projectState';
   import { defaultProjectTags, tagId, tagPalette } from '$lib/projectTags';
+  import { projectBackground } from '$lib/projectBackgrounds';
   import { invalidateAll } from '$app/navigation';
 
   let { data, form }: { data: { project: BoardProject; prefix: string; settings: Record<string, string>; lanes: string[]; cards: ProjectCard[]; tags: ProjectTag[]; members: BoardUser[]; activity: ProjectActivity[]; comments: ProjectComment[]; viewState: ProjectViewState; canEdit: boolean; username: string; role: string; openCard?: string | null; created: boolean }; form?: { message?: string; error?: string } } = $props();
   const setting = (name: string, fallback = '') => data.settings[`${data.prefix}${name}`] ?? fallback;
+  const boardBackground = $derived(projectBackground(setting('background', 'none')));
+  const glassIntensity = $derived(Math.max(0, Math.min(100, Number(setting('glass_intensity', '38')) || 0)));
+  const boardSurfaceStyle = $derived(boardBackground.src ? `--project-bg-image: url("${boardBackground.src}"); --project-glass-opacity: ${0.82 - glassIntensity * 0.003}; --project-glass-blur: ${Math.round(4 + glassIntensity * 0.18)}px;` : '');
   const isDefaultTag = (id: string) => defaultProjectTags.some((tag) => tagId(data.project.slug, tag.slug) === id);
   let collapsed = $state<Record<string, boolean>>({});
   let density = $state<'comfortable' | 'compact'>('comfortable');
@@ -142,34 +147,13 @@
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
   }
 
-  function reindexCards(cards: ProjectCard[]) {
-    const nextPosition = new Map<string, number>();
-    return cards.map((card) => {
-      const position = nextPosition.get(card.lane) ?? 0;
-      nextPosition.set(card.lane, position + 1);
-      return { ...card, position };
-    });
-  }
-
-  function moveCardOptimistically(cardId: string, lane: string, beforeId: string) {
-    const current = boardCards;
-    const moving = current.find((card) => card.id === cardId);
-    if (!moving) return current;
-    const remaining = current.filter((card) => card.id !== cardId);
-    const destination = { ...moving, lane };
-    let insertAt = beforeId ? remaining.findIndex((card) => card.id === beforeId) : -1;
-    if (insertAt < 0) {
-      const laneIndexes = remaining.flatMap((card, index) => card.lane === lane ? [index] : []);
-      insertAt = laneIndexes.length ? laneIndexes[laneIndexes.length - 1] + 1 : remaining.length;
-    }
-    remaining.splice(insertAt, 0, destination);
-    return reindexCards(remaining);
-  }
-
-  function enqueueOrderSave(previous: ProjectCard[]) {
+  function enqueueOrderSave(previous: ProjectCard[], next: ProjectCard[]) {
     if (!orderBaseSnapshot) orderBaseSnapshot = previous;
     const revision = ++orderRevision;
-    const order = boardCards.map((card) => ({ id: card.id, lane: card.lane, position: card.position }));
+    // Use the explicit optimistic snapshot. Svelte updates derived values at
+    // the end of the turn, so reading boardCards here can otherwise serialize
+    // the pre-drop lane and make a cross-column move appear to snap back.
+    const order = next.map((card) => ({ id: card.id, lane: card.lane, position: card.position }));
     savedStatus = 'Saving order…';
     orderSaveChain = orderSaveChain.then(async () => {
       if (revision !== orderRevision) return;
@@ -200,23 +184,25 @@
 
   function dropCard(lane: string, beforeId: string, event: DragEvent) {
     event.preventDefault();
-    const id = event.dataTransfer?.getData('text/plain') || draggedCardId;
+    // Keep the local drag token authoritative. Some browsers clear
+    // dataTransfer text when the pointer crosses another draggable element.
+    const id = draggedCardId || event.dataTransfer?.getData('text/plain') || '';
     draggedCardId = '';
     dropTargetLane = '';
     dropTargetCardId = '';
     if (!id || id === beforeId) return;
     const previous = boardCards;
-    const next = moveCardOptimistically(id, lane, beforeId);
+    const next = moveProjectCard(boardCards, id, lane, beforeId);
     if (next === previous || next.every((card, index) => card.id === previous[index]?.id && card.lane === previous[index]?.lane)) return;
     optimisticCards = next;
     orderDirty = true;
-    enqueueOrderSave(previous);
+    enqueueOrderSave(previous, next);
   }
 </script>
 
 <svelte:head><title>{data.project.name} · Project Agile Board</title></svelte:head>
 
-<main class={`project-workspace theme-${setting('theme', 'midnight')} project-lane-${setting('lane_style', 'scroll')}`}>
+<main class={`project-workspace theme-${setting('theme', 'midnight')} project-lane-${setting('lane_style', 'scroll')}`} class:has-project-background={Boolean(boardBackground.src)} style={boardSurfaceStyle}>
   {#if data.members.length}<datalist id="project-members">{#each data.members as member}<option value={member.username}>{member.role}</option>{/each}</datalist>{/if}
   <header class="topbar">
     <div><p class="eyebrow">PROJECT WORKSPACE</p><h1>{data.project.name}</h1><p class="subtitle">{boardCards.length ? `${boardCards.length} saved cards across ${data.lanes.length} lanes.` : `A calm starting point for shared work. Your ${setting('template', 'custom')} template is ready for its first card.`}</p></div>
@@ -227,7 +213,7 @@
   {#if form?.message}<p class="success" role="status">{form.message}</p>{/if}
   {#if form?.error}<p class="action-errors" role="alert">{form.error}</p>{/if}
 
-  <div class="project-toolbar"><div class="project-toolbar-copy"><details class="find-work-menu"><summary><span class="find-work-icon">⌕</span><span><strong>Find work</strong><small>{visibleCards.length} visible · {activeCards.length} active</small></span></summary><div class="find-work-body"><p>Jump to the work that needs attention.</p><div class="find-work-actions"><button type="button" class:active={!filtered} class="quiet-button" onclick={clearFilters}>All cards</button><button type="button" class:active={assigneeFilter === data.username} class="quiet-button" onclick={() => { assigneeFilter = data.username; queueViewSave(); }}>My cards</button><button type="button" class:active={priorityFilter === 'urgent'} class="quiet-button" onclick={() => { priorityFilter = 'urgent'; queueViewSave(); }}>Urgent</button><button type="button" class="quiet-button" onclick={() => { query = ''; priorityFilter = 'all'; tagFilter = 'all'; assigneeFilter = 'unassigned'; showArchived = false; queueViewSave(); }}>Unassigned</button></div></div></details>{#if savedStatus}<span class="save-status" role="status" aria-live="polite">{savedStatus}</span>{/if}</div><div class="project-stats" aria-label="Project summary"><span><strong>{activeCards.length}</strong> active</span><span><strong>{urgentCount}</strong> urgent</span><span><strong>{data.tags.length}</strong> tags</span><span><strong>{archivedCount}</strong> archived</span></div><div class="project-controls"><label class="project-search">Search <input bind:value={query} oninput={queueViewSave} placeholder="Find cards by title, owner, or detail" aria-label="Search project cards" /></label><label>Priority <select bind:value={priorityFilter} onchange={queueViewSave}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label><label>Tag <select bind:value={tagFilter} onchange={queueViewSave}><option value="all">All tags</option>{#each data.tags as tag}<option value={tag.id}>{tag.name}</option>{/each}</select></label><label>Assignee <select bind:value={assigneeFilter} onchange={queueViewSave}><option value="all">Everyone</option><option value="unassigned">Unassigned</option>{#each data.members as member}<option value={member.username}>{member.username}</option>{/each}</select></label><label>Density <select bind:value={density} onchange={queueViewSave}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>{#if archivedCount}<button type="button" class:active={showArchived} class="quiet-button archive-toggle" onclick={() => { showArchived = !showArchived; queueViewSave(); }}>{showArchived ? "Hide archived" : "Show archived"}</button>{/if}{#if filtered}<button type="button" class="quiet-button clear-project-filters" onclick={clearFilters}>Clear</button>{/if}<details class="tag-manager"><summary>Manage tags</summary><div class="tag-manager-body"><div class="tag-cloud">{#each data.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}><span>{tag.name}</span>{#if data.canEdit && !isDefaultTag(tag.id)}<form method="POST" action="?/deleteTag"><input type="hidden" name="id" value={tag.id} /><button type="submit" aria-label={`Remove ${tag.name} tag`} title="Remove tag">×</button></form>{/if}</span>{/each}</div>{#if data.canEdit}<form method="POST" action="?/createTag" class="tag-create-form"><input name="name" maxlength="32" placeholder="New tag" aria-label="New tag name" required /><select name="color" aria-label="New tag color">{#each tagPalette as palette}<option value={palette.color}>{palette.name}</option>{/each}</select><button type="submit">Create tag</button></form>{/if}</div></details></div></div>
+  <div class="project-toolbar"><div class="project-toolbar-copy"><details class="find-work-menu"><summary><span class="find-work-icon">⌕</span><span><strong>Find work</strong><small>{visibleCards.length} visible · {activeCards.length} active</small></span></summary><div class="find-work-body"><p>Jump to the work that needs attention.</p><div class="find-work-actions"><button type="button" class:active={!filtered} class="quiet-button" onclick={clearFilters}>All cards</button><button type="button" class:active={assigneeFilter === data.username} class="quiet-button" onclick={() => { assigneeFilter = data.username; queueViewSave(); }}>My cards</button><button type="button" class:active={priorityFilter === 'urgent'} class="quiet-button" onclick={() => { priorityFilter = 'urgent'; queueViewSave(); }}>Urgent</button><button type="button" class="quiet-button" onclick={() => { query = ''; priorityFilter = 'all'; tagFilter = 'all'; assigneeFilter = 'unassigned'; showArchived = false; queueViewSave(); }}>Unassigned</button></div></div></details><a class="project-cloud-button" href={`/projects/${data.project.slug}/files`} aria-label="Open project cloud"><span class="project-cloud-glyph" aria-hidden="true">☁</span><span>Cloud</span></a>{#if savedStatus}<span class="save-status" role="status" aria-live="polite">{savedStatus}</span>{/if}</div><div class="project-stats" aria-label="Project summary"><span><strong>{activeCards.length}</strong> active</span><span><strong>{urgentCount}</strong> urgent</span><span><strong>{data.tags.length}</strong> tags</span><span><strong>{archivedCount}</strong> archived</span></div><div class="project-controls"><label class="project-search">Search <input bind:value={query} oninput={queueViewSave} placeholder="Find cards by title, owner, or detail" aria-label="Search project cards" /></label><label>Priority <select bind:value={priorityFilter} onchange={queueViewSave}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label><label>Tag <select bind:value={tagFilter} onchange={queueViewSave}><option value="all">All tags</option>{#each data.tags as tag}<option value={tag.id}>{tag.name}</option>{/each}</select></label><label>Assignee <select bind:value={assigneeFilter} onchange={queueViewSave}><option value="all">Everyone</option><option value="unassigned">Unassigned</option>{#each data.members as member}<option value={member.username}>{member.username}</option>{/each}</select></label><label>Density <select bind:value={density} onchange={queueViewSave}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>{#if archivedCount}<button type="button" class:active={showArchived} class="quiet-button archive-toggle" onclick={() => { showArchived = !showArchived; queueViewSave(); }}>{showArchived ? "Hide archived" : "Show archived"}</button>{/if}{#if filtered}<button type="button" class="quiet-button clear-project-filters" onclick={clearFilters}>Clear</button>{/if}<details class="tag-manager"><summary>Manage tags</summary><div class="tag-manager-body"><div class="tag-cloud">{#each data.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}><span>{tag.name}</span>{#if data.canEdit && !isDefaultTag(tag.id)}<form method="POST" action="?/deleteTag"><input type="hidden" name="id" value={tag.id} /><button type="submit" aria-label={`Remove ${tag.name} tag`} title="Remove tag">×</button></form>{/if}</span>{/each}</div>{#if data.canEdit}<form method="POST" action="?/createTag" class="tag-create-form"><input name="name" maxlength="32" placeholder="New tag" aria-label="New tag name" required /><select name="color" aria-label="New tag color">{#each tagPalette as palette}<option value={palette.color}>{palette.name}</option>{/each}</select><button type="submit">Create tag</button></form>{/if}</div></details></div></div>
 
   {#if boardCards.length === 0}
     <section class="project-empty-intro"><img src="/assets/illustrations/organizing-projects.svg" alt="" /><div><p class="eyebrow">EMPTY SLATE</p><h2>Nothing is stuck here yet.</h2><p class="subtitle">This board has {data.lanes.length} lanes from your template. Add one small, concrete card and the empty state will disappear.</p></div></section>

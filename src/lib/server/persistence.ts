@@ -639,6 +639,24 @@ export async function setProjectCardOrder(projectSlug: string, order: Array<{ id
   });
 }
 
+/** Keep cards attached to a column when its visible name is changed. */
+export async function renameProjectLanes(projectSlug: string, renames: Array<{ from: string; to: string }>) {
+  const changes = renames.filter((rename) => rename.from && rename.to && rename.from !== rename.to);
+  if (!changes.length) return;
+  await ensureSchema();
+  const database = requireDatabase();
+  await database.transaction(async (tx: any) => {
+    const now = new Date().toISOString();
+    const staged = changes.map((rename, index) => ({ ...rename, temporary: `__lane_rename_${Date.now()}_${index}_${randomBytes(3).toString('hex')}` }));
+    for (const rename of staged) {
+      await tx.update(boardProjectCards).set({ lane: rename.temporary, updatedAt: now }).where(and(eq(boardProjectCards.projectSlug, projectSlug), eq(boardProjectCards.lane, rename.from)));
+    }
+    for (const rename of staged) {
+      await tx.update(boardProjectCards).set({ lane: rename.to, updatedAt: now }).where(and(eq(boardProjectCards.projectSlug, projectSlug), eq(boardProjectCards.lane, rename.temporary)));
+    }
+  });
+}
+
 export async function deleteProjectCard(projectSlug: string, id: string) {
   await ensureSchema();
   const database = requireDatabase();

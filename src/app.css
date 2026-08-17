@@ -99,6 +99,15 @@ button { min-height: 2.4rem; padding: .45rem .7rem; border: 0; border-radius: .4
 .user-list small { color: var(--muted); }
 .role { padding: .15rem .4rem; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: .7rem; }
 .role-lock { display: inline-flex; min-height: 2rem; align-items: center; padding: .25rem .55rem; border: 1px solid var(--line-soft); border-radius: .4rem; color: var(--muted); font-size: .7rem; }
+.lane-editor { display: grid; gap: .45rem; padding: .75rem; border: 1px solid var(--line-soft); border-radius: .6rem; }
+.lane-editor legend { padding-inline: .25rem; color: var(--accent); font-size: .76rem; font-weight: 800; }
+.field-help { margin: -.1rem 0 .15rem; color: var(--muted); font-size: .72rem; }
+.lane-editor-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem; align-items: center; }
+.lane-editor-row input { min-height: 2.1rem; }
+.lane-editor-row .danger { min-width: 2.1rem; min-height: 2.1rem; padding: 0; }
+.lane-add-button { justify-self: start; min-height: 2rem; font-size: .72rem; }
+.range-output { justify-self: end; margin-top: -1.45rem; color: var(--accent); font-size: .72rem; font-variant-numeric: tabular-nums; }
+input[type='range'] { min-height: 1.2rem; padding: 0; accent-color: var(--accent); }
 .role-superadmin { color: var(--good); border-color: #377a59; }
 .role-admin { color: #ffd28b; border-color: #80683b; }
 .user-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .35rem; }
@@ -916,6 +925,9 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .project-workspace .project-column.drop-target { border-color: color-mix(in srgb, var(--accent) 70%, var(--line)); background: color-mix(in srgb, var(--accent) 5%, var(--surface-1)); }
 .project-workspace .project-column.drop-target .project-column-empty { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent-strong); }
 .project-toolbar-copy .save-status { min-height: 1.4rem; padding: .22rem .42rem; border: 1px solid var(--line-soft); border-radius: .35rem; background: color-mix(in srgb, var(--surface-0) 35%, transparent); font-size: .64rem; white-space: nowrap; }
+.project-cloud-button { display: inline-flex; min-height: 2.35rem; align-items: center; gap: .38rem; padding: .35rem .65rem .35rem .48rem; border: 1px solid color-mix(in srgb, #7de0aa 58%, var(--line)); border-radius: .5rem; color: #c9f7dd; background: color-mix(in srgb, #52c98b 13%, var(--surface-0)); box-shadow: 0 4px 14px rgb(25 146 91 / .12); font-size: .72rem; font-weight: 800; text-decoration: none; }
+.project-cloud-button:hover, .project-cloud-button:focus-visible { border-color: #7de0aa; color: #f0fff6; background: color-mix(in srgb, #52c98b 22%, var(--surface-1)); box-shadow: 0 0 0 3px rgb(82 201 139 / .14); }
+.project-cloud-glyph { display: grid; width: 1.45rem; height: 1.45rem; place-items: center; border-radius: .35rem; color: #071c12; background: #7de0aa; font-size: 1rem; line-height: 1; }
 
 /* Trello-style list and card menus keep common actions one click away without
    forcing every small change through the full editor. */
@@ -1020,7 +1032,14 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .file-type-audio { --file-type-color: #d6a2ff; }
 .file-type-video { --file-type-color: #7fc9ff; }
 .file-type-archive { --file-type-color: #f2c56f; }
+.file-type-document { --file-type-color: #b8a7ff; }
+.file-type-spreadsheet { --file-type-color: #70d69e; }
+.file-type-presentation { --file-type-color: #ffad78; }
+.file-type-model { --file-type-color: #e99be7; }
+.file-type-font { --file-type-color: #ffd27d; }
+.file-type-database { --file-type-color: #73d4d4; }
 .file-type-data { --file-type-color: #77d7d0; }
+.file-type-config { --file-type-color: #f0b07d; }
 .file-type-code { --file-type-color: #8fb7ff; }
 .file-type-markdown { --file-type-color: #69d5ff; }
 .file-type-file { --file-type-color: #a9b7c8; }
@@ -1149,3 +1168,20 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .project-workspace button:hover:not(:disabled) { transform: none; box-shadow: none; }
 .project-workspace .project-card-meta { color: var(--muted); }
 .project-workspace .project-column-empty { background: transparent; }
+.project-workspace.has-project-background { position: relative; isolation: isolate; }
+.project-workspace.has-project-background::before { position: fixed; z-index: -2; inset: 0; content: ''; background: linear-gradient(180deg, rgb(5 10 18 / .72), rgb(5 10 18 / .88)), var(--project-bg-image) center / cover no-repeat; pointer-events: none; }
+.project-workspace.has-project-background::after { position: fixed; z-index: -1; inset: 0; content: ''; background: rgb(5 10 18 / .16); pointer-events: none; }
+.project-workspace.has-project-background .project-toolbar, .project-workspace.has-project-background .project-column, .project-workspace.has-project-background .project-card, .project-workspace.has-project-background .project-welcome, .project-workspace.has-project-background .project-next-steps { background: rgb(18 26 36 / var(--project-glass-opacity)); backdrop-filter: blur(var(--project-glass-blur)) saturate(1.08); }
+
+/* The card inspector is a true right-side drawer: it keeps the board visible,
+   gives long titles and notes room to breathe, and falls back to a full-width
+   sheet on small screens. */
+.card-editor-modal { top: 0; right: 0; left: auto; width: min(760px, 48vw); max-width: 760px; height: 100dvh; max-height: 100dvh; padding: clamp(1rem, 2vw, 1.5rem); border-radius: 1rem 0 0 1rem; transform: none; animation: card-drawer-in .2s ease-out both; }
+@keyframes card-drawer-in { from { opacity: 0; transform: translateX(1.5rem); } to { opacity: 1; transform: translateX(0); } }
+.card-editor-modal .card-edit-form { min-width: 0; }
+.binary-file-icon.file-type-icon { gap: .35rem; }
+.binary-file-icon.file-type-icon b { font-size: 2.3rem; }
+.binary-file-icon.file-type-icon small { font-size: .62rem; }
+@media (max-width: 900px) { .card-editor-modal { width: min(680px, 62vw); } }
+@media (max-width: 640px) { .card-editor-modal { width: calc(100vw - .5rem); height: calc(100dvh - .5rem); max-height: calc(100dvh - .5rem); border-radius: .8rem 0 0 .8rem; } }
+@media (prefers-reduced-motion: reduce) { .card-editor-modal { animation: none; } }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { projectTemplates } from '../src/lib/projectTemplates';
-import { lanesFromSettings, mergeProjectLanes, sanitizeProjectViewState, validDueDate, validProjectCardInput } from '../src/lib/projectState';
+import { lanesFromSettings, mergeProjectLanes, moveProjectCard, sanitizeProjectViewState, validDueDate, validProjectCardInput } from '../src/lib/projectState';
 
 describe('project templates', () => {
   it('has unique ids and usable workflows', () => {
@@ -22,6 +22,16 @@ describe('project state helpers', () => {
 
   it('keeps cards visible when a lane is renamed', () => {
     expect(mergeProjectLanes(['Backlog', 'Done'], [{ lane: 'Review' }, { lane: 'Review' }, { lane: 'Done' }])).toEqual(['Backlog', 'Done', 'Review']);
+  });
+
+  it('moves a card across columns and reindexes both columns', () => {
+    const card = (id: string, lane: string, position: number) => ({ id, projectSlug: 'demo', title: id, details: '', lane, position, owner: '', priority: 'normal' as const, dueDate: null, archived: false, checklist: [], tags: [], coverColor: '', watcherCount: 0, watching: false, createdAt: '', updatedAt: '' });
+    const moved = moveProjectCard([card('one', 'Backlog', 0), card('two', 'Done', 0), card('three', 'Done', 1)], 'one', 'Done', 'three');
+    expect(moved.map(({ id, lane, position }) => ({ id, lane, position }))).toEqual([
+      { id: 'two', lane: 'Done', position: 0 },
+      { id: 'one', lane: 'Done', position: 1 },
+      { id: 'three', lane: 'Done', position: 2 }
+    ]);
   });
 
   it('rejects impossible due dates', () => {

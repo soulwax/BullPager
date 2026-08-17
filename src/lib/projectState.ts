@@ -26,6 +26,26 @@ export function mergeProjectLanes(configured: string[], cards: Pick<ProjectCard,
   return [...configured, ...archived];
 }
 
+/** Return a fully reindexed optimistic snapshot for a Kanban move. */
+export function moveProjectCard(cards: ProjectCard[], cardId: string, lane: string, beforeId = ''): ProjectCard[] {
+  const moving = cards.find((card) => card.id === cardId);
+  if (!moving) return cards;
+  const remaining = cards.filter((card) => card.id !== cardId);
+  const destination = { ...moving, lane };
+  let insertAt = beforeId ? remaining.findIndex((card) => card.id === beforeId && card.lane === lane) : -1;
+  if (insertAt < 0) {
+    const laneIndexes = remaining.flatMap((card, index) => card.lane === lane ? [index] : []);
+    insertAt = laneIndexes.length ? laneIndexes[laneIndexes.length - 1] + 1 : remaining.length;
+  }
+  remaining.splice(insertAt, 0, destination);
+  const nextPosition = new Map<string, number>();
+  return remaining.map((card) => {
+    const position = nextPosition.get(card.lane) ?? 0;
+    nextPosition.set(card.lane, position + 1);
+    return { ...card, position };
+  });
+}
+
 export function validDueDate(value: string | null) {
   if (!value) return true;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

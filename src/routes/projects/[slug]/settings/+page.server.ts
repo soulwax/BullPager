@@ -1,5 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { getBoardProject, loadBoardSettings, saveBoardSettings } from '$lib/server/persistence';
+import { getBoardProject, loadBoardSettings, renameProjectLanes, saveBoardSettings } from '$lib/server/persistence';
+import { lanesFromSettings } from '$lib/projectState';
+import { projectBackgrounds } from '$lib/projectBackgrounds';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
 const persistenceFailure = (error: unknown) => {
@@ -27,13 +29,22 @@ export const actions = {
     const cadence = String(form.get('cadence') ?? 'weekly');
     const visibility = String(form.get('visibility') ?? 'private');
     const boardTheme = String(form.get('boardTheme') ?? 'midnight');
+    const background = String(form.get('background') ?? 'none');
+    const glassIntensity = Number(form.get('glassIntensity') ?? 38);
     const cardDensity = String(form.get('cardDensity') ?? 'comfortable');
     const showOutcomes = form.get('showOutcomes') === 'on' ? 'true' : 'false';
     const laneStyle = String(form.get('laneStyle') ?? 'scroll');
-    const lanes = String(form.get('lanes') ?? '').split(',').map((lane) => lane.trim()).filter(Boolean);
-    if (key.length > 120 || !['weekly', 'biweekly', 'monthly'].includes(cadence) || !['private', 'shared'].includes(visibility) || !['midnight', 'ocean', 'light'].includes(boardTheme) || !['comfortable', 'compact'].includes(cardDensity) || !['scroll', 'wrap'].includes(laneStyle) || lanes.length < 2 || lanes.length > 8 || lanes.some((lane) => lane.length > 48)) return fail(400, { error: 'Choose valid project settings.' });
-    const settingsToSave: Record<string, string> = { [`${prefix}workflow_key`]: key, [`${prefix}cadence`]: cadence, [`${prefix}visibility`]: visibility, [`${prefix}theme`]: boardTheme, [`${prefix}density`]: cardDensity, [`${prefix}show_outcomes`]: showOutcomes, [`${prefix}lane_style`]: laneStyle, [`${prefix}lanes`]: JSON.stringify(lanes) };
+    const laneNames = form.getAll('laneName').map((lane) => String(lane).trim()).filter(Boolean);
+    const laneOriginals = form.getAll('laneOriginal').map((lane) => String(lane).trim());
+    const lanes = laneNames.length ? laneNames : String(form.get('lanes') ?? '').split(',').map((lane) => lane.trim()).filter(Boolean);
+    const validBackground = projectBackgrounds.some((item) => item.id === background);
+    if (key.length > 120 || !['weekly', 'biweekly', 'monthly'].includes(cadence) || !['private', 'shared'].includes(visibility) || !['midnight', 'ocean', 'light'].includes(boardTheme) || !validBackground || !Number.isInteger(glassIntensity) || glassIntensity < 0 || glassIntensity > 100 || !['comfortable', 'compact'].includes(cardDensity) || !['scroll', 'wrap'].includes(laneStyle) || lanes.length < 2 || lanes.length > 8 || new Set(lanes).size !== lanes.length || lanes.some((lane) => lane.length > 48)) return fail(400, { error: 'Choose valid project settings.' });
+    const currentSettings = await loadBoardSettings();
+    const currentLanes = lanesFromSettings(currentSettings, prefix);
+    const renames = laneNames.length ? laneNames.map((name, index) => ({ from: laneOriginals[index] ?? '', to: name })) : [];
+    const settingsToSave: Record<string, string> = { [`${prefix}workflow_key`]: key, [`${prefix}cadence`]: cadence, [`${prefix}visibility`]: visibility, [`${prefix}theme`]: boardTheme, [`${prefix}background`]: background, [`${prefix}glass_intensity`]: String(glassIntensity), [`${prefix}density`]: cardDensity, [`${prefix}show_outcomes`]: showOutcomes, [`${prefix}lane_style`]: laneStyle, [`${prefix}lanes`]: JSON.stringify(lanes) };
     try {
+      await renameProjectLanes(params.slug, renames.filter((rename) => currentLanes.includes(rename.from)));
       await saveBoardSettings(settingsToSave);
     } catch (error) {
       return persistenceFailure(error);

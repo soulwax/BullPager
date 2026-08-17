@@ -46,6 +46,8 @@ export const actions = {
         [`${prefix}cadence`]: template.cadence,
         [`${prefix}visibility`]: visibility,
         [`${prefix}theme`]: template.theme,
+        [`${prefix}background`]: 'none',
+        [`${prefix}glass_intensity`]: '38',
         [`${prefix}density`]: 'comfortable',
         [`${prefix}show_outcomes`]: 'true',
         [`${prefix}lane_style`]: 'scroll',

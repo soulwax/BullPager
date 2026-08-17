@@ -66,13 +66,20 @@
 
   function fileVisual(file: ProjectFile) {
     const extension = file.path.split('.').pop()?.toLowerCase() ?? '';
-    if (file.mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(extension)) return { label: 'IMG', glyph: '◈', kind: 'image' };
+    if (file.mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'ico'].includes(extension)) return { label: 'IMG', glyph: '◈', kind: 'image' };
     if (file.mimeType === 'application/pdf' || extension === 'pdf') return { label: 'PDF', glyph: '▤', kind: 'pdf' };
-    if (file.mimeType.startsWith('audio/') || ['mp3', 'wav', 'ogg'].includes(extension)) return { label: 'AUDIO', glyph: '♫', kind: 'audio' };
-    if (file.mimeType.startsWith('video/') || ['mp4', 'webm', 'mov'].includes(extension)) return { label: 'VIDEO', glyph: '▶', kind: 'video' };
-    if (['zip', 'tar', 'gz', '7z'].includes(extension)) return { label: 'ZIP', glyph: '⌁', kind: 'archive' };
-    if (['json', 'yaml', 'yml', 'csv'].includes(extension)) return { label: 'DATA', glyph: '{}', kind: 'data' };
-    if (['js', 'ts', 'svelte', 'dart', 'shader', 'frag', 'vert', 'css', 'html'].includes(extension)) return { label: 'CODE', glyph: '</>', kind: 'code' };
+    if (file.mimeType.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(extension)) return { label: 'AUDIO', glyph: '♫', kind: 'audio' };
+    if (file.mimeType.startsWith('video/') || ['mp4', 'webm', 'mov', 'mkv'].includes(extension)) return { label: 'VIDEO', glyph: '▶', kind: 'video' };
+    if (['zip', 'tar', 'gz', '7z', 'rar'].includes(extension)) return { label: 'ZIP', glyph: '⌁', kind: 'archive' };
+    if (['doc', 'docx', 'rtf', 'odt'].includes(extension)) return { label: 'DOC', glyph: '▱', kind: 'document' };
+    if (['xls', 'xlsx', 'ods'].includes(extension)) return { label: 'SHEET', glyph: '▦', kind: 'spreadsheet' };
+    if (['ppt', 'pptx', 'odp', 'key'].includes(extension)) return { label: 'SLIDE', glyph: '◫', kind: 'presentation' };
+    if (['blend', 'fbx', 'obj', 'gltf', 'glb', 'unitypackage'].includes(extension)) return { label: '3D', glyph: '◇', kind: 'model' };
+    if (['woff', 'woff2', 'ttf', 'otf'].includes(extension)) return { label: 'FONT', glyph: 'Aa', kind: 'font' };
+    if (['db', 'sqlite', 'sqlite3'].includes(extension)) return { label: 'DB', glyph: '◉', kind: 'database' };
+    if (['json', 'yaml', 'yml', 'csv', 'xml', 'toml'].includes(extension)) return { label: 'DATA', glyph: '{}', kind: 'data' };
+    if (['env', 'ini', 'conf', 'config'].includes(extension)) return { label: 'CONFIG', glyph: '⚙', kind: 'config' };
+    if (['js', 'ts', 'svelte', 'dart', 'shader', 'frag', 'vert', 'css', 'html', 'py', 'rs', 'go'].includes(extension)) return { label: 'CODE', glyph: '</>', kind: 'code' };
     if (['md', 'markdown'].includes(extension)) return { label: 'MD', glyph: '#', kind: 'markdown' };
     return { label: extension.slice(0, 5).toUpperCase() || 'FILE', glyph: '·', kind: 'file' };
   }
@@ -180,7 +187,7 @@
     <section class="file-editor-panel">
       <div class="drive-toolbar"><div class="drive-breadcrumbs"><button type="button" onclick={() => selectFolder('Root')}>Root</button>{#each folderTrail as folder}<span>/</span><button type="button" onclick={() => selectFolder(folder)}>{folder.split('/').at(-1)}</button>{/each}<span class="drive-count">{search ? `${visibleFiles.length} matches` : `${visibleFiles.length} files`}</span></div><div class="drive-controls"><label>Sort <select bind:value={sortMode} onchange={rememberDrivePreferences}><option value="modified-desc">Last modified</option><option value="modified-asc">First modified</option><option value="name-asc">A to Z</option><option value="name-desc">Z to A</option><option value="size-desc">Largest first</option><option value="size-asc">Smallest first</option></select></label><div class="view-switcher" role="group" aria-label="File view"><button type="button" class:active={viewMode === 'list'} aria-label="List view" onclick={() => { viewMode = 'list'; rememberDrivePreferences(); }}>☷</button><button type="button" class:active={viewMode === 'grid'} aria-label="Grid view" onclick={() => { viewMode = 'grid'; rememberDrivePreferences(); }}>▦</button><button type="button" class:active={viewMode === 'item'} aria-label="Item view" onclick={() => { viewMode = 'item'; rememberDrivePreferences(); }}>▤</button></div></div></div>
       {#if activeFile && !isTextFile}
-        <div class="binary-file-preview"><p class="eyebrow">{isImageFile ? 'IMAGE PREVIEW' : 'FILE PREVIEW'}</p><h2>{activeFile.path}</h2>{#if isImageFile && activeFile.previewUrl}<img src={activeFile.previewUrl} alt={activeFile.path} />{:else}<div class="binary-file-icon">{activeFile.path.split('.').pop()?.toUpperCase() ?? 'FILE'}</div>{/if}<p>{Math.max(1, Math.ceil(activeFile.size / 1024))} KB · {activeFile.mimeType}</p><a class="quiet-button" href={`/projects/${data.project.slug}/files/raw?path=${encodeURIComponent(activeFile.path)}`} target="_blank" rel="noreferrer">Open / download</a></div>
+        {@const visual = fileVisual(activeFile)}<div class="binary-file-preview"><p class="eyebrow">{isImageFile ? 'IMAGE PREVIEW' : 'FILE PREVIEW'}</p><h2>{activeFile.path}</h2>{#if isImageFile && activeFile.previewUrl}<img src={activeFile.previewUrl} alt={activeFile.path} />{:else}<div class={`binary-file-icon file-type-icon file-type-${visual.kind}`}><b>{visual.glyph}</b><small>{visual.label}</small></div>{/if}<p>{Math.max(1, Math.ceil(activeFile.size / 1024))} KB · {activeFile.mimeType}</p><a class="quiet-button" href={`/projects/${data.project.slug}/files/raw?path=${encodeURIComponent(activeFile.path)}`} target="_blank" rel="noreferrer">Open / download</a></div>
       {:else if activeFile || isNew}
         <div class="file-editor-heading"><div><p class="eyebrow">{isNew ? 'NEW DOCUMENT' : 'EDITING'}</p><input class="file-path-input" bind:value={draftPath} aria-label="File path" maxlength="180" disabled={!data.canEdit} /><p class="file-meta">{isNew ? 'Unsaved file' : `${activeFile?.size.toLocaleString()} bytes · ${activeFile?.mimeType}`}</p></div><div class="file-editor-actions">{#if data.canEdit}<form method="POST" action="?/deleteFile" onsubmit={(event) => { if (!confirm(`Delete ${draftPath}?`)) event.preventDefault(); }}><input type="hidden" name="id" value={activeId} /><button type="submit" class="quiet-button danger">Delete</button></form>{/if}</div></div>
         <form bind:this={saveForm} method="POST" action="?/saveFile" class="file-save-form"><input type="hidden" name="id" value={isNew ? '' : activeId} /><input type="hidden" name="path" value={draftPath} /><textarea class="sr-only" name="content" aria-hidden="true" readonly value={draftContent}></textarea><MarkdownEditor value={draftContent} readonly={!data.canEdit} onChange={(value) => { draftContent = value; }} onImagePaste={handleImagePaste} /><div class="file-save-bar"><span>{draftContent.length.toLocaleString()} characters · Markdown{#if uploadStatus} · {uploadStatus}{/if}</span>{#if data.canEdit}<button type="submit">Save file</button>{/if}</div></form>
