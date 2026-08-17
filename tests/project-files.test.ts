@@ -2,18 +2,32 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const persistence = vi.hoisted(() => ({
   createProjectFolder: vi.fn(),
+  deleteProjectFolder: vi.fn(),
   deleteProjectFile: vi.fn(),
   getBoardProject: vi.fn(),
   getProjectFile: vi.fn(),
+  getProjectFileByPath: vi.fn(),
+  listProjectActivity: vi.fn().mockResolvedValue([]),
   listProjectFiles: vi.fn(),
   listProjectFolders: vi.fn(),
+  moveProjectFile: vi.fn(),
   normalizeProjectPath: (value: string) => value.replaceAll('\\', '/'),
   normalizeProjectFilePath: (value: string) => value.replaceAll('\\', '/'),
   recordProjectActivity: vi.fn(),
   upsertProjectFile: vi.fn()
 }));
 
+const r2 = vi.hoisted(() => ({
+  copyProjectFileObject: vi.fn(),
+  deleteProjectFileObject: vi.fn(),
+  getProjectFileObjectUrl: vi.fn(),
+  projectFileObjectKey: (project: string, id: string, path: string) => `${project}/${id}/${path}`,
+  putProjectFileObject: vi.fn(),
+  r2Configured: () => false
+}));
+
 vi.mock('../src/lib/server/persistence', () => persistence);
+vi.mock('../src/lib/server/r2', () => r2);
 
 const { actions } = await import('../src/routes/projects/[slug]/files/+page.server');
 
@@ -51,5 +65,23 @@ describe('project file actions', () => {
     const result = await actions.createFolder(context({ parent: 'assets', path: 'screenshots' }));
     expect(result).toEqual({ message: 'assets/screenshots created.' });
     expect(persistence.createProjectFolder).toHaveBeenCalledWith('demo', 'assets/screenshots', 'ada');
+  });
+
+  it('moves a file without overwriting another file', async () => {
+    const current = { id: 'file-1', projectSlug: 'demo', path: 'notes/readme.md', content: '# Ready', mimeType: 'text/markdown', size: 7, createdBy: 'ada', createdAt: '', updatedAt: '' };
+    persistence.getProjectFile.mockResolvedValue(current);
+    persistence.getProjectFileByPath.mockResolvedValue(null);
+    persistence.moveProjectFile.mockResolvedValue({ ...current, path: 'docs/readme.md' });
+    const result = await actions.moveFile(context({ id: 'file-1', path: 'docs/readme.md' }));
+    expect(result).toEqual({ message: 'docs/readme.md moved.', fileId: 'file-1' });
+    expect(persistence.moveProjectFile).toHaveBeenCalledWith('demo', 'file-1', 'docs/readme.md');
+    expect(persistence.recordProjectActivity).toHaveBeenCalledWith(expect.objectContaining({ action: 'updated', summary: expect.stringContaining('Moved file') }));
+  });
+
+  it('refuses to delete a non-empty folder', async () => {
+    persistence.deleteProjectFolder.mockRejectedValue(new Error('FOLDER_NOT_EMPTY'));
+    const result = await actions.deleteFolder(context({ path: 'assets' }));
+    expect(result).toMatchObject({ status: 409 });
+    expect(persistence.recordProjectActivity).not.toHaveBeenCalled();
   });
 });

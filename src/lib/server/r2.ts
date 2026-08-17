@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '$env/dynamic/private';
 
@@ -31,6 +31,17 @@ export async function putProjectFileObject(key: string, content: string | Uint8A
     Body: body,
     ContentType: mimeType,
     ContentLength: body.byteLength,
+    CacheControl: 'private, max-age=0, no-store'
+  }));
+}
+
+export async function copyProjectFileObject(sourceKey: string, destinationKey: string, mimeType: string) {
+  await requireR2().send(new CopyObjectCommand({
+    Bucket: env.R2_BUCKET_NAME!,
+    CopySource: `${env.R2_BUCKET_NAME!}/${sourceKey}`,
+    Key: destinationKey,
+    MetadataDirective: 'REPLACE',
+    ContentType: mimeType,
     CacheControl: 'private, max-age=0, no-store'
   }));
 }

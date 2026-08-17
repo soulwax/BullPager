@@ -521,9 +521,32 @@ export async function upsertProjectFile(file: Pick<ProjectFile, 'id' | 'projectS
   return fileFromRow(rows[0]);
 }
 
+export async function moveProjectFile(projectSlug: string, id: string, path: string): Promise<ProjectFile> {
+  await ensureSchema();
+  const normalizedPath = normalizeProjectFilePath(path);
+  const database = requireDatabase();
+  const current = await getProjectFile(projectSlug, id);
+  if (!current) throw new Error('FILE_NOT_FOUND');
+  const collision = await getProjectFileByPath(projectSlug, normalizedPath);
+  if (collision && collision.id !== id) throw new Error('FILE_EXISTS');
+  await database.update(boardProjectFiles).set({ path: normalizedPath, updatedAt: new Date().toISOString() }).where(and(eq(boardProjectFiles.projectSlug, projectSlug), eq(boardProjectFiles.id, id)));
+  const row = (await database.select().from(boardProjectFiles).where(and(eq(boardProjectFiles.projectSlug, projectSlug), eq(boardProjectFiles.id, id))).limit(1))[0];
+  if (!row) throw new Error('The file could not be loaded after moving.');
+  return fileFromRow(row);
+}
+
 export async function deleteProjectFile(projectSlug: string, id: string) {
   await ensureSchema();
   await requireDatabase().delete(boardProjectFiles).where(and(eq(boardProjectFiles.projectSlug, projectSlug), eq(boardProjectFiles.id, id)));
+}
+
+export async function deleteProjectFolder(projectSlug: string, path: string) {
+  await ensureSchema();
+  const normalizedPath = normalizeProjectPath(path);
+  const [files, folders] = await Promise.all([listProjectFiles(projectSlug), listProjectFolders(projectSlug)]);
+  const prefix = `${normalizedPath}/`;
+  if (files.some((file) => file.path === normalizedPath || file.path.startsWith(prefix)) || folders.some((folder) => folder.path !== normalizedPath && folder.path.startsWith(prefix))) throw new Error('FOLDER_NOT_EMPTY');
+  await requireDatabase().delete(boardProjectFolders).where(and(eq(boardProjectFolders.projectSlug, projectSlug), eq(boardProjectFolders.path, normalizedPath)));
 }
 
 async function replaceCardTags(projectSlug: string, cardId: string, tagIds: string[], database = requireDatabase()) {

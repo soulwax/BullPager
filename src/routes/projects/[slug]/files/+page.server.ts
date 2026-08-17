@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { createProjectFolder, deleteProjectFile, getBoardProject, getProjectFile, listProjectFiles, listProjectFolders, normalizeProjectFilePath, normalizeProjectPath, recordProjectActivity, upsertProjectFile } from '$lib/server/persistence';
-import { deleteProjectFileObject, getProjectFileObjectUrl, projectFileObjectKey, putProjectFileObject, r2Configured } from '$lib/server/r2';
+import { createProjectFolder, deleteProjectFile, deleteProjectFolder, getBoardProject, getProjectFile, getProjectFileByPath, listProjectActivity, listProjectFiles, listProjectFolders, moveProjectFile, normalizeProjectFilePath, normalizeProjectPath, recordProjectActivity, upsertProjectFile } from '$lib/server/persistence';
+import { copyProjectFileObject, deleteProjectFileObject, getProjectFileObjectUrl, projectFileObjectKey, putProjectFileObject, r2Configured } from '$lib/server/r2';
 import type { ProjectFile } from '$lib/types';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
@@ -43,7 +43,7 @@ export async function load({ params, url, locals }) {
   }));
   const requested = url.searchParams.get('file') ?? '';
   const selected = files.find((file) => file.id === requested) ?? files[0] ?? null;
-  return { project, files, folders, selected, canEdit: canEdit(locals.role), username: locals.username ?? 'unknown', role: locals.role ?? '' };
+  return { project, files, folders, selected, activity: await listProjectActivity(params.slug, 12), canEdit: canEdit(locals.role), username: locals.username ?? 'unknown', role: locals.role ?? '' };
 }
 
 export const actions = {
@@ -60,6 +60,20 @@ export const actions = {
     } catch (error) {
       if (error instanceof Error && error.message === 'FOLDER_EXISTS') return fail(409, { error: 'That folder already exists.' });
       if (error instanceof Error && error.message.includes('folder path')) return fail(400, { error: 'Use a relative folder path with letters, numbers, dots, dashes, or folders.' });
+      return persistenceFailure(error);
+    }
+  },
+  deleteFolder: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to delete project folders.' });
+    const path = String((await request.formData()).get('path') ?? '').trim();
+    if (!path || path === 'Root') return fail(400, { error: 'Choose a child folder.' });
+    try {
+      await deleteProjectFolder(params.slug, path);
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username ?? 'unknown', action: 'deleted', cardId: '', summary: `Deleted empty folder ${normalizeProjectPath(path)}.` });
+      return { message: `${normalizeProjectPath(path)} deleted.` };
+    } catch (error) {
+      if (error instanceof Error && error.message === 'FOLDER_NOT_EMPTY') return fail(409, { error: 'Empty the folder before deleting it.' });
+      if (error instanceof Error && error.message.includes('folder path')) return fail(400, { error: 'Choose a valid project folder.' });
       return persistenceFailure(error);
     }
   },
@@ -92,6 +106,36 @@ export const actions = {
       await recordProjectActivity({ projectSlug: params.slug, actor: locals.username ?? 'unknown', action: existing ? 'updated' : 'created', cardId: '', summary: `${existing ? 'Updated' : 'Created'} file ${file.path}.` });
       return { message: `${file.path} saved.`, fileId: file.id };
     } catch (error) {
+      return persistenceFailure(error);
+    }
+  },
+  moveFile: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to move project files.' });
+    const form = await request.formData();
+    const id = String(form.get('id') ?? '').trim();
+    const path = String(form.get('path') ?? '').trim();
+    if (!id || !path) return fail(400, { error: 'Choose a destination path.' });
+    try {
+      const existing = await getProjectFile(params.slug, id);
+      if (!existing) return fail(404, { error: 'That file no longer exists. Refresh the workspace.' });
+      const normalizedPath = normalizeProjectFilePath(path);
+      const collision = await getProjectFileByPath(params.slug, normalizedPath);
+      if (collision && collision.id !== id) return fail(409, { error: 'A file already exists at that path.' });
+      if (normalizedPath === existing.path) return { message: `${existing.path} is already there.`, fileId: existing.id };
+      const oldKey = projectFileObjectKey(params.slug, existing.id, existing.path);
+      const nextKey = projectFileObjectKey(params.slug, existing.id, normalizedPath);
+      if (r2Configured()) await copyProjectFileObject(oldKey, nextKey, existing.mimeType);
+      let file;
+      try { file = await moveProjectFile(params.slug, existing.id, normalizedPath); }
+      catch (error) { if (r2Configured()) await deleteProjectFileObject(nextKey).catch(() => undefined); throw error; }
+      // The database move is authoritative; a stale object can be retried by
+      // storage maintenance without turning a successful move into a 503.
+      if (r2Configured()) await deleteProjectFileObject(oldKey).catch(() => undefined);
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username ?? 'unknown', action: 'updated', cardId: '', summary: `Moved file ${existing.path} to ${file.path}.` });
+      return { message: `${file.path} moved.`, fileId: file.id };
+    } catch (error) {
+      if (error instanceof Error && error.message === 'FILE_EXISTS') return fail(409, { error: 'A file already exists at that path.' });
+      if (error instanceof Error && error.message.includes('relative text-file path')) return fail(400, { error: 'Use a relative file path with letters, numbers, dots, dashes, or folders.' });
       return persistenceFailure(error);
     }
   },
