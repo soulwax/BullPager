@@ -1,10 +1,10 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectChecklistItem, ProjectComment, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
+import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
 import { defaultProjectTags, slugifyTag, tagColors, tagId } from '$lib/projectTags';
 import { databaseConfigured, db, neonClient } from './db';
-import { boardProjectActivity, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
+import { boardProjectActivity, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
 
 export type PersistedTransition = {
   packetId: string;
@@ -136,6 +136,29 @@ async function initializeSchema() {
       author TEXT NOT NULL,
       body TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_project_files (
+      id TEXT PRIMARY KEY,
+      project_slug TEXT NOT NULL,
+      path TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      mime_type TEXT NOT NULL DEFAULT 'text/markdown',
+      size INTEGER NOT NULL DEFAULT 0,
+      created_by TEXT NOT NULL DEFAULT 'unknown',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (project_slug, path)
+    )
+  `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_project_folders (
+      id TEXT PRIMARY KEY,
+      project_slug TEXT NOT NULL,
+      path TEXT NOT NULL,
+      created_by TEXT NOT NULL DEFAULT 'unknown',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (project_slug, path)
     )
   `, rawSql`
     CREATE TABLE IF NOT EXISTS board_project_graphs (
@@ -416,6 +439,91 @@ export async function deleteProjectTag(projectSlug: string, id: string) {
   await ensureSchema();
   await requireDatabase().delete(boardProjectCardTags).where(eq(boardProjectCardTags.tagId, id));
   await requireDatabase().delete(boardProjectTags).where(and(eq(boardProjectTags.id, id), eq(boardProjectTags.projectSlug, projectSlug)));
+}
+
+const projectFilePathPattern = /^(?!\.)(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+export function normalizeProjectPath(value: string): string {
+  const path = value.trim().replaceAll('\\', '/').replace(/^\/+/, '').replace(/\/+$/, '');
+  if (path.length < 1 || path.length > 180 || path.includes('..') || !projectFilePathPattern.test(path)) throw new Error('Use a relative folder path without traversal or special characters.');
+  return path;
+}
+
+export function normalizeProjectFilePath(value: string): string {
+  const path = value.trim().replaceAll('\\', '/').replace(/^\/+/, '');
+  if (path.length < 1 || path.length > 180 || path.includes('..') || !projectFilePathPattern.test(path)) throw new Error('Use a relative text-file path without traversal or special characters.');
+  return path;
+}
+
+function fileFromRow(row: typeof boardProjectFiles.$inferSelect): ProjectFile {
+  return { id: row.id, projectSlug: row.projectSlug, path: row.path, content: row.content, mimeType: row.mimeType, size: row.size, createdBy: row.createdBy, createdAt: row.createdAt, updatedAt: row.updatedAt };
+}
+
+export async function listProjectFiles(projectSlug: string): Promise<ProjectFile[]> {
+  if (!databaseConfigured()) return [];
+  await ensureSchema();
+  const rows = await requireDatabase().select().from(boardProjectFiles).where(eq(boardProjectFiles.projectSlug, projectSlug)).orderBy(boardProjectFiles.path);
+  return rows.map(fileFromRow);
+}
+
+function folderFromRow(row: typeof boardProjectFolders.$inferSelect): ProjectFolder {
+  return { id: row.id, projectSlug: row.projectSlug, path: row.path, createdBy: row.createdBy, createdAt: row.createdAt, updatedAt: row.updatedAt };
+}
+
+export async function listProjectFolders(projectSlug: string): Promise<ProjectFolder[]> {
+  if (!databaseConfigured()) return [];
+  await ensureSchema();
+  const rows = await requireDatabase().select().from(boardProjectFolders).where(eq(boardProjectFolders.projectSlug, projectSlug)).orderBy(boardProjectFolders.path);
+  return rows.map(folderFromRow);
+}
+
+export async function createProjectFolder(projectSlug: string, path: string, createdBy: string): Promise<ProjectFolder> {
+  await ensureSchema();
+  const normalizedPath = normalizeProjectPath(path);
+  const existing = await requireDatabase().select({ id: boardProjectFolders.id }).from(boardProjectFolders).where(and(eq(boardProjectFolders.projectSlug, projectSlug), eq(boardProjectFolders.path, normalizedPath))).limit(1);
+  if (existing[0]) throw new Error('FOLDER_EXISTS');
+  const id = `folder-${Date.now()}-${randomBytes(6).toString('hex')}`;
+  try {
+    await requireDatabase().insert(boardProjectFolders).values({ id, projectSlug, path: normalizedPath, createdBy: createdBy.slice(0, 120) });
+  } catch (error) {
+    if (String(error).toLowerCase().includes('unique')) throw new Error('FOLDER_EXISTS');
+    throw error;
+  }
+  const row = (await requireDatabase().select().from(boardProjectFolders).where(and(eq(boardProjectFolders.projectSlug, projectSlug), eq(boardProjectFolders.path, normalizedPath))).limit(1))[0];
+  if (!row) throw new Error('The folder could not be loaded after creation.');
+  return folderFromRow(row);
+}
+
+export async function getProjectFile(projectSlug: string, id: string): Promise<ProjectFile | null> {
+  if (!databaseConfigured()) return null;
+  await ensureSchema();
+  const rows = await requireDatabase().select().from(boardProjectFiles).where(and(eq(boardProjectFiles.projectSlug, projectSlug), eq(boardProjectFiles.id, id))).limit(1);
+  return rows[0] ? fileFromRow(rows[0]) : null;
+}
+
+export async function getProjectFileByPath(projectSlug: string, path: string): Promise<ProjectFile | null> {
+  if (!databaseConfigured()) return null;
+  await ensureSchema();
+  const rows = await requireDatabase().select().from(boardProjectFiles).where(and(eq(boardProjectFiles.projectSlug, projectSlug), eq(boardProjectFiles.path, normalizeProjectFilePath(path)))).limit(1);
+  return rows[0] ? fileFromRow(rows[0]) : null;
+}
+
+export async function upsertProjectFile(file: Pick<ProjectFile, 'id' | 'projectSlug' | 'path' | 'content' | 'mimeType' | 'createdBy'> & { size?: number }): Promise<ProjectFile> {
+  await ensureSchema();
+  const path = normalizeProjectFilePath(file.path);
+  const content = file.content.slice(0, 1_000_000);
+  const size = file.size ?? Buffer.byteLength(content, 'utf8');
+  if (file.mimeType.startsWith('text/') && size > 1_000_000) throw new Error('Text files must be 1 MB or smaller.');
+  const database = requireDatabase();
+  await database.insert(boardProjectFiles).values({ id: file.id, projectSlug: file.projectSlug, path, content, mimeType: file.mimeType.slice(0, 120), size, createdBy: file.createdBy.slice(0, 120) }).onConflictDoUpdate({ target: [boardProjectFiles.projectSlug, boardProjectFiles.path], set: { content, mimeType: file.mimeType.slice(0, 120), size, updatedAt: new Date().toISOString() } });
+  const rows = await database.select().from(boardProjectFiles).where(and(eq(boardProjectFiles.projectSlug, file.projectSlug), eq(boardProjectFiles.path, path))).limit(1);
+  if (!rows[0]) throw new Error('The file could not be loaded after saving.');
+  return fileFromRow(rows[0]);
+}
+
+export async function deleteProjectFile(projectSlug: string, id: string) {
+  await ensureSchema();
+  await requireDatabase().delete(boardProjectFiles).where(and(eq(boardProjectFiles.projectSlug, projectSlug), eq(boardProjectFiles.id, id)));
 }
 
 async function replaceCardTags(projectSlug: string, cardId: string, tagIds: string[], database = requireDatabase()) {

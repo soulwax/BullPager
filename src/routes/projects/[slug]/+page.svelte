@@ -25,6 +25,8 @@
   let orderRevision = 0;
   let orderSaveChain: Promise<void> = Promise.resolve();
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  let commentDraft = $state('');
+  let commentUploadStatus = $state('');
   $effect(() => {
     collapsed = { ...(data.viewState.collapsed ?? {}) };
     density = data.viewState.density === 'compact' ? 'compact' : 'comfortable';
@@ -55,8 +57,37 @@
   const editingCard = $derived(boardCards.find((card) => card.id === editingCardId) ?? null);
   function cardsFor(lane: string) { return visibleCards.filter((card) => card.lane === lane); }
   function commentsFor(cardId: string) { return data.comments.filter((comment) => comment.cardId === cardId); }
-  function openEditor(cardId: string) { editingCardId = cardId; history.replaceState({}, '', `?card=${encodeURIComponent(cardId)}`); }
-  function closeEditor() { editingCardId = null; history.replaceState({}, '', location.pathname); }
+  function commentText(body: string) { return body.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim(); }
+  function commentImages(body: string) {
+    const prefix = `/projects/${data.project.slug}/files/raw?path=`;
+    return [...body.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)]
+      .map((match) => ({ alt: match[1] || 'Screenshot', url: match[2] }))
+      .filter((image) => image.url.startsWith(prefix));
+  }
+  function openEditor(cardId: string) { editingCardId = cardId; commentDraft = ''; commentUploadStatus = ''; history.replaceState({}, '', `?card=${encodeURIComponent(cardId)}`); }
+  function closeEditor() { editingCardId = null; commentDraft = ''; commentUploadStatus = ''; history.replaceState({}, '', location.pathname); }
+  async function uploadCommentImage(event: ClipboardEvent) {
+    const image = [...(event.clipboardData?.items ?? [])].find((item) => item.kind === 'file' && item.type.startsWith('image/'))?.getAsFile();
+    if (!image || !data.canEdit || !editingCard) return;
+    event.preventDefault();
+    const body = new FormData();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    body.set('file', image);
+    body.set('path', `screenshots/${timestamp}-${image.name || 'pasted-image.png'}`);
+    commentUploadStatus = 'Uploading screenshot…';
+    try {
+      const response = await fetch(`/projects/${data.project.slug}/files/upload`, { method: 'POST', body });
+      const result = await response.json() as { url?: string; error?: string };
+      if (!response.ok || !result.url) throw new Error(result.error || 'Screenshot upload failed.');
+      commentDraft = `${commentDraft.trimEnd()}\n\n![Screenshot](${result.url})\n`.trimStart();
+      commentUploadStatus = 'Screenshot attached';
+      await invalidateAll();
+      setTimeout(() => { commentUploadStatus = ''; }, 2200);
+    } catch (error) {
+      commentUploadStatus = error instanceof Error ? error.message : 'Screenshot upload failed.';
+      setTimeout(() => { commentUploadStatus = ''; }, 4000);
+    }
+  }
   async function copyCardLink(cardId: string) {
     const link = `${location.origin}${location.pathname}?card=${encodeURIComponent(cardId)}`;
     try { await navigator.clipboard.writeText(link); savedStatus = 'Card link copied'; setTimeout(() => { savedStatus = ''; }, 1800); } catch { savedStatus = link; }
@@ -189,7 +220,7 @@
   {#if data.members.length}<datalist id="project-members">{#each data.members as member}<option value={member.username}>{member.role}</option>{/each}</datalist>{/if}
   <header class="topbar">
     <div><p class="eyebrow">PROJECT WORKSPACE</p><h1>{data.project.name}</h1><p class="subtitle">{boardCards.length ? `${boardCards.length} saved cards across ${data.lanes.length} lanes.` : `A calm starting point for shared work. Your ${setting('template', 'custom')} template is ready for its first card.`}</p></div>
-    <div class="top-links"><a class="quiet-button" href={`/projects/${data.project.slug}/graph`}>Graph mode</a><a class="quiet-button" href={`/projects/${data.project.slug}/settings`}>Project settings</a><a class="quiet-button" href="/settings">All projects</a></div>
+    <div class="top-links"><a class="quiet-button" href={`/projects/${data.project.slug}/files`}>Files</a><a class="quiet-button" href={`/projects/${data.project.slug}/graph`}>Graph mode</a><a class="quiet-button" href={`/projects/${data.project.slug}/settings`}>Project settings</a><a class="quiet-button" href="/settings">All projects</a></div>
   </header>
 
   {#if data.created}<section class="project-welcome" role="status"><div><p class="eyebrow">PROJECT CREATED</p><h2>Your workspace is ready.</h2><p>Start with one concrete outcome, then invite collaborators when the workflow feels right.</p></div><a class="quiet-button" href={`/projects/${data.project.slug}/settings`}>Tune workflow</a></section>{/if}
@@ -238,7 +269,7 @@
         <fieldset class="checklist-editor"><legend>Checklist</legend>{#each editingCard.checklist as item}<div class="checklist-edit-row"><input type="hidden" name="checkItemId" value={item.id} /><input class="checklist-done" type="checkbox" name="checkItemDone" value={item.id} checked={item.done} aria-label={`Complete ${item.text}`} /><input name="checkItemText" value={item.text} maxlength="240" aria-label="Checklist item" /></div>{/each}<div class="checklist-edit-row checklist-new-row"><input type="hidden" name="checkItemId" value="new" /><span class="checklist-new-marker" aria-hidden="true">＋</span><input name="checkItemText" maxlength="240" placeholder="Add a checklist item" aria-label="New checklist item" /></div></fieldset>
         <div class="modal-actions"><button type="button" class="quiet-button" onclick={closeEditor}>Cancel</button><button type="submit">Confirm changes</button><button type="submit" class="quiet-button" formaction="?/duplicateCard" name="id" value={editingCard.id}>Duplicate</button><button type="submit" class="quiet-button danger" formaction="?/archiveCard" name="archived" value={String(!editingCard.archived)} onclick={(event) => { if (!confirm(editingCard.archived ? 'Restore this card?' : 'Archive this card?')) event.preventDefault(); }}>{editingCard.archived ? 'Restore' : 'Archive'}</button><button type="submit" class="quiet-button danger" formaction="?/deleteCard" onclick={(event) => { if (!confirm('Delete this card?')) event.preventDefault(); }}>Delete</button></div>
       </form>
-      <section class="card-comments" aria-labelledby="card-comments-title"><div class="card-comments-heading"><h3 id="card-comments-title">Comments</h3><span>{commentsFor(editingCard.id).length}</span></div>{#if commentsFor(editingCard.id).length}<ol class="card-comment-list">{#each commentsFor(editingCard.id) as comment}<li><div><strong>{comment.author}</strong><time datetime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString()}</time>{#if data.canEdit && (comment.author === data.username || ['superadmin', 'admin'].includes(data.role))}<form method="POST" action="?/deleteComment"><input type="hidden" name="id" value={comment.id} /><button type="submit" class="comment-delete" aria-label="Delete comment">×</button></form>{/if}</div><p>{comment.body}</p></li>{/each}</ol>{:else}<p class="comment-empty">No comments yet. Leave context for the next person.</p>{/if}{#if data.canEdit}<form method="POST" action="?/createComment" class="comment-form"><input type="hidden" name="cardId" value={editingCard.id} /><textarea name="body" rows="3" maxlength="4000" placeholder="Add a decision, update, or handoff note…" required></textarea><button type="submit">Add comment</button></form>{/if}</section>
+      <section class="card-comments" aria-labelledby="card-comments-title"><div class="card-comments-heading"><h3 id="card-comments-title">Comments</h3><span>{commentsFor(editingCard.id).length}</span></div>{#if commentsFor(editingCard.id).length}<ol class="card-comment-list">{#each commentsFor(editingCard.id) as comment}<li><div><strong>{comment.author}</strong><time datetime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString()}</time>{#if data.canEdit && (comment.author === data.username || ['superadmin', 'admin'].includes(data.role))}<form method="POST" action="?/deleteComment"><input type="hidden" name="id" value={comment.id} /><button type="submit" class="comment-delete" aria-label="Delete comment">×</button></form>{/if}</div>{#if commentText(comment.body)}<p>{commentText(comment.body)}</p>{/if}{#each commentImages(comment.body) as image}<img class="comment-attachment" src={image.url} alt={image.alt} loading="lazy" />{/each}</li>{/each}</ol>{:else}<p class="comment-empty">No comments yet. Leave context for the next person.</p>{/if}{#if data.canEdit}<form method="POST" action="?/createComment" class="comment-form"><input type="hidden" name="cardId" value={editingCard.id} /><textarea bind:value={commentDraft} onpaste={uploadCommentImage} name="body" rows="3" maxlength="4000" placeholder="Add a decision, update, or handoff note… Paste a screenshot here" required></textarea><small class="comment-paste-help">Paste a screenshot directly into this box to attach it to the project drive.{#if commentUploadStatus} {commentUploadStatus}{/if}</small><button type="submit">Add comment</button></form>{/if}</section>
     </dialog>
   {/if}
 

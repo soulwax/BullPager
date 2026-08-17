@@ -113,6 +113,30 @@ updates. Editors can add comments; authors can remove their own comments, while
 administrators can moderate any comment. Comment changes are also reflected in
 the project activity trail.
 
+Every project also has a private cloud-style file library at
+`/projects/<slug>/files`. Anyone with project read access can browse, preview,
+and download the complete project drive. Editors—including invited editor
+accounts—can create Markdown notes, create persistent folders, drag files into
+the workspace, or upload supported
+text, image, audio, video, PDF, and archive files; viewers can read and download
+them. Search, folder navigation, image thumbnails, previews, and file metadata
+are persisted per project in `board_project_files`; empty folders are stored in
+`board_project_folders`. Paths are normalised to
+prevent traversal, text is limited to 1 MB, images to 10 MB, and other objects
+to 25 MB. The editor uses CodeMirror 6 with Markdown syntax support, keyboard
+indentation, a split rendered preview, and sanitised preview HTML. Images can
+be pasted directly into the editor; they are uploaded to the project drive and
+inserted as Markdown links. Card comments accept the same clipboard workflow
+and render attached screenshots inline. The drive remembers list, grid, and
+item view preferences and supports last/first modified, alphabetical, and size
+sorting.
+
+When the R2 variables are present, the same file actions mirror content to the
+configured private Cloudflare R2 bucket under `projects/<slug>/<file-id>/...`.
+Neon remains the metadata and editor cache, while R2 is the durable object copy.
+The R2 token should be restricted to the bucket and kept only in Vercel/server
+environment variables.
+
 The packet detail panel includes a validated transition form. Preview validates
 required fields and shows a unified diff in memory. Apply requires the exact
 packet ID and the unchanged source hash, then replaces the source atomically.

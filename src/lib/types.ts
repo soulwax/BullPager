@@ -86,6 +86,28 @@ export type ProjectComment = {
   createdAt: string;
 };
 
+export type ProjectFile = {
+  id: string;
+  projectSlug: string;
+  path: string;
+  content: string;
+  mimeType: string;
+  size: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  previewUrl?: string;
+};
+
+export type ProjectFolder = {
+  id: string;
+  projectSlug: string;
+  path: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type GraphNodeKind = 'note' | 'card' | 'group';
 
 export type GraphNode = {
