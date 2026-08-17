@@ -768,3 +768,74 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
   .project-controls .project-search, .project-controls .tag-manager { grid-column: auto; }
   .project-controls label, .project-controls button, .project-controls .tag-manager { width: 100%; }
 }
+
+/* Compact discovery control: keep Find work in the toolbar instead of spending a
+   whole navigation column on it. The open menu is intentionally small enough to
+   scan without stealing attention from the lanes. */
+.project-toolbar {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: .55rem .8rem;
+  width: 100%;
+  align-items: center;
+}
+.project-toolbar-copy { display: flex; min-width: max-content; align-items: center; gap: .55rem; }
+.find-work-menu { position: relative; z-index: 30; }
+.find-work-menu > summary {
+  display: inline-flex;
+  min-height: 2.35rem;
+  align-items: center;
+  gap: .45rem;
+  padding: .35rem .6rem .35rem .42rem;
+  border: 1px solid var(--line-soft);
+  border-radius: .5rem;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-0) 45%, transparent);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.find-work-menu > summary::-webkit-details-marker { display: none; }
+.find-work-menu > summary::after { content: '⌄'; margin-left: .15rem; color: var(--muted); font-size: .75rem; }
+.find-work-menu[open] > summary, .find-work-menu > summary:hover, .find-work-menu > summary:focus-visible { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 9%, var(--surface-0)); }
+.find-work-menu[open] > summary::after { content: '⌃'; }
+.find-work-icon { display: grid; width: 1.45rem; height: 1.45rem; place-items: center; border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--line)); border-radius: .35rem; color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: .95rem; line-height: 1; }
+.find-work-menu summary span:last-of-type { display: grid; gap: .05rem; text-align: left; }
+.find-work-menu summary strong { font-size: .74rem; line-height: 1.1; }
+.find-work-menu summary small { color: var(--muted); font-size: .61rem; line-height: 1.1; }
+.find-work-body { position: absolute; top: calc(100% + .4rem); left: 0; width: min(300px, calc(100vw - 2rem)); padding: .75rem; border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--line)); border-radius: .65rem; background: var(--surface-2); box-shadow: var(--shadow-lg); }
+.find-work-body p { margin: 0 0 .6rem; color: var(--muted); font-size: .7rem; line-height: 1.35; }
+.find-work-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
+.find-work-actions button { min-height: 2.15rem; padding-inline: .5rem; font-size: .7rem; }
+.find-work-actions button.active { border-color: var(--accent); color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.project-toolbar .project-stats { min-width: max-content; }
+.project-toolbar .project-controls { min-width: 0; }
+
+/* Let the Kanban lanes use the viewport. Flex growth preserves the familiar
+   horizontal Trello rhythm while still allowing extra lanes to scroll. */
+.project-workspace { width: min(calc(100% - 2rem), 1920px); max-width: none; padding-inline: 1rem; }
+.project-workspace .project-board { width: 100%; align-items: stretch; }
+.project-workspace .project-column { flex: 1 1 320px; max-width: 500px; }
+.project-workspace.project-lane-wrap .project-column { flex: 1 1 calc(25% - .75rem); max-width: 520px; }
+
+@media (max-width: 1120px) {
+  .project-toolbar { grid-template-columns: auto minmax(0, 1fr); }
+  .project-toolbar .project-stats { justify-content: end; }
+  .project-toolbar .project-controls { grid-column: 1 / -1; }
+}
+@media (max-width: 700px) {
+  .project-toolbar { grid-template-columns: 1fr; }
+  .project-toolbar-copy, .project-toolbar .project-stats { width: 100%; }
+  .project-toolbar .project-stats { justify-content: start; }
+  .project-toolbar .project-controls { grid-column: auto; }
+  .project-workspace { width: calc(100% - 1rem); padding-inline: .5rem; }
+  .project-workspace .project-column, .project-workspace.project-lane-wrap .project-column { flex-basis: min(330px, 84vw); max-width: none; }
+}
+
+/* Packet inspector modal: the board remains the default canvas; selecting a
+   card temporarily layers a readable detail sheet over the right edge. */
+.detail-backdrop { position: fixed; z-index: 39; inset: 0; border: 0; background: rgb(3 7 12 / .42); backdrop-filter: blur(2px); }
+.board-shell .detail { z-index: 40; }
+.detail[role='dialog'] { animation: detail-slide-in .18s ease-out both; }
+@keyframes detail-slide-in { from { opacity: 0; transform: translateX(1.5rem); } to { opacity: 1; transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .detail[role='dialog'] { animation: none; } }
