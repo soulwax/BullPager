@@ -1,4 +1,4 @@
-import { bigserial, date, index, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { bigserial, boolean, date, index, integer, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { PacketState, UserRole } from '$lib/types';
 
 const createdAt = (name = 'created_at') => timestamp(name, { withTimezone: true, mode: 'string' }).notNull().defaultNow();
@@ -50,12 +50,29 @@ export const boardProjectCards = pgTable('board_project_cards', {
   title: text('title').notNull(),
   details: text('details').notNull().default(''),
   lane: text('lane').notNull(),
+  position: integer('position').notNull().default(0),
+  archived: boolean('archived').notNull().default(false),
+  checklist: text('checklist').notNull().default('[]'),
   owner: text('owner').notNull().default(''),
   priority: text('priority').$type<'low' | 'normal' | 'high' | 'urgent'>().notNull().default('normal'),
   dueDate: date('due_date'),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow()
 }, (table) => ({ projectLaneIndex: index('board_project_cards_project_lane_idx').on(table.projectSlug, table.lane) }));
+
+export const boardProjectTags = pgTable('board_project_tags', {
+  id: text('id').primaryKey(),
+  projectSlug: text('project_slug').notNull(),
+  name: text('name').notNull(),
+  color: text('color').notNull(),
+  createdAt: createdAt()
+}, (table) => ({ projectNameIndex: uniqueIndex('board_project_tags_project_name_idx').on(table.projectSlug, table.name) }));
+
+export const boardProjectCardTags = pgTable('board_project_card_tags', {
+  cardId: text('card_id').notNull(),
+  tagId: text('tag_id').notNull(),
+  createdAt: createdAt()
+}, (table) => ({ cardTagPrimaryKey: primaryKey({ columns: [table.cardId, table.tagId] }), tagCardIndex: index('board_project_card_tags_tag_card_idx').on(table.tagId, table.cardId) }));
 
 export const boardProjectViews = pgTable('board_project_views', {
   projectSlug: text('project_slug').notNull(),
@@ -74,4 +91,4 @@ export const boardProjectActivity = pgTable('board_project_activity', {
   createdAt: createdAt()
 }, (table) => ({ projectCreatedIndex: index('board_project_activity_project_created_idx').on(table.projectSlug, table.createdAt) }));
 
-export const schema = { packetTransitions, packetNotes, boardUsers, boardProjects, boardSettings, boardProjectCards, boardProjectViews, boardProjectActivity };
+export const schema = { packetTransitions, packetNotes, boardUsers, boardProjects, boardSettings, boardProjectCards, boardProjectTags, boardProjectCardTags, boardProjectViews, boardProjectActivity };

@@ -85,6 +85,18 @@ changes are debounced and saved for the signed-in user. Reloading or opening the
 same project on another device restores the saved project data and that user's
 last board view. Cards also retain priority and an optional due date, while
 `board_project_activity` keeps a compact audit trail of card changes.
+Card order is stored explicitly, so lane moves and within-lane reordering
+survive reloads. Larger edits open in a confirmation modal before they are
+written. Cards can be duplicated or archived and restored without deleting
+their history.
+
+Each project also gets a small Trello-style label palette in
+`board_project_tags`. Editors can create color-coded labels, assign several to a
+card, filter the board by label, and remove labels without losing card history.
+Cards can also carry up to 30 persistent checklist items. The editor shows
+completion progress directly on each card, while confirmed card edits preserve
+checked state, labels, ordering, archive state, and checklist text across
+reloads and duplication.
 
 The packet detail panel includes a validated transition form. Preview validates
 required fields and shows a unified diff in memory. Apply requires the exact

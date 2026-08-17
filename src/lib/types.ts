@@ -63,15 +63,33 @@ export type BoardProject = {
   visibility: 'private' | 'shared';
 };
 
+export type ProjectTag = {
+  id: string;
+  projectSlug: string;
+  name: string;
+  color: string;
+  createdAt: string;
+};
+
+export type ProjectChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
+};
+
 export type ProjectCard = {
   id: string;
   projectSlug: string;
   title: string;
   details: string;
   lane: string;
+  position: number;
+  archived: boolean;
+  checklist: ProjectChecklistItem[];
   owner: string;
   priority: 'low' | 'normal' | 'high' | 'urgent';
   dueDate: string | null;
+  tags: ProjectTag[];
   createdAt: string;
   updatedAt: string;
 };
@@ -81,6 +99,8 @@ export type ProjectViewState = {
   collapsed?: Record<string, boolean>;
   query?: string;
   priority?: 'all' | 'low' | 'normal' | 'high' | 'urgent';
+  tag?: string;
+  showArchived?: boolean;
 };
 
 export type ProjectActivity = {

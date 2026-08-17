@@ -50,6 +50,8 @@ export function sanitizeProjectViewState(raw: unknown): ProjectViewState {
     density: source.density === 'compact' ? 'compact' : source.density === 'comfortable' ? 'comfortable' : undefined,
     collapsed,
     query: typeof source.query === 'string' ? source.query.trim().slice(0, 120) : undefined,
-    priority: ['all', 'low', 'normal', 'high', 'urgent'].includes(String(source.priority)) ? source.priority as ProjectViewState['priority'] : undefined
+    priority: ['all', 'low', 'normal', 'high', 'urgent'].includes(String(source.priority)) ? source.priority as ProjectViewState['priority'] : undefined,
+    tag: typeof source.tag === 'string' ? source.tag.trim().slice(0, 120) : undefined,
+    showArchived: source.showArchived === true
   };
 }

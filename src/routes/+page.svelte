@@ -18,7 +18,7 @@
   let readyOnly = $state(page.url.searchParams.get('ready') === '1');
   let sortBy = $state<'plan' | 'title' | 'owner' | 'milestone'>((page.url.searchParams.get('sort') as 'plan' | 'title' | 'owner' | 'milestone') ?? 'plan');
   let density = $state<'comfortable' | 'compact'>('comfortable');
-  let inspectorVisible = $state(page.url.searchParams.get('inspector') !== 'hidden');
+  let inspectorVisible = $state(false);
   let copyStatus = $state('');
   let viewStatus = $state('');
   let collapsed = $state<Record<string, boolean>>({});
@@ -51,6 +51,10 @@
   });
 
   $effect(() => {
+    if (page.url.searchParams.get('packet') && page.url.searchParams.get('inspector') !== 'hidden') inspectorVisible = true;
+  });
+
+  $effect(() => {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
     query ? url.searchParams.set('q', query) : url.searchParams.delete('q');
@@ -59,7 +63,7 @@
     readyOnly ? url.searchParams.set('ready', '1') : url.searchParams.delete('ready');
     sortBy !== 'plan' ? url.searchParams.set('sort', sortBy) : url.searchParams.delete('sort');
     density !== 'comfortable' ? url.searchParams.set('density', density) : url.searchParams.delete('density');
-    inspectorVisible ? url.searchParams.delete('inspector') : url.searchParams.set('inspector', 'hidden');
+    inspectorVisible || !selectedId ? url.searchParams.delete('inspector') : url.searchParams.set('inspector', 'hidden');
     window.history.replaceState({}, '', `${url.pathname}${url.search}`);
   });
 
@@ -89,7 +93,6 @@
     if (readyOnly) params.set('ready', '1');
     if (sortBy !== 'plan') params.set('sort', sortBy);
     if (density !== 'comfortable') params.set('density', density);
-    if (!inspectorVisible) params.set('inspector', 'hidden');
     return `?${params.toString()}`;
   }
   function focusSearch(event: KeyboardEvent) {
@@ -141,36 +144,24 @@
 
 <svelte:head><title>Project Agile Board</title><meta name="description" content="A local project plan board backed by the migration authority." /></svelte:head>
 
-<main class={`theme-${data.plan.projectSettings.project_unity_theme || 'midnight'} project-lane-${data.plan.projectSettings.project_unity_lane_style || 'scroll'}`}>
-  <header class="topbar">
-    <div><p class="eyebrow">PROJECT TOOL</p><h1>Project Agile Board</h1><p class="subtitle">A readable view of the migration plan and its next actionable work.</p><p class="source-mode">Reading from {data.plan.sourceMode}.</p></div>
+<main class={`board-page theme-${data.plan.projectSettings.project_unity_theme || 'midnight'} project-lane-${data.plan.projectSettings.project_unity_lane_style || 'scroll'}`}>
+  <header class="topbar board-topbar">
+    <div><p class="eyebrow">WORKSPACE</p><h1>Project Agile Board</h1><p class="subtitle">Keep the next piece of work moving.</p><p class="source-mode">{data.plan.packets.length} packets · {data.plan.sourceMode}</p></div>
     <div class="top-actions"><div class:valid={data.plan.valid} class="health">{data.plan.valid ? 'Plan valid' : 'Plan needs attention'}</div><div class="top-links">{#if ['superadmin', 'admin', 'editor'].includes(data.role ?? '')}<a class="quiet-button" href="/projects/new">New project</a>{/if}{#if ['superadmin', 'admin'].includes(data.role ?? '')}<a class="quiet-button icon-link" href="/settings"><img class="ui-icon" src="/assets/icons/settings.svg" alt="" /> Settings</a>{/if}</div></div>
   </header>
 
   {#if data.plan.errors.length}<section class="errors" aria-live="polite"><h2>Plan issues</h2>{#each data.plan.errors as error}<p>{error}</p>{/each}</section>{/if}
 
-  <section class="summary" aria-label="Plan summary"><div><strong>{data.plan.packets.length}</strong><span>packets</span></div><div><strong>{data.plan.readyIds.length}</strong><span>ready next</span></div><div><strong>{data.plan.stateCounts.ACTIVE + data.plan.stateCounts.PARTIAL}</strong><span>in progress</span></div><div><strong>{data.plan.stateCounts.BLOCKED}</strong><span>blocked</span></div></section>
-  {#if data.plan.readyIds[0]}<p class="next-ready"><span>Recommended next:</span> <a href={`?packet=${data.plan.readyIds[0]}`}>{data.plan.readyIds[0]}</a> <span>— dependencies are closed.</span></p>{/if}
-
   <section class="workspace" aria-label="Project workspace">
-    <aside class="filter-rail" aria-label="Board filters">
-      <div class="rail-heading"><p class="eyebrow">NAVIGATE</p><h2>Find work</h2><p>Filter the plan without losing your place.</p></div>
-      <div class="quick-filters" aria-label="Quick filters"><span class="quick-label">Quick view</span><div class="quick-buttons"><button type="button" class:active={selectedState === 'ALL' && !readyOnly} onclick={() => quickFilter('ALL')}>All</button><button type="button" class:active={selectedState === 'OPEN' && !readyOnly} onclick={() => quickFilter('OPEN')}>Open</button><button type="button" class:active={selectedState === 'ACTIVE' && !readyOnly} onclick={() => quickFilter('ACTIVE')}>Active</button><button type="button" class:active={selectedState === 'BLOCKED' && !readyOnly} onclick={() => quickFilter('BLOCKED')}>Blocked</button><button type="button" class:active={selectedState === 'CLOSED' && !readyOnly} onclick={() => quickFilter('CLOSED')}>Complete</button><button type="button" class:active={readyOnly} onclick={() => quickFilter('READY')}>Ready</button></div></div>
-      <label class="search-field">Search <span class="search-control"><input bind:this={searchInput} bind:value={query} aria-label="Search packets" placeholder="ID, title, or outcome" /><button class="clear-search" type="button" aria-label="Clear search" title="Clear search" hidden={!query} onclick={() => { query = ''; searchInput?.focus(); }}>×</button></span></label>
-      <label>State <select bind:value={selectedState}><option value="ALL">All states</option>{#each Object.keys(data.plan.stateCounts) as item}<option value={item}>{item}</option>{/each}</select></label>
-      <label>Milestone <select bind:value={milestone}><option value="ALL">All milestones</option>{#each milestones as item}<option value={item}>{item}</option>{/each}</select></label>
-      <label>Sort cards <select bind:value={sortBy}><option value="plan">Plan order</option><option value="title">Title</option><option value="owner">Owner</option><option value="milestone">Milestone</option></select></label>
-      <label>Card density <select bind:value={density}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
-      <label class="check"><input type="checkbox" bind:checked={readyOnly} /> Ready next</label>
-      <button type="button" class="quiet-button" onclick={resetFilters}>Reset filters</button>
-      <button type="button" class="quiet-button" onclick={copyViewLink}>Copy view link</button>
-      {#if viewStatus}<p class="copy-status" role="status">{viewStatus}</p>{/if}
-      <p class="filter-summary" role="status">Showing <strong>{filtered.length}</strong> of {data.plan.packets.length} packets{query ? ` matching “${query}”` : ''}</p>
-      <p class="shortcut">Press <kbd>/</kbd> to focus search.</p>
-    </aside>
-
     <section class="board-shell">
-      <div class="board-heading"><div><p class="eyebrow"><img class="ui-icon" src="/assets/icons/layout-kanban.svg" alt="" /> WORKFLOW</p><h2>Packet flow</h2></div><div class="board-actions"><p>Choose a packet to inspect its evidence, dependencies, and next transition.</p><div class="lane-actions"><button type="button" class="quiet-button" onclick={() => setAllColumns(true)}>Collapse all</button><button type="button" class="quiet-button" onclick={() => setAllColumns(false)}>Expand all</button><button type="button" class="quiet-button" onclick={() => { inspectorVisible = !inspectorVisible; }}>{inspectorVisible ? 'Hide inspector' : 'Show inspector'}</button></div></div></div>
+      <div class="board-toolbar" aria-label="Board toolbar">
+        <div class="toolbar-search-group"><label class="toolbar-search"><span class="sr-only">Search packets</span><span class="search-control"><input bind:this={searchInput} bind:value={query} aria-label="Search packets" placeholder="Search cards" /><button class="clear-search" type="button" aria-label="Clear search" title="Clear search" hidden={!query} onclick={() => { query = ''; searchInput?.focus(); }}>×</button></span></label><span class="shortcut">Press <kbd>/</kbd></span></div>
+        <div class="quick-buttons" aria-label="Quick filters"><button type="button" class:active={selectedState === 'ALL' && !readyOnly} onclick={() => quickFilter('ALL')}>All</button><button type="button" class:active={selectedState === 'OPEN' && !readyOnly} onclick={() => quickFilter('OPEN')}>Open</button><button type="button" class:active={selectedState === 'ACTIVE' && !readyOnly} onclick={() => quickFilter('ACTIVE')}>Active</button><button type="button" class:active={selectedState === 'BLOCKED' && !readyOnly} onclick={() => quickFilter('BLOCKED')}>Blocked</button><button type="button" class:active={selectedState === 'CLOSED' && !readyOnly} onclick={() => quickFilter('CLOSED')}>Complete</button><button type="button" class:active={readyOnly} onclick={() => quickFilter('READY')}>Ready</button></div>
+        <div class="toolbar-filters"><label>State <select bind:value={selectedState}><option value="ALL">All states</option>{#each Object.keys(data.plan.stateCounts) as item}<option value={item}>{item}</option>{/each}</select></label><label>Milestone <select bind:value={milestone}><option value="ALL">All milestones</option>{#each milestones as item}<option value={item}>{item}</option>{/each}</select></label><label>Sort <select bind:value={sortBy}><option value="plan">Plan order</option><option value="title">Title</option><option value="owner">Owner</option><option value="milestone">Milestone</option></select></label><label>Density <select bind:value={density}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label><button type="button" class="quiet-button" onclick={resetFilters}>Reset</button><button type="button" class="quiet-button" onclick={copyViewLink} aria-label="Copy this board view">Copy link</button></div>
+        <div class="toolbar-status"><span role="status">Showing <strong>{filtered.length}</strong> of {data.plan.packets.length}</span>{#if data.plan.readyIds[0]}<span class="toolbar-recommendation">Next: <a href={`?packet=${data.plan.readyIds[0]}`}>{data.plan.readyIds[0]}</a></span>{/if}{#if viewStatus}<span class="copy-status" role="status">{viewStatus}</span>{/if}</div>
+      </div>
+
+      <div class="board-heading"><div><p class="eyebrow"><img class="ui-icon" src="/assets/icons/layout-kanban.svg" alt="" /> BOARD</p><h2>Packet flow</h2></div><div class="board-actions"><p>Select a card to inspect details.</p><div class="lane-actions"><button type="button" class="quiet-button" onclick={() => setAllColumns(true)}>Collapse all</button><button type="button" class="quiet-button" onclick={() => setAllColumns(false)}>Expand all</button><button type="button" class="quiet-button" onclick={() => { inspectorVisible = !inspectorVisible; }}>{inspectorVisible ? 'Hide details' : 'Show details'}</button></div></div></div>
       <div class:inspector-hidden={!inspectorVisible} class="layout">
         <section class="board" aria-label="Migration packets">
       {#if filtered.length === 0}
@@ -184,7 +175,7 @@
       {/if}
         </section>
 
-      {#if selected}<aside class="detail" aria-label="Selected packet"><p class="eyebrow">SELECTED PACKET</p><div class="detail-heading"><div><h2>{selected.id}</h2><h3>{selected.title}</h3></div><button class="quiet-button" type="button" onclick={() => copyPacketBrief(selected)}>Copy brief</button></div>{#if copyStatus}<p class="copy-status" role="status">{copyStatus}</p>{/if}<p class="meta">{selected.state} · {selected.owner} · {selected.milestone}</p>{#if data.plan.readyIds.includes(selected.id)}<p class="ready-banner">Dependencies are closed. This packet is ready to pull.</p>{/if}<dl><dt>Outcome</dt><dd>{selected.outcome || 'Not recorded.'}</dd><dt>Inputs</dt><dd>{selected.inputs || 'Not recorded.'}</dd><dt>Files</dt><dd>{selected.files || 'Not recorded.'}</dd><dt>Do not touch</dt><dd>{selected.doNotTouch || 'Not recorded.'}</dd><dt>Dependencies</dt><dd>{#if selected.dependsOn.length}{#each selected.dependsOn as dependency, index}{#if index > 0}, {/if}<a href={packetHref(dependency)}>{dependency}</a>{/each}{:else}None{/if}</dd><dt>Downstream</dt><dd>{#if dependents.length}{#each dependents as packet, index}{#if index > 0}, {/if}<a href={packetHref(packet.id)}>{packet.id}</a>{/each}{:else}None{/if}</dd><dt>Checks</dt><dd>{selected.checks || 'Not recorded.'}</dd><dt>Evidence</dt><dd>{selected.evidence || 'None recorded.'}</dd><dt>Remainder</dt><dd>{selected.remainder || 'None recorded.'}</dd></dl><details class="steps"><summary>Implementation steps</summary><pre>{selected.steps || 'No steps recorded.'}</pre></details>
+      {#if selected}<aside class="detail" aria-label="Selected packet"><p class="eyebrow">CARD DETAILS</p><div class="detail-heading"><div><h2>{selected.id}</h2><h3>{selected.title}</h3></div><div class="detail-actions"><button class="quiet-button" type="button" onclick={() => copyPacketBrief(selected)}>Copy brief</button><button class="quiet-button" type="button" onclick={() => { inspectorVisible = false; }}>Close</button></div></div>{#if copyStatus}<p class="copy-status" role="status">{copyStatus}</p>{/if}<p class="meta">{selected.state} · {selected.owner} · {selected.milestone}</p>{#if data.plan.readyIds.includes(selected.id)}<p class="ready-banner">Dependencies are closed. This packet is ready to pull.</p>{/if}<dl><dt>Outcome</dt><dd>{selected.outcome || 'Not recorded.'}</dd><dt>Inputs</dt><dd>{selected.inputs || 'Not recorded.'}</dd><dt>Files</dt><dd>{selected.files || 'Not recorded.'}</dd><dt>Do not touch</dt><dd>{selected.doNotTouch || 'Not recorded.'}</dd><dt>Dependencies</dt><dd>{#if selected.dependsOn.length}{#each selected.dependsOn as dependency, index}{#if index > 0}, {/if}<a href={packetHref(dependency)}>{dependency}</a>{/each}{:else}None{/if}</dd><dt>Downstream</dt><dd>{#if dependents.length}{#each dependents as packet, index}{#if index > 0}, {/if}<a href={packetHref(packet.id)}>{packet.id}</a>{/each}{:else}None{/if}</dd><dt>Checks</dt><dd>{selected.checks || 'Not recorded.'}</dd><dt>Evidence</dt><dd>{selected.evidence || 'None recorded.'}</dd><dt>Remainder</dt><dd>{selected.remainder || 'None recorded.'}</dd></dl><details class="steps"><summary>Implementation steps</summary><pre>{selected.steps || 'No steps recorded.'}</pre></details>
       {#if data.plan.transitionHistory.some((entry) => entry.packetId === selected.id)}<details class="activity"><summary>Recent activity</summary><ol>{#each data.plan.transitionHistory.filter((entry) => entry.packetId === selected.id) as entry}<li><strong>{entry.nextState}</strong><span>{entry.owner || 'unassigned'} · {new Date(entry.createdAt).toLocaleString()}</span>{#if entry.evidence}<small>{entry.evidence}</small>{/if}</li>{/each}</ol></details>{/if}
       <section class="notes"><h3>Packet notes</h3>{#if data.plan.packetNotes.some((note) => note.packetId === selected.id)}<ul>{#each data.plan.packetNotes.filter((note) => note.packetId === selected.id) as note}<li><div><strong>{note.author}</strong><span>{new Date(note.createdAt).toLocaleString()}</span></div><p>{note.body}</p></li>{/each}</ul>{:else}<p class="empty">No notes yet.</p>{/if}<form method="POST" action="?/saveNote" class="note-form"><input type="hidden" name="packetId" value={selected.id} /><label>Author <input name="author" value={selected.owner} maxlength="120" /></label><label>Note <textarea name="body" rows="3" maxlength="2000" placeholder="Leave durable context for the next pass."></textarea></label><button type="submit">Save note</button></form></section>
       <form method="POST" action="?/previewTransition" class="transition-form">
