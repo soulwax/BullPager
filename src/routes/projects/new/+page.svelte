@@ -25,7 +25,7 @@
     <div>
       <p class="eyebrow">NEW PROJECT</p>
       <h1>Start with a useful shape.</h1>
-      <p class="subtitle">Choose a workflow that matches the work, then tune it from project settings. You can rename lanes and adjust the look later.</p>
+      <p class="subtitle">Choose a workflow that matches the work. Every project starts with one board, one project cloud, and an optional graph view; you can rename columns and adjust the look later.</p>
     </div>
     <a class="quiet-button settings-back" href="/settings">Back to settings</a>
   </header>

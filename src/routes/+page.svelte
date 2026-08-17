@@ -152,8 +152,8 @@
 
 <main class={`board-page theme-${data.plan.projectSettings.project_unity_theme || 'midnight'} project-lane-${data.plan.projectSettings.project_unity_lane_style || 'scroll'}`}>
   <header class="topbar board-topbar">
-    <div><p class="eyebrow">WORKSPACE</p><h1>Project Agile Board</h1><p class="subtitle">Keep the next piece of work moving.</p><p class="source-mode">{data.plan.packets.length} packets · {data.plan.sourceMode}</p></div>
-    <div class="top-actions"><div class:valid={data.plan.valid} class="health">{data.plan.valid ? 'Plan valid' : 'Plan needs attention'}</div><div class="top-links">{#if ['superadmin', 'admin', 'editor'].includes(data.role ?? '')}<a class="quiet-button" href="/projects/new">New project</a>{/if}{#if ['superadmin', 'admin'].includes(data.role ?? '')}<a class="quiet-button icon-link" href="/settings"><img class="ui-icon" src="/assets/icons/settings.svg" alt="" /> Settings</a>{/if}</div></div>
+    <div><p class="eyebrow">REFERENCE PLAN</p><h1>Unity plan</h1><p class="subtitle">A source-backed plan view for the Unity project. Open Projects for the working boards.</p><p class="source-mode">{data.plan.packets.length} packets · {data.plan.sourceMode}</p></div>
+    <div class="top-actions"><div class:valid={data.plan.valid} class="health">{data.plan.valid ? 'Plan valid' : 'Plan needs attention'}</div><div class="top-links"><a class="quiet-button" href="/projects">Projects</a>{#if ['superadmin', 'admin', 'editor'].includes(data.role ?? '')}<a class="quiet-button" href="/projects/new">New project</a>{/if}{#if ['superadmin', 'admin'].includes(data.role ?? '')}<a class="quiet-button icon-link" href="/settings"><img class="ui-icon" src="/assets/icons/settings.svg" alt="" /> Settings</a>{/if}</div></div>
   </header>
 
   {#if data.plan.errors.length}<section class="errors" aria-live="polite"><h2>Plan issues</h2>{#each data.plan.errors as error}<p>{error}</p>{/each}</section>{/if}
