@@ -17,6 +17,13 @@
   let editingCardId = $state<string | null>(null);
   let savedStatus = $state('');
   let draggedCardId = $state('');
+  let dropTargetLane = $state('');
+  let dropTargetCardId = $state('');
+  let optimisticCards = $state<ProjectCard[] | null>(null);
+  let orderDirty = $state(false);
+  let orderBaseSnapshot: ProjectCard[] | null = null;
+  let orderRevision = 0;
+  let orderSaveChain: Promise<void> = Promise.resolve();
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     collapsed = { ...(data.viewState.collapsed ?? {}) };
@@ -30,7 +37,9 @@
     if (data.cards.length === 0 && composerLane === null) composerLane = data.lanes[0] ?? null;
   });
 
-  const visibleCards = $derived(data.cards.filter((card) => {
+  const boardCards = $derived(optimisticCards ?? data.cards);
+
+  const visibleCards = $derived(boardCards.filter((card) => {
     const matchesText = !query || `${card.title} ${card.details} ${card.owner} ${card.tags.map((tag) => tag.name).join(' ')}`.toLowerCase().includes(query.toLowerCase());
     const matchesPriority = priorityFilter === 'all' || card.priority === priorityFilter;
     const matchesTag = tagFilter === 'all' || card.tags.some((tag) => tag.id === tagFilter);
@@ -38,12 +47,12 @@
     const matchesArchive = showArchived || !card.archived;
     return matchesText && matchesPriority && matchesTag && matchesAssignee && matchesArchive;
   }));
-  const activeCards = $derived(data.cards.filter((card) => !card.archived));
+  const activeCards = $derived(boardCards.filter((card) => !card.archived));
   const urgentCount = $derived(activeCards.filter((card) => card.priority === 'urgent').length);
   const datedCount = $derived(activeCards.filter((card) => card.dueDate).length);
-  const archivedCount = $derived(data.cards.filter((card) => card.archived).length);
+  const archivedCount = $derived(boardCards.filter((card) => card.archived).length);
   const filtered = $derived(query || priorityFilter !== 'all' || tagFilter !== 'all' || assigneeFilter !== 'all' || showArchived);
-  const editingCard = $derived(data.cards.find((card) => card.id === editingCardId) ?? null);
+  const editingCard = $derived(boardCards.find((card) => card.id === editingCardId) ?? null);
   function cardsFor(lane: string) { return visibleCards.filter((card) => card.lane === lane); }
   function commentsFor(cardId: string) { return data.comments.filter((comment) => comment.cardId === cardId); }
   function openEditor(cardId: string) { editingCardId = cardId; history.replaceState({}, '', `?card=${encodeURIComponent(cardId)}`); }
@@ -96,26 +105,81 @@
   function startDrag(card: ProjectCard, event: DragEvent) {
     if (!data.canEdit) return;
     draggedCardId = card.id;
+    dropTargetLane = card.lane;
+    dropTargetCardId = '';
     event.dataTransfer?.setData('text/plain', card.id);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
   }
-  async function dropCard(lane: string, beforeId: string, event: DragEvent) {
+
+  function reindexCards(cards: ProjectCard[]) {
+    const nextPosition = new Map<string, number>();
+    return cards.map((card) => {
+      const position = nextPosition.get(card.lane) ?? 0;
+      nextPosition.set(card.lane, position + 1);
+      return { ...card, position };
+    });
+  }
+
+  function moveCardOptimistically(cardId: string, lane: string, beforeId: string) {
+    const current = boardCards;
+    const moving = current.find((card) => card.id === cardId);
+    if (!moving) return current;
+    const remaining = current.filter((card) => card.id !== cardId);
+    const destination = { ...moving, lane };
+    let insertAt = beforeId ? remaining.findIndex((card) => card.id === beforeId) : -1;
+    if (insertAt < 0) {
+      const laneIndexes = remaining.flatMap((card, index) => card.lane === lane ? [index] : []);
+      insertAt = laneIndexes.length ? laneIndexes[laneIndexes.length - 1] + 1 : remaining.length;
+    }
+    remaining.splice(insertAt, 0, destination);
+    return reindexCards(remaining);
+  }
+
+  function enqueueOrderSave(previous: ProjectCard[]) {
+    if (!orderBaseSnapshot) orderBaseSnapshot = previous;
+    const revision = ++orderRevision;
+    const order = boardCards.map((card) => ({ id: card.id, lane: card.lane, position: card.position }));
+    savedStatus = 'Saving order…';
+    orderSaveChain = orderSaveChain.then(async () => {
+      if (revision !== orderRevision) return;
+      const body = new FormData();
+      body.set('order', JSON.stringify(order));
+      try {
+        const response = await fetch('?/saveOrder', { method: 'POST', body, headers: { accept: 'application/json' } });
+        if (!response.ok) throw new Error(`order save failed (${response.status})`);
+        if (revision !== orderRevision) return;
+        await invalidateAll();
+        if (revision !== orderRevision) return;
+        optimisticCards = null;
+        orderDirty = false;
+        orderBaseSnapshot = null;
+        savedStatus = 'Order saved';
+        setTimeout(() => { if (!orderDirty) savedStatus = ''; }, 1800);
+      } catch (error) {
+        console.error('[project board] order save failed', error);
+        if (revision !== orderRevision) return;
+        optimisticCards = orderBaseSnapshot ?? previous;
+        orderBaseSnapshot = null;
+        orderDirty = false;
+        savedStatus = 'Order could not be saved';
+        setTimeout(() => { if (!orderDirty) savedStatus = ''; }, 3000);
+      }
+    });
+  }
+
+  function dropCard(lane: string, beforeId: string, event: DragEvent) {
     event.preventDefault();
     const id = event.dataTransfer?.getData('text/plain') || draggedCardId;
     draggedCardId = '';
+    dropTargetLane = '';
+    dropTargetCardId = '';
     if (!id || id === beforeId) return;
-    const body = new FormData();
-    body.set('id', id);
-    body.set('lane', lane);
-    body.set('beforeId', beforeId);
-    try {
-      const response = await fetch('?/reorderCard', { method: 'POST', body, headers: { accept: 'application/json' } });
-      if (response.ok) {
-        savedStatus = 'Card order saved';
-        await invalidateAll();
-        setTimeout(() => { savedStatus = ''; }, 1800);
-      }
-    } catch { /* keep the card in place if the save cannot complete */ }
+    const previous = boardCards;
+    const next = moveCardOptimistically(id, lane, beforeId);
+    if (next === previous || next.every((card, index) => card.id === previous[index]?.id && card.lane === previous[index]?.lane)) return;
+    optimisticCards = next;
+    orderDirty = true;
+    enqueueOrderSave(previous);
   }
 </script>
 
@@ -124,7 +188,7 @@
 <main class={`project-workspace theme-${setting('theme', 'midnight')} project-lane-${setting('lane_style', 'scroll')}`}>
   {#if data.members.length}<datalist id="project-members">{#each data.members as member}<option value={member.username}>{member.role}</option>{/each}</datalist>{/if}
   <header class="topbar">
-    <div><p class="eyebrow">PROJECT WORKSPACE</p><h1>{data.project.name}</h1><p class="subtitle">{data.cards.length ? `${data.cards.length} saved cards across ${data.lanes.length} lanes.` : `A calm starting point for shared work. Your ${setting('template', 'custom')} template is ready for its first card.`}</p></div>
+    <div><p class="eyebrow">PROJECT WORKSPACE</p><h1>{data.project.name}</h1><p class="subtitle">{boardCards.length ? `${boardCards.length} saved cards across ${data.lanes.length} lanes.` : `A calm starting point for shared work. Your ${setting('template', 'custom')} template is ready for its first card.`}</p></div>
     <div class="top-links"><a class="quiet-button" href={`/projects/${data.project.slug}/graph`}>Graph mode</a><a class="quiet-button" href={`/projects/${data.project.slug}/settings`}>Project settings</a><a class="quiet-button" href="/settings">All projects</a></div>
   </header>
 
@@ -132,23 +196,23 @@
   {#if form?.message}<p class="success" role="status">{form.message}</p>{/if}
   {#if form?.error}<p class="action-errors" role="alert">{form.error}</p>{/if}
 
-  <div class="project-toolbar"><div class="project-toolbar-copy"><details class="find-work-menu"><summary><span class="find-work-icon">⌕</span><span><strong>Find work</strong><small>{visibleCards.length} visible · {activeCards.length} active</small></span></summary><div class="find-work-body"><p>Jump to the work that needs attention.</p><div class="find-work-actions"><button type="button" class:active={!filtered} class="quiet-button" onclick={clearFilters}>All cards</button><button type="button" class:active={assigneeFilter === data.username} class="quiet-button" onclick={() => { assigneeFilter = data.username; queueViewSave(); }}>My cards</button><button type="button" class:active={priorityFilter === 'urgent'} class="quiet-button" onclick={() => { priorityFilter = 'urgent'; queueViewSave(); }}>Urgent</button><button type="button" class="quiet-button" onclick={() => { query = ''; priorityFilter = 'all'; tagFilter = 'all'; assigneeFilter = 'unassigned'; showArchived = false; queueViewSave(); }}>Unassigned</button></div></div></details>{#if savedStatus}<span class="save-status">{savedStatus}</span>{/if}</div><div class="project-stats" aria-label="Project summary"><span><strong>{activeCards.length}</strong> active</span><span><strong>{urgentCount}</strong> urgent</span><span><strong>{data.tags.length}</strong> tags</span><span><strong>{archivedCount}</strong> archived</span></div><div class="project-controls"><label class="project-search">Search <input bind:value={query} oninput={queueViewSave} placeholder="Find cards by title, owner, or detail" aria-label="Search project cards" /></label><label>Priority <select bind:value={priorityFilter} onchange={queueViewSave}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label><label>Tag <select bind:value={tagFilter} onchange={queueViewSave}><option value="all">All tags</option>{#each data.tags as tag}<option value={tag.id}>{tag.name}</option>{/each}</select></label><label>Assignee <select bind:value={assigneeFilter} onchange={queueViewSave}><option value="all">Everyone</option><option value="unassigned">Unassigned</option>{#each data.members as member}<option value={member.username}>{member.username}</option>{/each}</select></label><label>Density <select bind:value={density} onchange={queueViewSave}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>{#if archivedCount}<button type="button" class:active={showArchived} class="quiet-button archive-toggle" onclick={() => { showArchived = !showArchived; queueViewSave(); }}>{showArchived ? "Hide archived" : "Show archived"}</button>{/if}{#if filtered}<button type="button" class="quiet-button clear-project-filters" onclick={clearFilters}>Clear</button>{/if}<details class="tag-manager"><summary>Manage tags</summary><div class="tag-manager-body"><div class="tag-cloud">{#each data.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}><span>{tag.name}</span>{#if data.canEdit && !isDefaultTag(tag.id)}<form method="POST" action="?/deleteTag"><input type="hidden" name="id" value={tag.id} /><button type="submit" aria-label={`Remove ${tag.name} tag`} title="Remove tag">×</button></form>{/if}</span>{/each}</div>{#if data.canEdit}<form method="POST" action="?/createTag" class="tag-create-form"><input name="name" maxlength="32" placeholder="New tag" aria-label="New tag name" required /><select name="color" aria-label="New tag color">{#each tagPalette as palette}<option value={palette.color}>{palette.name}</option>{/each}</select><button type="submit">Create tag</button></form>{/if}</div></details></div></div>
+  <div class="project-toolbar"><div class="project-toolbar-copy"><details class="find-work-menu"><summary><span class="find-work-icon">⌕</span><span><strong>Find work</strong><small>{visibleCards.length} visible · {activeCards.length} active</small></span></summary><div class="find-work-body"><p>Jump to the work that needs attention.</p><div class="find-work-actions"><button type="button" class:active={!filtered} class="quiet-button" onclick={clearFilters}>All cards</button><button type="button" class:active={assigneeFilter === data.username} class="quiet-button" onclick={() => { assigneeFilter = data.username; queueViewSave(); }}>My cards</button><button type="button" class:active={priorityFilter === 'urgent'} class="quiet-button" onclick={() => { priorityFilter = 'urgent'; queueViewSave(); }}>Urgent</button><button type="button" class="quiet-button" onclick={() => { query = ''; priorityFilter = 'all'; tagFilter = 'all'; assigneeFilter = 'unassigned'; showArchived = false; queueViewSave(); }}>Unassigned</button></div></div></details>{#if savedStatus}<span class="save-status" role="status" aria-live="polite">{savedStatus}</span>{/if}</div><div class="project-stats" aria-label="Project summary"><span><strong>{activeCards.length}</strong> active</span><span><strong>{urgentCount}</strong> urgent</span><span><strong>{data.tags.length}</strong> tags</span><span><strong>{archivedCount}</strong> archived</span></div><div class="project-controls"><label class="project-search">Search <input bind:value={query} oninput={queueViewSave} placeholder="Find cards by title, owner, or detail" aria-label="Search project cards" /></label><label>Priority <select bind:value={priorityFilter} onchange={queueViewSave}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label><label>Tag <select bind:value={tagFilter} onchange={queueViewSave}><option value="all">All tags</option>{#each data.tags as tag}<option value={tag.id}>{tag.name}</option>{/each}</select></label><label>Assignee <select bind:value={assigneeFilter} onchange={queueViewSave}><option value="all">Everyone</option><option value="unassigned">Unassigned</option>{#each data.members as member}<option value={member.username}>{member.username}</option>{/each}</select></label><label>Density <select bind:value={density} onchange={queueViewSave}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>{#if archivedCount}<button type="button" class:active={showArchived} class="quiet-button archive-toggle" onclick={() => { showArchived = !showArchived; queueViewSave(); }}>{showArchived ? "Hide archived" : "Show archived"}</button>{/if}{#if filtered}<button type="button" class="quiet-button clear-project-filters" onclick={clearFilters}>Clear</button>{/if}<details class="tag-manager"><summary>Manage tags</summary><div class="tag-manager-body"><div class="tag-cloud">{#each data.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}><span>{tag.name}</span>{#if data.canEdit && !isDefaultTag(tag.id)}<form method="POST" action="?/deleteTag"><input type="hidden" name="id" value={tag.id} /><button type="submit" aria-label={`Remove ${tag.name} tag`} title="Remove tag">×</button></form>{/if}</span>{/each}</div>{#if data.canEdit}<form method="POST" action="?/createTag" class="tag-create-form"><input name="name" maxlength="32" placeholder="New tag" aria-label="New tag name" required /><select name="color" aria-label="New tag color">{#each tagPalette as palette}<option value={palette.color}>{palette.name}</option>{/each}</select><button type="submit">Create tag</button></form>{/if}</div></details></div></div>
 
-  {#if data.cards.length === 0}
+  {#if boardCards.length === 0}
     <section class="project-empty-intro"><img src="/assets/illustrations/organizing-projects.svg" alt="" /><div><p class="eyebrow">EMPTY SLATE</p><h2>Nothing is stuck here yet.</h2><p class="subtitle">This board has {data.lanes.length} lanes from your template. Add one small, concrete card and the empty state will disappear.</p></div></section>
   {:else if visibleCards.length === 0}
     <section class="project-filter-empty"><p class="eyebrow">NO MATCHES</p><h2>Nothing matches this view.</h2><p class="subtitle">Try a different search or priority, or clear the filters to see every saved card.</p><button type="button" class="quiet-button" onclick={clearFilters}>Clear filters</button></section>
   {/if}
 
-  {#if data.cards.length === 0 || visibleCards.length > 0}<section class:project-board-compact={density === 'compact'} class="project-board" aria-label={`${data.project.name} workflow`}>
+  {#if boardCards.length === 0 || visibleCards.length > 0}<section class:project-board-compact={density === 'compact'} class="project-board" aria-label={`${data.project.name} workflow`}>
     {#each data.lanes as lane, index}
       {@const laneCards = cardsFor(lane)}
-      <section id={laneId(lane)} role="list" aria-label={`${lane} lane`} class:collapsed={collapsed[lane]} class:drop-target={Boolean(draggedCardId)} class="project-column" ondragover={(event) => event.preventDefault()} ondrop={(event) => dropCard(lane, '', event)}>
+      <section id={laneId(lane)} role="list" aria-label={`${lane} lane`} class:collapsed={collapsed[lane]} class:drop-target={dropTargetLane === lane && !dropTargetCardId} class="project-column" ondragenter={() => { dropTargetLane = lane; dropTargetCardId = ''; }} ondragover={(event) => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'; }} ondrop={(event) => dropCard(lane, '', event)}>
         <h2><span>{lane}<small>{laneCards.length} {laneCards.length === 1 ? 'card' : 'cards'}</small></span><button class="collapse-button" type="button" aria-expanded={!collapsed[lane]} aria-label={`${collapsed[lane] ? 'Expand' : 'Collapse'} ${lane}`} onclick={() => toggleLane(lane)}>{collapsed[lane] ? '+' : '−'}</button></h2>
         {#if !collapsed[lane]}
           <div class="project-column-cards">
             {#each laneCards as card}
-              <article role="listitem" aria-label={`${card.title}, ${card.priority} priority`} class:dragging={draggedCardId === card.id} class:archived={card.archived} class="project-card" draggable={data.canEdit} ondragstart={(event) => startDrag(card, event)} ondragend={() => { draggedCardId = ''; }} ondragover={(event) => event.preventDefault()} ondrop={(event) => { event.stopPropagation(); dropCard(card.lane, card.id, event); }}>{#if card.coverColor}<div class="card-cover" style={`--cover-color: ${card.coverColor}`} aria-hidden="true"></div>{/if}<div class="project-card-heading"><strong>{card.title}</strong><span class="priority-badge" class:priority-low={card.priority === 'low'} class:priority-high={card.priority === 'high'} class:priority-urgent={card.priority === 'urgent'}>{card.priority}</span></div>{#if card.tags.length}<div class="project-card-tags">{#each card.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}>{tag.name}</span>{/each}</div>{/if}{#if card.checklist.length}{@const checklistDone = card.checklist.filter((item) => item.done).length}<div class="checklist-summary" aria-label={`${checklistDone} of ${card.checklist.length} checklist items complete`}><span>✓ {checklistDone}/{card.checklist.length}</span><progress max={card.checklist.length} value={checklistDone}></progress></div>{/if}{#if card.archived}<span class="archived-badge">Archived</span>{/if}<div class="project-card-meta"><span>{card.owner || 'unassigned'}</span>{#if card.dueDate}<span class={`due-date due-${dueState(card.dueDate)}`}>Due {dueLabel(card.dueDate)}</span>{/if}{#if card.watcherCount}<span class:watching={card.watching} aria-label={`${card.watcherCount} watchers`}>◉ {card.watcherCount}</span>{/if}{#if commentsFor(card.id).length}<span aria-label={`${commentsFor(card.id).length} comments`}>▱ {commentsFor(card.id).length}</span>{/if}{#if data.canEdit}<span class="drag-hint">Drag to move</span>{/if}</div>{#if card.details}<p>{card.details}</p>{/if}<button type="button" class="card-edit-trigger" onclick={() => openEditor(card.id)}>Edit card</button></article>
+              <a aria-label={`${card.title}, ${card.priority} priority`} href={`?card=${encodeURIComponent(card.id)}`} class:dragging={draggedCardId === card.id} class:drop-target={dropTargetCardId === card.id} class:archived={card.archived} class="project-card" draggable={data.canEdit} ondragstart={(event) => startDrag(card, event)} ondragend={() => { draggedCardId = ''; dropTargetLane = ''; dropTargetCardId = ''; }} ondragenter={(event) => { event.stopPropagation(); dropTargetLane = card.lane; dropTargetCardId = card.id; }} ondragover={(event) => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'; }} ondrop={(event) => { event.stopPropagation(); dropCard(card.lane, card.id, event); }}>{#if card.coverColor}<div class="card-cover" style={`--cover-color: ${card.coverColor}`} aria-hidden="true"></div>{/if}<div class="project-card-heading"><strong>{card.title}</strong><span class="priority-badge" class:priority-low={card.priority === 'low'} class:priority-high={card.priority === 'high'} class:priority-urgent={card.priority === 'urgent'}>{card.priority}</span></div>{#if card.tags.length}<div class="project-card-tags">{#each card.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}>{tag.name}</span>{/each}</div>{/if}{#if card.checklist.length}{@const checklistDone = card.checklist.filter((item) => item.done).length}<div class="checklist-summary" aria-label={`${checklistDone} of ${card.checklist.length} checklist items complete`}><span>✓ {checklistDone}/{card.checklist.length}</span><progress max={card.checklist.length} value={checklistDone}></progress></div>{/if}{#if card.archived}<span class="archived-badge">Archived</span>{/if}<div class="project-card-meta"><span>{card.owner || 'unassigned'}</span>{#if card.dueDate}<span class={`due-date due-${dueState(card.dueDate)}`}>Due {dueLabel(card.dueDate)}</span>{/if}{#if card.watcherCount}<span class:watching={card.watching} aria-label={`${card.watcherCount} watchers`}>◉ {card.watcherCount}</span>{/if}{#if commentsFor(card.id).length}<span aria-label={`${commentsFor(card.id).length} comments`}>▱ {commentsFor(card.id).length}</span>{/if}{#if data.canEdit}<span class="drag-hint">Drag to move</span>{/if}</div>{#if card.details}<p>{card.details}</p>{/if}</a>
             {:else}<div class="project-column-empty"><strong>{filtered ? 'No matching cards' : index === 0 ? 'Add the first card' : 'Ready when you are'}</strong><p>{filtered ? 'Clear the filters or keep this lane focused.' : index === 0 ? 'Capture one outcome, request, or question.' : 'Cards will collect here as work moves forward.'}</p></div>{/each}
           </div>
           {#if data.canEdit}
@@ -180,5 +244,5 @@
 
   {#if data.activity.length}<section class="project-activity"><details><summary>Recent activity <span>{data.activity.length}</span></summary><ol>{#each data.activity.slice(0, 8) as entry}<li><div><strong>{entry.action}</strong><span>{entry.actor} · {new Date(entry.createdAt).toLocaleString()}</span></div><p>{entry.summary}</p></li>{/each}</ol></details></section>{/if}
 
-  {#if data.cards.length}<section class="project-next-steps"><div><strong>Keep the board honest</strong><p>Give each card an outcome and owner, then move it only when the evidence is ready.</p></div><a class="quiet-button" href={`/projects/${data.project.slug}/settings`}>Edit lanes and appearance</a></section>{/if}
+  {#if boardCards.length}<section class="project-next-steps"><div><strong>Keep the board honest</strong><p>Give each card an outcome and owner, then move it only when the evidence is ready.</p></div><a class="quiet-button" href={`/projects/${data.project.slug}/settings`}>Edit lanes and appearance</a></section>{/if}
 </main>

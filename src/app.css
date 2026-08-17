@@ -839,3 +839,74 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .detail[role='dialog'] { animation: detail-slide-in .18s ease-out both; }
 @keyframes detail-slide-in { from { opacity: 0; transform: translateX(1.5rem); } to { opacity: 1; transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) { .detail[role='dialog'] { animation: none; } }
+
+/* Trello proportions: lists stay readable at roughly 272px while the board
+   itself becomes the scrolling surface. This avoids oversized columns and
+   keeps card density consistent across wide monitors. */
+:root { --trello-list-width: 272px; --trello-list-gap: .65rem; }
+.board-shell .board {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--trello-list-gap);
+  width: 100%;
+  min-height: calc(100vh - 14rem);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: .2rem .1rem 1rem;
+  scroll-snap-type: x proximity;
+}
+.board-shell .column {
+  flex: 0 0 var(--trello-list-width);
+  width: var(--trello-list-width);
+  min-width: var(--trello-list-width);
+  min-height: calc(100vh - 15rem);
+  padding: .55rem;
+  scroll-snap-align: start;
+}
+.board-shell .column h2 { position: static; padding: .3rem .3rem .55rem; margin-bottom: .45rem; font-size: .8rem; }
+.board-shell .column-cards { gap: .5rem; }
+.board-shell .card { padding: .65rem; border-radius: .45rem; box-shadow: 0 1px 0 rgb(0 0 0 / .25); }
+.board-shell .card strong { font-size: .84rem; line-height: 1.3; }
+.board-shell .card .outcome { font-size: .74rem; line-height: 1.35; }
+
+.project-workspace .project-board {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: var(--trello-list-gap);
+  min-height: calc(100vh - 13rem);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 1rem;
+  scroll-snap-type: x proximity;
+}
+.project-workspace .project-column {
+  flex: 0 0 var(--trello-list-width);
+  width: var(--trello-list-width);
+  max-width: var(--trello-list-width);
+  min-height: calc(100vh - 15rem);
+  padding: .55rem;
+  scroll-snap-align: start;
+}
+.project-workspace .project-column h2 { padding: .3rem .3rem .55rem; margin-bottom: .45rem; font-size: .8rem; }
+.project-workspace .project-column-cards { gap: .5rem; }
+.project-workspace .project-card { display: block; padding: .65rem; border-radius: .45rem; color: inherit; text-decoration: none; box-shadow: 0 1px 0 rgb(0 0 0 / .25); }
+.project-workspace .card-cover { margin: -.65rem -.65rem .55rem; }
+.project-workspace .project-card-heading strong { font-size: .83rem; line-height: 1.3; }
+.project-workspace .project-card > p { font-size: .74rem; line-height: 1.35; }
+.project-workspace .drag-hint { display: none; }
+.project-workspace .add-card-button { min-height: 2rem; margin-top: .5rem; border: 0; border-radius: .4rem; text-align: left; }
+.project-workspace .add-card-button:hover, .project-workspace .add-card-button:focus-visible { background: color-mix(in srgb, var(--surface-0) 52%, transparent); }
+
+@media (max-width: 700px) {
+  .board-shell .board { min-height: calc(100vh - 18rem); }
+  .board-shell .column, .project-workspace .project-column { min-height: calc(100vh - 19rem); }
+}
+
+/* Drag feedback is deliberately local: the moving card fades, the insertion
+   target lifts, and an empty lane gets a clear drop affordance. */
+.project-workspace .project-card.dragging { opacity: .42; transform: rotate(1deg) scale(.985); }
+.project-workspace .project-card.drop-target { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent), 0 8px 22px rgb(0 0 0 / .22); transform: translateY(.18rem); }
+.project-workspace .project-column.drop-target { border-color: color-mix(in srgb, var(--accent) 70%, var(--line)); background: color-mix(in srgb, var(--accent) 5%, var(--surface-1)); }
+.project-workspace .project-column.drop-target .project-column-empty { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent-strong); }
+.project-toolbar-copy .save-status { min-height: 1.4rem; padding: .22rem .42rem; border: 1px solid var(--line-soft); border-radius: .35rem; background: color-mix(in srgb, var(--surface-0) 35%, transparent); font-size: .64rem; white-space: nowrap; }

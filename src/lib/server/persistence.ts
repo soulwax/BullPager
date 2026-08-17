@@ -438,6 +438,25 @@ export async function reorderProjectCard(projectSlug: string, cardId: string, la
   });
 }
 
+/** Persist the complete board order in one transaction. Sending the full
+ * snapshot makes rapid drag operations last-write-wins and prevents partial
+ * lane updates when several moves happen before the network settles. */
+export async function setProjectCardOrder(projectSlug: string, order: Array<{ id: string; lane: string; position: number }>) {
+  await ensureSchema();
+  const database = requireDatabase();
+  await database.transaction(async (tx: any) => {
+    const rows = await tx.select({ id: boardProjectCards.id }).from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug));
+    const expected = new Set(rows.map((row: { id: string }) => row.id));
+    if (order.length !== expected.size || new Set(order.map((item) => item.id)).size !== order.length || order.some((item) => !expected.has(item.id) || !item.lane || !Number.isInteger(item.position) || item.position < 0)) {
+      throw new Error('The board order is stale or invalid.');
+    }
+    const now = new Date().toISOString();
+    for (const item of order) {
+      await tx.update(boardProjectCards).set({ lane: item.lane, position: item.position, updatedAt: now }).where(and(eq(boardProjectCards.id, item.id), eq(boardProjectCards.projectSlug, projectSlug)));
+    }
+  });
+}
+
 export async function deleteProjectCard(projectSlug: string, id: string) {
   await ensureSchema();
   const database = requireDatabase();

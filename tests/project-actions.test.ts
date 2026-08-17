@@ -16,6 +16,7 @@ const persistence = vi.hoisted(() => ({
   recordProjectActivity: vi.fn(),
   reorderProjectCard: vi.fn(),
   saveProjectViewState: vi.fn(),
+  setProjectCardOrder: vi.fn(),
   setProjectCardWatching: vi.fn(),
   updateProjectCard: vi.fn()
 }));
@@ -49,6 +50,7 @@ describe('project card actions', () => {
     persistence.setProjectCardWatching.mockResolvedValue(undefined);
     persistence.updateProjectCard.mockResolvedValue(undefined);
     persistence.reorderProjectCard.mockResolvedValue(undefined);
+    persistence.setProjectCardOrder.mockResolvedValue(undefined);
     persistence.recordProjectActivity.mockResolvedValue(undefined);
   });
 
@@ -90,6 +92,16 @@ describe('project card actions', () => {
     const result = await actions.reorderCard(context({ id: 'card-1', lane: 'Done', beforeId: 'card-2' }, 'editor'));
     expect(result).toEqual({ message: 'Card order saved.' });
     expect(persistence.reorderProjectCard).toHaveBeenCalledWith('demo', 'card-1', 'Done', 'card-2');
+  });
+
+  it('persists an entire optimistic order snapshot atomically', async () => {
+    persistence.listProjectCards.mockResolvedValue([
+      { id: 'card-1', projectSlug: 'demo', title: 'One', details: '', lane: 'Ready', position: 0, owner: 'ada', priority: 'normal', dueDate: null, archived: false, checklist: [], tags: [], coverColor: '', createdAt: '', updatedAt: '' },
+      { id: 'card-2', projectSlug: 'demo', title: 'Two', details: '', lane: 'Done', position: 0, owner: 'ada', priority: 'normal', dueDate: null, archived: false, checklist: [], tags: [], coverColor: '', createdAt: '', updatedAt: '' }
+    ]);
+    const result = await actions.saveOrder({ request: request({ order: JSON.stringify([{ id: 'card-2', lane: 'Ready', position: 0 }, { id: 'card-1', lane: 'Ready', position: 1 }]) }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+    expect(result).toEqual({ message: 'Card order saved.' });
+    expect(persistence.setProjectCardOrder).toHaveBeenCalledWith('demo', [{ id: 'card-2', lane: 'Ready', position: 0 }, { id: 'card-1', lane: 'Ready', position: 1 }]);
   });
 
   it('saves only sanitized view preferences', async () => {

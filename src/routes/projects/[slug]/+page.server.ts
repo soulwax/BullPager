@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { createProjectCard, createProjectComment, createProjectTag, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, loadBoardSettings, loadProjectViewState, recordProjectActivity, reorderProjectCard, saveProjectViewState, setProjectCardWatching, updateProjectCard } from '$lib/server/persistence';
+import { createProjectCard, createProjectComment, createProjectTag, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, loadBoardSettings, loadProjectViewState, recordProjectActivity, reorderProjectCard, saveProjectViewState, setProjectCardOrder, setProjectCardWatching, updateProjectCard } from '$lib/server/persistence';
 import { lanesFromSettings, mergeProjectLanes, projectPrefix, sanitizeProjectViewState, validProjectCardInput } from '$lib/projectState';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
@@ -112,6 +112,29 @@ export const actions = {
       await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId: id, summary: `Reordered a card in ${lane}.` });
     } catch (error) {
       return persistenceFailure('reorder card failed', error);
+    }
+    return { message: 'Card order saved.' };
+  },
+  saveOrder: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to reorder project cards.' });
+    const form = await request.formData();
+    let order: Array<{ id: string; lane: string; position: number }>;
+    try {
+      const parsed = JSON.parse(String(form.get('order') ?? '[]'));
+      if (!Array.isArray(parsed) || parsed.length > 1000) throw new Error('Invalid order.');
+      order = parsed.map((item) => ({ id: String(item?.id ?? '').trim(), lane: String(item?.lane ?? '').trim(), position: Number(item?.position) }));
+    } catch {
+      return fail(400, { error: 'The card order could not be read.' });
+    }
+    const lanes = await validLanes(params.slug);
+    const current = await listProjectCards(params.slug);
+    const currentIds = new Set(current.map((card) => card.id));
+    if (order.length !== current.length || order.some((item) => !currentIds.has(item.id) || !lanes.includes(item.lane))) return fail(409, { error: 'The board changed elsewhere. Refresh and try the move again.' });
+    try {
+      await setProjectCardOrder(params.slug, order);
+      await recordProjectActivity({ projectSlug: params.slug, cardId: order[0]?.id ?? '', actor: locals.username || 'unknown', action: 'updated', summary: 'Reordered cards on the board.' });
+    } catch (error) {
+      return persistenceFailure('save card order failed', error);
     }
     return { message: 'Card order saved.' };
   },
