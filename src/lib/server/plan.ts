@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Packet, PacketState, PlanView } from '$lib/types';
+import { loadBoardSettings, loadPacketNotes, loadPersistedTransitions, loadTransitionHistory, overlayTransitions } from '$lib/server/persistence';
 import unitySnapshot from '../../../content/UNITY_PLAN.md?raw';
 import guideSnapshot from '../../../content/HUMAN_AGILE_GUIDE.md?raw';
 
@@ -70,9 +71,15 @@ export async function loadPlan(): Promise<PlanView> {
   const { unityPath, guidePath } = sourcePaths();
   const errors: string[] = [];
   let packets: Packet[] = [];
+  let transitionHistory = [] as Awaited<ReturnType<typeof loadTransitionHistory>>;
+  let packetNotes = [] as Awaited<ReturnType<typeof loadPacketNotes>>;
+  let projectSettings: Record<string, string> = {};
   try {
     const [unity, guide] = await readSources();
-    packets = parsePackets(unity);
+    packets = overlayTransitions(parsePackets(unity), await loadPersistedTransitions());
+    transitionHistory = await loadTransitionHistory();
+    packetNotes = await loadPacketNotes();
+    projectSettings = Object.fromEntries(Object.entries(await loadBoardSettings()).filter(([key]) => key.startsWith('project_unity_')));
     if (!guide.includes('HUMAN AGILE GUIDE')) errors.push('The operating guide marker was not found.');
     if (packets.length === 0) errors.push('No migration packets were found.');
   } catch (error) {
@@ -87,7 +94,10 @@ export async function loadPlan(): Promise<PlanView> {
     unityPath,
     packets,
     stateCounts,
-    readyIds: readyIds(packets)
+    readyIds: readyIds(packets),
+    transitionHistory,
+    packetNotes,
+    projectSettings
   };
 }
 
@@ -95,7 +105,7 @@ export function sourcePaths() {
   const deployed = Boolean(env.VERCEL);
   return {
     unityPath: resolve(env.HAP_UNITY_PATH || (deployed ? 'content/UNITY_PLAN.md' : '../../UNITY_PLAN.md')),
-    guidePath: resolve(env.HAP_GUIDE_PATH || (deployed ? 'content/HUMAN_AGILE_GUIDE.md' : '../../tmp/HUMAN_AGILE_GUIDE.md'))
+    guidePath: resolve(env.HAP_GUIDE_PATH || (deployed ? 'content/HUMAN_AGILE_GUIDE.md' : '../../external/docs/HUMAN_AGILE_GUIDE.md'))
   };
 }
 

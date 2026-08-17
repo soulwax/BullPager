@@ -26,6 +26,72 @@ export type PlanView = {
   packets: Packet[];
   stateCounts: Record<PacketState, number>;
   readyIds: string[];
+  transitionHistory: TransitionRecord[];
+  packetNotes: PacketNote[];
+  projectSettings: Record<string, string>;
+};
+
+export type TransitionRecord = {
+  packetId: string;
+  nextState: PacketState;
+  owner: string;
+  evidence: string;
+  remainder: string;
+  createdAt: string;
+};
+
+export type PacketNote = {
+  id: string;
+  packetId: string;
+  author: string;
+  body: string;
+  createdAt: string;
+};
+
+export type UserRole = 'superadmin' | 'admin' | 'editor' | 'viewer';
+
+export type BoardUser = {
+  username: string;
+  role: UserRole;
+  createdAt: string;
+};
+
+export type BoardProject = {
+  slug: string;
+  name: string;
+  type: ProjectType;
+  owner: string;
+  visibility: 'private' | 'shared';
+};
+
+export type ProjectType = 'standard' | 'storyline';
+
+export type ProjectCard = {
+  id: string;
+  projectSlug: string;
+  title: string;
+  details: string;
+  lane: string;
+  owner: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  dueDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectViewState = {
+  density?: 'comfortable' | 'compact';
+  collapsed?: Record<string, boolean>;
+};
+
+export type ProjectActivity = {
+  id: string;
+  projectSlug: string;
+  actor: string;
+  action: 'created' | 'updated' | 'deleted';
+  cardId: string;
+  summary: string;
+  createdAt: string;
 };
 
 export type TransitionPreview = {

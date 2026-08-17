@@ -1,19 +1,31 @@
 <script lang="ts">
   import type { Packet } from '$lib/types';
-  let { packet, ready, selected = false }: { packet: Packet; ready: boolean; selected?: boolean } = $props();
+  let { packet, href, ready, selected = false, compact = false, showOutcome = true }: { packet: Packet; href: string; ready: boolean; selected?: boolean; compact?: boolean; showOutcome?: boolean } = $props();
 </script>
 
-<a class:selected href={`?packet=${packet.id}`} aria-current={selected ? 'true' : undefined} class="card">
+<a class:selected class:compact href={href} aria-current={selected ? 'true' : undefined} class="card">
   <span class="id">{packet.id}</span>
   <strong>{packet.title}</strong>
   <span class="meta">{packet.owner} · {packet.milestone}</span>
+  <span class={`state state-${packet.state.toLowerCase()}`}>{packet.state}</span>
+  {#if showOutcome && packet.outcome}<span class="outcome">{packet.outcome}</span>{/if}
+  {#if packet.dependsOn.length}<span class="dependencies">↳ {packet.dependsOn.length} dependenc{packet.dependsOn.length === 1 ? 'y' : 'ies'}</span>{/if}
   {#if ready}<span class="ready">Ready next</span>{/if}
 </a>
 
 <style>
   .card { display: grid; gap: .35rem; padding: .85rem; border: 1px solid var(--line); border-radius: .65rem; background: var(--panel); color: inherit; text-decoration: none; }
+  .card.compact { gap: .2rem; padding: .55rem .65rem; }
+  .card.compact .outcome { display: none; }
   .card:hover, .card.selected { border-color: var(--accent); }
-  .id, .meta, .ready { font-size: .78rem; color: var(--muted); }
+  .id, .meta, .state, .ready { font-size: .72rem; color: var(--muted); }
   .id { color: var(--accent); font-weight: 700; }
+  .state { width: max-content; padding: .14rem .4rem; border: 1px solid var(--line); border-radius: 99px; letter-spacing: .04em; }
+  .state-active, .state-partial { color: #ffd28b; border-color: #80683b; }
+  .state-blocked { color: #ffc19e; border-color: #9a6249; }
+  .state-closed { color: var(--good); border-color: #377a59; }
+  .state-dropped { color: #aeb8c4; border-color: #5b6572; }
+  .outcome { display: -webkit-box; overflow: hidden; color: #c4ceda; font-size: .78rem; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  .dependencies { color: #8291a3; font-size: .7rem; }
   .ready { color: var(--good); font-weight: 700; }
 </style>

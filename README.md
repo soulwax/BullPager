@@ -1,8 +1,9 @@
 # Project Agile Web
 
 Local SvelteKit board for the migration plan. It reads the existing authority
-documents and presents packet state, filters, dependencies, and detail without
-introducing a database.
+documents and presents packet state, filters, dependencies, and detail. Vercel
+deployments can persist confirmed transitions in Neon Postgres while retaining
+the Markdown plan as the read-only baseline.
 
 ## Run
 
@@ -12,6 +13,7 @@ Requires Node.js 24+ and npm.
 npm install
 npm run check
 npm test
+npm run test:ci
 npm run dev
 ```
 
@@ -20,7 +22,7 @@ file before opening the board. The login uses an HTTP-only, same-site, signed
 session cookie. Never commit `.env` or place these values in client-side code.
 
 The default source paths are `../../UNITY_PLAN.md` and
-`../../tmp/HUMAN_AGILE_GUIDE.md`. Override them with `HAP_UNITY_PATH` and
+`../../external/docs/HUMAN_AGILE_GUIDE.md`. Override them with `HAP_UNITY_PATH` and
 `HAP_GUIDE_PATH` when using fixtures.
 
 ## Deploy to Vercel
@@ -38,41 +40,76 @@ npx vercel
 npx vercel --prod
 ```
 
-Vercel serves the board and preview actions. Apply actions are intentionally
-disabled in hosted deployments because serverless filesystems are not the
-authoritative checkout. Use the local project server for confirmed writes.
+Vercel serves the board and preview actions. To enable durable hosted applies,
+create a Neon database (Vercel Marketplace or Neon console) and add its pooled
+connection string as `DATABASE_URL` for Preview and Production. The app creates
+`packet_transitions` on first use, stores append-only transition events, and
+overlays the latest event per packet on the bundled Markdown snapshot. Without
+`DATABASE_URL`, hosted applies remain disabled with an actionable error. Local
+development continues to write the authority file atomically.
+
+### Database layer
+
+Neon Postgres is wrapped with [Drizzle ORM](https://orm.drizzle.team/). The typed
+schema lives in `src/lib/server/db/schema.ts`; persistence reads and writes use
+Drizzle's typed query builder, while the existing bootstrap DDL only creates or
+upgrades tables on first use so current deployments keep their data. For planned
+schema changes, review the schema and use `npm run db:generate`, then apply the
+reviewed migration with `npm run db:migrate`.
 
 For Vercel, add the same three variables in Project Settings → Environment
 Variables for Preview and Production. Rotate the password and session secret by
 replacing the values and redeploying.
 
-## Persistence choice
+### GitHub sign-in
 
-The current board does not need a database: the plan files remain the authority,
-and the signed cookie is enough for one protected deployment. For durable
-multi-account features, use **Supabase Postgres + Supabase Auth**. It provides
-Postgres, cookie-based SSR sessions, and row-level security in one service; use
-Supabase's `@supabase/ssr` integration for SvelteKit rather than storing users
-or sessions in browser storage.
+Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in Vercel Production (and
+Preview if needed). Configure the GitHub OAuth callback as
+`https://<your-domain>/auth/github/callback`, or set `GITHUB_OAUTH_REDIRECT`
+explicitly. The GitHub login `soulwax` is always mapped to `superadmin`; other
+GitHub identities are linked to an existing username or provisioned as
+`viewer` users. OAuth state is protected with a short-lived HTTP-only cookie.
 
-Add persistence in this order:
+## Persistence model
 
-1. `packet_events` — append-only state transitions with actor, timestamp,
-   source hash, and diff.
-2. `comments` — review notes linked to a packet event or packet ID.
-3. `projects` and `memberships` — only when more than one plan is managed.
-4. Supabase Storage — only when evidence files or screenshots need durable
-   uploads.
+The first persistence slice is intentionally small: `packet_transitions` is an
+append-only audit trail with packet ID, next state, owner, evidence, remainder,
+source hash, and timestamp. Markdown remains the import/export baseline; the
+latest database event wins at runtime. A future multi-account phase can add
+actors, comments, and memberships without changing the board API.
 
-Keep the Markdown authority as import/export during the first database phase;
-do not create a second editable packet model until the migration decision is
-explicit. If you want a separate authentication provider, Neon Postgres is a
-reasonable database alternative, but it requires choosing and operating auth
-separately.
-
-References: [Supabase SSR package guidance](https://supabase.com/docs/guides/auth/choosing-a-server-package)
-and [Supabase's SvelteKit user-management tutorial](https://supabase.com/docs/guides/getting-started/tutorials/with-sveltekit).
+Project workspaces now persist their own cards in `board_project_cards` and
+per-user board view preferences in `board_project_views`. Creating, editing,
+moving, or deleting a card is a server-side write; lane collapse and density
+changes are debounced and saved for the signed-in user. Reloading or opening the
+same project on another device restores the saved project data and that user's
+last board view. Cards also retain priority and an optional due date, while
+`board_project_activity` keeps a compact audit trail of card changes.
 
 The packet detail panel includes a validated transition form. Preview validates
 required fields and shows a unified diff in memory. Apply requires the exact
 packet ID and the unchanged source hash, then replaces the source atomically.
+
+## Projects and templates
+
+Administrators and editors can open **New project** from the board or Settings.
+The guided flow creates a private project record and seeds a reversible workflow
+template. It currently includes starting points for software delivery, content
+launches, research sprints, event planning, customer operations, and game
+production. Each project gets its own settings namespace for cadence, visibility,
+theme, card density, lane layout, outcomes, and comma-separated lane names.
+
+The Unity migration plan remains the bundled reference board. New project
+metadata and defaults are persisted in `board_projects` and `board_settings`, so
+the creation flow is useful immediately while project-specific packet sources can
+be attached in a later iteration.
+
+## Visual assets
+
+The small interface icon set under `static/assets/icons/` comes from
+[Tabler Icons](https://github.com/tabler/tabler-icons), licensed under MIT. The
+included license text is kept beside the downloaded SVGs.
+
+The empty-state illustrations under `static/assets/illustrations/` come from
+unDraw and include a local copy of its license. They are used only as interface
+supporting art, not redistributed as a standalone asset pack.
