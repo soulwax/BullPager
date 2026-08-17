@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { sessionCookie } from '$lib/server/auth';
 import { loadPlan, readSources, sourcePaths } from '$lib/server/plan';
 import { buildPreview, buildProposedSource, replaceValidated, sourceHash, validateTransition, type TransitionRequest } from '$lib/server/transition';
 import type { PacketState } from '$lib/types';
@@ -8,6 +9,10 @@ export async function load() {
 }
 
 export const actions = {
+  logout: async ({ cookies }) => {
+    cookies.delete(sessionCookie, { path: '/' });
+    return { message: 'Signed out.' };
+  },
   previewTransition: async ({ request }) => {
     const form = await request.formData();
     const packetId = String(form.get('packetId') ?? '');
@@ -29,6 +34,7 @@ export const actions = {
     }
   },
   applyTransition: async ({ request }) => {
+    if (process.env.VERCEL) return fail(405, { errors: ['Hosted deployments are read-only. Apply changes from the local project server.'] });
     const form = await request.formData();
     const packetId = String(form.get('packetId') ?? '');
     const confirmation = String(form.get('confirmation') ?? '');

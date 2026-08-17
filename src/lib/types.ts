@@ -8,6 +8,9 @@ export type Packet = {
   dependsOn: string[];
   milestone: string;
   outcome: string;
+  inputs: string;
+  files: string;
+  doNotTouch: string;
   checks: string;
   evidence: string;
   remainder: string;
@@ -16,6 +19,7 @@ export type Packet = {
 
 export type PlanView = {
   valid: boolean;
+  sourceMode: 'local authority files' | 'hosted read-only snapshot';
   errors: string[];
   guidePath: string;
   unityPath: string;

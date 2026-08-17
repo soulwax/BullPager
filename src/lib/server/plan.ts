@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Packet, PacketState, PlanView } from '$lib/types';
+import unitySnapshot from '../../../content/UNITY_PLAN.md?raw';
+import guideSnapshot from '../../../content/HUMAN_AGILE_GUIDE.md?raw';
 
 const states: PacketState[] = ['OPEN', 'ACTIVE', 'PARTIAL', 'BLOCKED', 'CLOSED', 'DROPPED'];
 const packetHeading = /^###\s+(MIG-[0-9]+)\s+—\s+(.+)$/;
@@ -33,6 +35,9 @@ function parsePackets(markdown: string): Packet[] {
         : [],
       milestone: milestoneFor(heading[1]),
       outcome: field(block, 'Outcome'),
+      inputs: field(block, 'Inputs'),
+      files: field(block, 'Files'),
+      doNotTouch: field(block, 'Do not touch'),
       checks: field(block, 'Checks'),
       evidence: field(block, 'Evidence'),
       remainder: field(block, 'Remainder'),
@@ -76,6 +81,7 @@ export async function loadPlan(): Promise<PlanView> {
   const stateCounts = Object.fromEntries(states.map((state) => [state, packets.filter((packet) => packet.state === state).length])) as Record<PacketState, number>;
   return {
     valid: errors.length === 0,
+    sourceMode: env.VERCEL ? 'hosted read-only snapshot' : 'local authority files',
     errors,
     guidePath,
     unityPath,
@@ -86,13 +92,15 @@ export async function loadPlan(): Promise<PlanView> {
 }
 
 export function sourcePaths() {
+  const deployed = Boolean(env.VERCEL);
   return {
-    unityPath: resolve(env.HAP_UNITY_PATH || '../../UNITY_PLAN.md'),
-    guidePath: resolve(env.HAP_GUIDE_PATH || '../../tmp/HUMAN_AGILE_GUIDE.md')
+    unityPath: resolve(env.HAP_UNITY_PATH || (deployed ? 'content/UNITY_PLAN.md' : '../../UNITY_PLAN.md')),
+    guidePath: resolve(env.HAP_GUIDE_PATH || (deployed ? 'content/HUMAN_AGILE_GUIDE.md' : '../../tmp/HUMAN_AGILE_GUIDE.md'))
   };
 }
 
 export async function readSources() {
+  if (env.VERCEL) return [unitySnapshot, guideSnapshot] as const;
   const { unityPath, guidePath } = sourcePaths();
   return Promise.all([readFile(unityPath, 'utf8'), readFile(guidePath, 'utf8')]);
 }

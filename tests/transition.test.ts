@@ -7,7 +7,7 @@ import type { Packet } from '../src/lib/types';
 
 const packet: Packet = {
   id: 'MIG-00', title: 'Record the transition charter', state: 'OPEN', owner: 'unassigned',
-  dependsOn: [], milestone: 'U0', outcome: 'A charter.', checks: 'Review.', evidence: 'none', remainder: 'none', steps: 'Do it.'
+  dependsOn: [], milestone: 'U0', outcome: 'A charter.', inputs: 'Plan.', files: 'Docs.', doNotTouch: 'Code.', checks: 'Review.', evidence: 'none', remainder: 'none', steps: 'Do it.'
 };
 
 describe('transition preview', () => {
