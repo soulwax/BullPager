@@ -5,6 +5,11 @@ import type { UserRole } from '$lib/types';
 
 const roles: UserRole[] = ['admin', 'editor', 'viewer'];
 function canManage(role: UserRole | undefined) { return role === 'superadmin' || role === 'admin'; }
+function isBootstrapSuperadmin(username: string) { return Boolean(username) && (username === (env.APP_LOGIN || '') || username.toLowerCase() === 'soulwax'); }
+function roleFor(username: string, users: Awaited<ReturnType<typeof listBoardUsers>>) {
+  if (isBootstrapSuperadmin(username)) return 'superadmin' as const;
+  return users.find((user) => user.username === username)?.role ?? null;
+}
 
 export async function load({ locals }) {
   if (!canManage(locals.role)) throw redirect(303, '/');
@@ -21,6 +26,7 @@ export const actions = {
     if (!/^[a-zA-Z0-9._-]{3,48}$/.test(username)) return fail(400, { error: 'Use 3–48 letters, numbers, dots, underscores, or hyphens.' });
     if (password.length < 8) return fail(400, { error: 'Passwords must be at least 8 characters.' });
     if (!roles.includes(role)) return fail(400, { error: 'Choose a valid role.' });
+    if (locals.role === 'admin' && role === 'admin') return fail(403, { error: 'Only the superadmin can create administrator accounts.' });
     try { await createBoardUser(username, password, role); return { message: `${username} created as ${role}.` }; }
     catch { return fail(409, { error: 'That username already exists.' }); }
   },
@@ -45,6 +51,11 @@ export const actions = {
     const username = String(form.get('username') ?? '');
     const role = String(form.get('role') ?? '') as Exclude<UserRole, 'superadmin'>;
     if (!roles.includes(role) || !username) return fail(400, { error: 'Choose a valid role.' });
+    const users = await listBoardUsers();
+    const currentRole = roleFor(username, users);
+    if (!currentRole) return fail(404, { error: 'That account no longer exists.' });
+    if (currentRole === 'superadmin') return fail(403, { error: 'The superadmin account cannot be changed here.' });
+    if (locals.role === 'admin' && currentRole === 'admin') return fail(403, { error: 'Administrators cannot change another administrator.' });
     await updateBoardUserRole(username, role);
     return { message: `${username} is now ${role}.` };
   },
@@ -52,6 +63,11 @@ export const actions = {
     if (!canManage(locals.role)) return fail(403, { error: 'Only administrators can manage users.' });
     const username = String((await request.formData()).get('username') ?? '');
     if (!username) return fail(400, { error: 'Choose a user.' });
+    const users = await listBoardUsers();
+    const currentRole = roleFor(username, users);
+    if (!currentRole) return fail(404, { error: 'That account no longer exists.' });
+    if (currentRole === 'superadmin') return fail(403, { error: 'The superadmin account cannot be removed.' });
+    if (locals.role === 'admin' && currentRole === 'admin') return fail(403, { error: 'Administrators cannot remove another administrator.' });
     await deleteBoardUser(username);
     return { message: `${username} removed.` };
   }

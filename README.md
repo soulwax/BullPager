@@ -70,6 +70,12 @@ explicitly. The GitHub login `soulwax` is always mapped to `superadmin`; other
 GitHub identities are linked to an existing username or provisioned as
 `viewer` users. OAuth state is protected with a short-lived HTTP-only cookie.
 
+The role hierarchy is enforced on the server: `superadmin` can create and
+promote administrators but no account can be promoted to `superadmin`. Admins
+can use the same system settings and user directory, while invited admins have
+editor-level access inside project workspaces. Admins cannot change or remove
+the superadmin or another administrator.
+
 ## Persistence model
 
 The first persistence slice is intentionally small: `packet_transitions` is an
