@@ -1102,3 +1102,49 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .binary-file-icon { display: grid; width: min(12rem, 45vw); aspect-ratio: 1.35; place-items: center; margin: .5rem 0 1rem; border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: .7rem; color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--surface-0)); font: 850 1.5rem/1 ui-monospace, monospace; }
 @media (max-width: 850px) { .files-workspace { grid-template-columns: 220px minmax(0, 1fr); } .markdown-editor-grid { grid-template-columns: 1fr; } .markdown-preview { min-height: 18rem; max-height: 34rem; border-top: 1px solid var(--line); } .codemirror-host { min-height: 24rem; border-right: 0; } }
 @media (max-width: 620px) { .project-files-page { padding: 1rem; } .files-workspace { display: flex; flex-direction: column; } .files-sidebar { max-height: 340px; border-right: 0; border-bottom: 1px solid var(--line); } .file-list { max-height: 140px; } .files-topbar, .file-editor-heading, .file-save-bar { display: grid; } .file-editor-actions { justify-content: end; } }
+
+/* Final Kanban sizing pass: the intake/backlog lane gets the extra reading
+   room, while the remaining lanes shrink by the same amount so the board does
+   not lose usable horizontal space. */
+:root { --trello-list-width: 264px; --trello-backlog-width: 296px; }
+.project-workspace .project-column { flex-basis: var(--trello-list-width); width: var(--trello-list-width); max-width: var(--trello-list-width); }
+.project-workspace .project-column.project-column-backlog { flex-basis: var(--trello-backlog-width); width: var(--trello-backlog-width); max-width: var(--trello-backlog-width); }
+.project-workspace .project-column h2 { min-height: 2.35rem; align-items: center; border-bottom-color: color-mix(in srgb, var(--accent) 25%, var(--line)); background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 88%, transparent), transparent); }
+.project-workspace .project-column-backlog h2 { border-bottom-color: color-mix(in srgb, var(--accent) 58%, var(--line)); }
+.project-workspace .project-column h2 > span:first-child { letter-spacing: -.01em; }
+.project-workspace .project-column h2 small { display: inline-flex; min-width: 1.3rem; justify-content: center; padding: .15rem .3rem; margin-left: .25rem; border: 1px solid var(--line-soft); border-radius: 99px; background: color-mix(in srgb, var(--surface-0) 46%, transparent); }
+.project-workspace .project-card { border-color: color-mix(in srgb, var(--line) 82%, transparent); }
+.project-workspace .project-card:hover, .project-workspace .project-card:focus-visible { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); box-shadow: 0 8px 18px rgb(0 0 0 / .18); }
+.project-workspace .card-actions button, .project-workspace .modal-actions button, .project-workspace .card-composer button { min-height: 2.05rem; padding: .35rem .65rem; border: 1px solid color-mix(in srgb, var(--accent) 52%, var(--line)); border-radius: .4rem; color: #07111c; background: var(--accent); font-size: .72rem; font-weight: 800; }
+.project-workspace .card-actions button.quiet-button, .project-workspace .modal-actions button.quiet-button { color: var(--muted); background: transparent; border-color: var(--line); }
+.project-workspace .card-actions button.quiet-button:hover, .project-workspace .modal-actions button.quiet-button:hover { color: var(--accent-strong); border-color: var(--accent); }
+.project-workspace .project-controls button, .project-workspace .project-controls select, .project-workspace .project-controls input { min-height: 2.15rem; }
+.project-workspace .project-controls button { border: 1px solid var(--line); border-radius: .4rem; font-size: .7rem; }
+.project-workspace .project-controls button.quiet-button { color: var(--muted); background: transparent; }
+.project-workspace .project-controls button.quiet-button:hover, .project-workspace .project-controls button.quiet-button:focus-visible { color: var(--accent-strong); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.project-workspace .lane-menu-body button, .project-workspace .card-quick-menu-body button { border: 0; }
+.project-workspace .collapse-button { border: 1px solid var(--line-soft); box-shadow: none; }
+.project-workspace .add-card-button { border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--line)); color: var(--muted); background: color-mix(in srgb, var(--surface-0) 22%, transparent); }
+.project-workspace .add-card-button:hover, .project-workspace .add-card-button:focus-visible { border-color: var(--accent); color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+
+@media (max-width: 700px) {
+  .project-workspace .project-column, .project-workspace .project-column.project-column-backlog { flex-basis: min(84vw, 326px); width: min(84vw, 326px); max-width: min(84vw, 326px); }
+}
+
+/* Minimal surface pass: keep hierarchy in spacing, type, and one accent
+   instead of stacking gradients, shadows, and hover movement. */
+.project-workspace .project-toolbar { border-radius: .55rem; background: var(--surface-1); box-shadow: none; }
+.project-workspace { padding-top: 1.6rem; padding-bottom: 2rem; }
+.project-workspace > .topbar { padding-bottom: .85rem; margin-bottom: .85rem; }
+.project-workspace .project-stats { gap: .7rem; }
+.project-workspace .project-stats span { padding: 0; border: 0; border-radius: 0; background: none; }
+.project-workspace .project-stats span + span { padding-left: .7rem; border-left: 1px solid var(--line-soft); }
+.project-workspace .project-column { border-radius: .55rem; border-color: var(--line); background: var(--surface-1); box-shadow: none; }
+.project-workspace .project-column:hover { border-color: var(--line); }
+.project-workspace .project-column h2 { background: none; }
+.project-workspace .project-card { border-radius: .45rem; border-color: var(--line); background: var(--surface-2); box-shadow: none; }
+.project-workspace .project-card:not(.dragging):not(.drop-target):hover, .project-workspace .project-card:not(.dragging):not(.drop-target):focus-visible { transform: none; border-color: var(--accent); box-shadow: none; }
+.project-workspace .card-cover { box-shadow: none; }
+.project-workspace button:hover:not(:disabled) { transform: none; box-shadow: none; }
+.project-workspace .project-card-meta { color: var(--muted); }
+.project-workspace .project-column-empty { background: transparent; }
