@@ -31,6 +31,7 @@ describe('project card actions', () => {
     persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]' });
     persistence.listProjectCards.mockResolvedValue([]);
     persistence.createProjectCard.mockResolvedValue(undefined);
+    persistence.updateProjectCard.mockResolvedValue(undefined);
     persistence.recordProjectActivity.mockResolvedValue(undefined);
   });
 
@@ -47,10 +48,25 @@ describe('project card actions', () => {
     expect(persistence.recordProjectActivity).toHaveBeenCalledWith(expect.objectContaining({ action: 'created', summary: expect.stringContaining('Prepare brief') }));
   });
 
+  it('returns a retryable response when persistence is unavailable', async () => {
+    persistence.createProjectCard.mockRejectedValueOnce(new Error('neon timeout'));
+    const result = await actions.createCard(context({ title: 'Retry me', lane: 'Ready' }, 'editor'));
+    expect(result).toMatchObject({ status: 503, data: { error: expect.stringContaining('temporarily unavailable') } });
+    expect(persistence.recordProjectActivity).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid due dates without writing', async () => {
     const result = await actions.createCard(context({ title: 'Bad date', lane: 'Ready', dueDate: '2026-02-30' }, 'editor'));
     expect(result).toMatchObject({ status: 400 });
     expect(persistence.createProjectCard).not.toHaveBeenCalled();
+  });
+
+  it('moves an existing card through the persistent action', async () => {
+    persistence.listProjectCards.mockResolvedValue([{ id: 'card-1', projectSlug: 'demo', title: 'Prepare brief', details: '', lane: 'Ready', owner: 'ada', priority: 'normal', dueDate: null, createdAt: '', updatedAt: '' }]);
+    const result = await actions.moveCard(context({ id: 'card-1', lane: 'Done' }, 'editor'));
+    expect(result).toEqual({ message: 'Card moved.' });
+    expect(persistence.updateProjectCard).toHaveBeenCalledWith(expect.objectContaining({ id: 'card-1', lane: 'Done' }));
+    expect(persistence.recordProjectActivity).toHaveBeenCalledWith(expect.objectContaining({ summary: expect.stringContaining('Done') }));
   });
 
   it('saves only sanitized view preferences', async () => {
@@ -60,6 +76,6 @@ describe('project card actions', () => {
       params: { slug: 'demo' }
     } as never);
     expect(result).toEqual({ message: 'View saved.' });
-    expect(persistence.saveProjectViewState).toHaveBeenCalledWith('demo', 'ada', { density: 'compact', collapsed: { Ready: true, Done: false } });
+    expect(persistence.saveProjectViewState).toHaveBeenCalledWith('demo', 'ada', { density: 'compact', collapsed: { Ready: true, Done: false }, query: '', priority: 'all' });
   });
 });

@@ -144,7 +144,7 @@
 <main class={`theme-${data.plan.projectSettings.project_unity_theme || 'midnight'} project-lane-${data.plan.projectSettings.project_unity_lane_style || 'scroll'}`}>
   <header class="topbar">
     <div><p class="eyebrow">PROJECT TOOL</p><h1>Project Agile Board</h1><p class="subtitle">A readable view of the migration plan and its next actionable work.</p><p class="source-mode">Reading from {data.plan.sourceMode}.</p></div>
-    <div class="top-actions"><div class:valid={data.plan.valid} class="health">{data.plan.valid ? 'Plan valid' : 'Plan needs attention'}</div><div class="top-links">{#if ['superadmin', 'admin', 'editor'].includes(data.role ?? '')}<a class="quiet-button" href="/projects/new">New project</a>{/if}{#if ['superadmin', 'admin'].includes(data.role ?? '')}<a class="quiet-button icon-link" href="/settings"><img class="ui-icon" src="/assets/icons/settings.svg" alt="" /> Settings</a>{/if}<form method="POST" action="?/logout"><button class="quiet-button" type="submit">Sign out</button></form></div></div>
+    <div class="top-actions"><div class:valid={data.plan.valid} class="health">{data.plan.valid ? 'Plan valid' : 'Plan needs attention'}</div><div class="top-links">{#if ['superadmin', 'admin', 'editor'].includes(data.role ?? '')}<a class="quiet-button" href="/projects/new">New project</a>{/if}{#if ['superadmin', 'admin'].includes(data.role ?? '')}<a class="quiet-button icon-link" href="/settings"><img class="ui-icon" src="/assets/icons/settings.svg" alt="" /> Settings</a>{/if}</div></div>
   </header>
 
   {#if data.plan.errors.length}<section class="errors" aria-live="polite"><h2>Plan issues</h2>{#each data.plan.errors as error}<p>{error}</p>{/each}</section>{/if}

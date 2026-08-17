@@ -4,6 +4,10 @@ import { createProjectCard, deleteProjectCard, getBoardProject, listProjectActiv
 import { lanesFromSettings, mergeProjectLanes, projectPrefix, sanitizeProjectViewState, validProjectCardInput } from '$lib/projectState';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
+const persistenceFailure = (message: string, error: unknown) => {
+  console.error(`[project persistence] ${message}`, error);
+  return fail(503, { error: 'The database is temporarily unavailable. Your change was not lost; try again shortly.' });
+};
 
 export async function load({ params, url, locals }) {
   if (params.slug === 'unity-plan') throw redirect(303, '/');
@@ -43,8 +47,12 @@ export const actions = {
     const lanes = await validLanes(params.slug);
     if (!validProjectCardInput(card, lanes)) return fail(400, { error: 'Add a title and choose valid lane, priority, and due-date values.' });
     const owner = card.owner.slice(0, 120) || locals.username || 'unassigned';
-    await createProjectCard({ ...card, owner });
-    await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || owner, action: 'created', cardId: card.id, summary: `Created “${card.title}” in ${card.lane}.` });
+    try {
+      await createProjectCard({ ...card, owner });
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || owner, action: 'created', cardId: card.id, summary: `Created “${card.title}” in ${card.lane}.` });
+    } catch (error) {
+      return persistenceFailure('create card failed', error);
+    }
     return { message: 'Card saved.' };
   },
   updateCard: async ({ request, locals, params }) => {
@@ -55,29 +63,61 @@ export const actions = {
     const lanes = await validLanes(params.slug);
     if (!id || !validProjectCardInput(card, lanes)) return fail(400, { error: 'Choose valid card values.' });
     const owner = card.owner.slice(0, 120) || locals.username || 'unassigned';
-    await updateProjectCard({ ...card, owner });
-    await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || owner, action: 'updated', cardId: card.id, summary: `Updated “${card.title}”.` });
+    try {
+      await updateProjectCard({ ...card, owner });
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || owner, action: 'updated', cardId: card.id, summary: `Updated “${card.title}”.` });
+    } catch (error) {
+      return persistenceFailure('update card failed', error);
+    }
     return { message: 'Card updated.' };
+  },
+  moveCard: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to move project cards.' });
+    const form = await request.formData();
+    const id = String(form.get('id') ?? '').trim();
+    const lane = String(form.get('lane') ?? '').trim();
+    const card = (await listProjectCards(params.slug)).find((item) => item.id === id);
+    const lanes = await validLanes(params.slug);
+    if (!card || !lanes.includes(lane)) return fail(400, { error: 'Choose a valid card and destination lane.' });
+    if (card.lane === lane) return { message: 'Card is already in that lane.' };
+    try {
+      await updateProjectCard({ ...card, lane });
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || card.owner || 'unassigned', action: 'updated', cardId: card.id, summary: `Moved “${card.title}” to ${lane}.` });
+    } catch (error) {
+      return persistenceFailure('move card failed', error);
+    }
+    return { message: 'Card moved.' };
   },
   deleteCard: async ({ request, locals, params }) => {
     if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to change project cards.' });
     const id = String((await request.formData()).get('id') ?? '').trim();
     if (!id) return fail(400, { error: 'Choose a card.' });
-    await deleteProjectCard(params.slug, id);
-    await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'deleted', cardId: id, summary: 'Deleted a card.' });
+    try {
+      await deleteProjectCard(params.slug, id);
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'deleted', cardId: id, summary: 'Deleted a card.' });
+    } catch (error) {
+      return persistenceFailure('delete card failed', error);
+    }
     return { message: 'Card deleted.' };
   },
   saveView: async ({ request, locals, params }) => {
     if (!locals.username) return fail(401, { error: 'Sign in to save your board view.' });
     const form = await request.formData();
     const density = String(form.get('density') ?? 'comfortable');
+    const query = String(form.get('query') ?? '').trim().slice(0, 120);
+    const priority = String(form.get('priority') ?? 'all');
     let collapsed: Record<string, boolean> = {};
     try {
       const parsed = JSON.parse(String(form.get('collapsed') ?? '{}'));
       if (parsed && typeof parsed === 'object') collapsed = sanitizeProjectViewState({ collapsed: parsed }).collapsed ?? {};
     } catch { /* ignore malformed view state */ }
     if (!['comfortable', 'compact'].includes(density)) return fail(400, { error: 'Choose a valid board density.' });
-    await saveProjectViewState(params.slug, locals.username, { density: density as 'comfortable' | 'compact', collapsed });
+    if (!['all', 'low', 'normal', 'high', 'urgent'].includes(priority)) return fail(400, { error: 'Choose a valid priority filter.' });
+    try {
+      await saveProjectViewState(params.slug, locals.username, { density: density as 'comfortable' | 'compact', collapsed, query, priority: priority as 'all' | 'low' | 'normal' | 'high' | 'urgent' });
+    } catch (error) {
+      return persistenceFailure('save view failed', error);
+    }
     return { message: 'View saved.' };
   }
 };

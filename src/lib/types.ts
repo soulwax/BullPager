@@ -59,12 +59,9 @@ export type BoardUser = {
 export type BoardProject = {
   slug: string;
   name: string;
-  type: ProjectType;
   owner: string;
   visibility: 'private' | 'shared';
 };
-
-export type ProjectType = 'standard' | 'storyline';
 
 export type ProjectCard = {
   id: string;
@@ -82,6 +79,8 @@ export type ProjectCard = {
 export type ProjectViewState = {
   density?: 'comfortable' | 'compact';
   collapsed?: Record<string, boolean>;
+  query?: string;
+  priority?: 'all' | 'low' | 'normal' | 'high' | 'urgent';
 };
 
 export type ProjectActivity = {

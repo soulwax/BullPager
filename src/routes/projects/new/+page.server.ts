@@ -35,14 +35,13 @@ export const actions = {
     if (await getBoardProject(slug)) return fail(409, { error: 'That project slug is already in use. Choose another one.', name, slug, templateId });
 
     const settings = await loadBoardSettings();
-    const owner = template.type === 'storyline' ? (settings.superadmin_username || 'superadmin') : (locals.username ?? 'superadmin');
-    const visibility = template.type === 'storyline' ? 'private' : (settings.project_visibility === 'shared' ? 'shared' : 'private');
+    const owner = locals.username ?? 'superadmin';
+    const visibility = settings.project_visibility === 'shared' ? 'shared' : 'private';
     const prefix = `project_${slug}_`;
     try {
-      await createBoardProject({ slug, name, type: template.type, owner, visibility });
+      await createBoardProject({ slug, name, owner, visibility });
       await saveBoardSettings({
         [`${prefix}template`]: template.id,
-        [`${prefix}type`]: template.type,
         [`${prefix}workflow_key`]: '',
         [`${prefix}cadence`]: template.cadence,
         [`${prefix}visibility`]: visibility,

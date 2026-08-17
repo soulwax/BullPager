@@ -1,6 +1,5 @@
 export type ProjectTemplate = {
   id: string;
-  type: 'standard' | 'storyline';
   name: string;
   summary: string;
   bestFor: string;
@@ -13,7 +12,6 @@ export type ProjectTemplate = {
 export const projectTemplates: ProjectTemplate[] = [
   {
     id: 'software-delivery',
-    type: 'standard',
     name: 'Software delivery',
     summary: 'Move features from a shared backlog to a shippable release.',
     bestFor: 'Product, engineering, and platform work',
@@ -23,7 +21,6 @@ export const projectTemplates: ProjectTemplate[] = [
   },
   {
     id: 'content-launch',
-    type: 'standard',
     name: 'Content launch',
     summary: 'Turn ideas into reviewed, scheduled, and published content.',
     bestFor: 'Editorial, marketing, and communications teams',
@@ -33,7 +30,6 @@ export const projectTemplates: ProjectTemplate[] = [
   },
   {
     id: 'research-sprint',
-    type: 'standard',
     name: 'Research sprint',
     summary: 'Keep questions, evidence, synthesis, and decisions visible.',
     bestFor: 'Discovery, UX research, and technical investigation',
@@ -43,7 +39,6 @@ export const projectTemplates: ProjectTemplate[] = [
   },
   {
     id: 'event-planning',
-    type: 'standard',
     name: 'Event planning',
     summary: 'Coordinate an event from loose ideas through follow-up.',
     bestFor: 'Meetups, launches, workshops, and conferences',
@@ -53,7 +48,6 @@ export const projectTemplates: ProjectTemplate[] = [
   },
   {
     id: 'customer-operations',
-    type: 'standard',
     name: 'Customer operations',
     summary: 'Give requests a clear owner, next step, and resolution path.',
     bestFor: 'Support, success, and internal service desks',
@@ -63,7 +57,6 @@ export const projectTemplates: ProjectTemplate[] = [
   },
   {
     id: 'game-production',
-    type: 'standard',
     name: 'Game production',
     summary: 'Shape ideas into tested, polished, and shipped game work.',
     bestFor: 'Game design, art, and production teams',
@@ -71,16 +64,6 @@ export const projectTemplates: ProjectTemplate[] = [
     theme: 'midnight',
     lanes: ['Concept', 'Prototype', 'Production', 'QA', 'Shipped']
   },
-  {
-    id: 'storyline-editor',
-    type: 'storyline',
-    name: 'Storyline editor',
-    summary: 'Develop scenes, dialogue, branches, and voice-ready story beats in one governed workspace.',
-    bestFor: 'Narrative design, dialogue, and audio direction',
-    cadence: 'weekly',
-    theme: 'midnight',
-    lanes: ['Corpus', 'Drafting', 'Voice review', 'Validated', 'Shipped']
-  }
 ];
 
 export function templateById(id: string | null | undefined): ProjectTemplate {

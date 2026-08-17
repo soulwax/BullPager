@@ -1,5 +1,5 @@
 import { bigserial, date, index, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
-import type { PacketState, ProjectType, UserRole } from '$lib/types';
+import type { PacketState, UserRole } from '$lib/types';
 
 const createdAt = (name = 'created_at') => timestamp(name, { withTimezone: true, mode: 'string' }).notNull().defaultNow();
 
@@ -33,7 +33,6 @@ export const boardUsers = pgTable('board_users', {
 export const boardProjects = pgTable('board_projects', {
   slug: text('slug').primaryKey(),
   name: text('name').notNull(),
-  type: text('type').$type<ProjectType>().notNull().default('standard'),
   owner: text('owner').notNull(),
   visibility: text('visibility').$type<'private' | 'shared'>().notNull().default('private'),
   createdAt: createdAt()

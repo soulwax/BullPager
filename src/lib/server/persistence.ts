@@ -25,10 +25,10 @@ function requireDatabase() {
 }
 
 /** Bootstrap existing tables for deployments without a migration runner. Runtime reads/writes use Drizzle. */
-async function ensureSchema() {
+async function initializeSchema() {
   requireDatabase();
   if (!rawSql) throw new Error('Persistence is not configured.');
-  schemaReady ??= Promise.all([rawSql`
+  await Promise.all([rawSql`
     CREATE TABLE IF NOT EXISTS packet_transitions (
       id BIGSERIAL PRIMARY KEY,
       packet_id TEXT NOT NULL,
@@ -59,7 +59,6 @@ async function ensureSchema() {
     CREATE TABLE IF NOT EXISTS board_projects (
       slug TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      type TEXT NOT NULL DEFAULT 'standard',
       owner TEXT NOT NULL,
       visibility TEXT NOT NULL CHECK (visibility IN ('private', 'shared')) DEFAULT 'private',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -101,9 +100,7 @@ async function ensureSchema() {
       summary TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
-  `]).then(() => undefined);
-  await schemaReady;
-  await rawSql`ALTER TABLE board_projects ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'standard'`;
+  `]);
   await rawSql`ALTER TABLE board_project_cards ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS due_date DATE`;
   await rawSql`ALTER TABLE board_users ADD COLUMN IF NOT EXISTS github_id TEXT UNIQUE`;
   await rawSql`
@@ -111,6 +108,18 @@ async function ensureSchema() {
     VALUES ('unity-plan', 'Unity migration plan', ${env.APP_LOGIN || 'superadmin'}, 'private')
     ON CONFLICT (slug) DO NOTHING
   `;
+}
+
+async function ensureSchema() {
+  requireDatabase();
+  if (!schemaReady) {
+    schemaReady = initializeSchema().catch((error) => {
+      // A transient Neon/Vercel failure must not poison this process forever.
+      schemaReady = undefined;
+      throw error;
+    });
+  }
+  await schemaReady;
 }
 
 export async function loadPersistedTransitions(): Promise<PersistedTransition[]> {
@@ -196,7 +205,7 @@ export async function listBoardProjects(): Promise<BoardProject[]> {
   if (!databaseConfigured()) return [];
   await ensureSchema();
   const rows = await requireDatabase().select().from(boardProjects).orderBy(boardProjects.name);
-  return rows.map((row) => ({ slug: row.slug, name: row.name, type: row.type === 'storyline' ? 'storyline' : 'standard', owner: row.owner, visibility: row.visibility }));
+  return rows.map((row) => ({ slug: row.slug, name: row.name, owner: row.owner, visibility: row.visibility }));
 }
 
 export async function getBoardProject(slug: string): Promise<BoardProject | null> {
@@ -204,7 +213,7 @@ export async function getBoardProject(slug: string): Promise<BoardProject | null
   await ensureSchema();
   const rows = await requireDatabase().select().from(boardProjects).where(eq(boardProjects.slug, slug)).limit(1);
   const row = rows[0];
-  return row ? { slug: row.slug, name: row.name, type: row.type === 'storyline' ? 'storyline' : 'standard', owner: row.owner, visibility: row.visibility } : null;
+  return row ? { slug: row.slug, name: row.name, owner: row.owner, visibility: row.visibility } : null;
 }
 
 export async function createBoardProject(project: BoardProject) {

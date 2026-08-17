@@ -2,6 +2,10 @@ import { fail, redirect } from '@sveltejs/kit';
 import { getBoardProject, loadBoardSettings, saveBoardSettings } from '$lib/server/persistence';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
+const persistenceFailure = (error: unknown) => {
+  console.error('[project persistence] settings save failed', error);
+  return fail(503, { error: 'The database is temporarily unavailable. Your settings were not changed; try again shortly.' });
+};
 
 export async function load({ params, locals, url }) {
   if (!canEdit(locals.role)) throw redirect(303, '/');
@@ -28,7 +32,12 @@ export const actions = {
     const laneStyle = String(form.get('laneStyle') ?? 'scroll');
     const lanes = String(form.get('lanes') ?? '').split(',').map((lane) => lane.trim()).filter(Boolean);
     if (key.length > 120 || !['weekly', 'biweekly', 'monthly'].includes(cadence) || !['private', 'shared'].includes(visibility) || !['midnight', 'ocean', 'light'].includes(boardTheme) || !['comfortable', 'compact'].includes(cardDensity) || !['scroll', 'wrap'].includes(laneStyle) || lanes.length < 2 || lanes.length > 8 || lanes.some((lane) => lane.length > 48)) return fail(400, { error: 'Choose valid project settings.' });
-    await saveBoardSettings({ [`${prefix}workflow_key`]: key, [`${prefix}cadence`]: cadence, [`${prefix}visibility`]: visibility, [`${prefix}theme`]: boardTheme, [`${prefix}density`]: cardDensity, [`${prefix}show_outcomes`]: showOutcomes, [`${prefix}lane_style`]: laneStyle, [`${prefix}lanes`]: JSON.stringify(lanes) });
+    const settingsToSave: Record<string, string> = { [`${prefix}workflow_key`]: key, [`${prefix}cadence`]: cadence, [`${prefix}visibility`]: visibility, [`${prefix}theme`]: boardTheme, [`${prefix}density`]: cardDensity, [`${prefix}show_outcomes`]: showOutcomes, [`${prefix}lane_style`]: laneStyle, [`${prefix}lanes`]: JSON.stringify(lanes) };
+    try {
+      await saveBoardSettings(settingsToSave);
+    } catch (error) {
+      return persistenceFailure(error);
+    }
     return { message: 'Project settings saved.' };
   }
 };
