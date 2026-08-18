@@ -19,7 +19,7 @@
     </div>
     <div class="top-links">
       {#if canCreate}<a class="primary-button" href="/projects/new">+ New project</a>{/if}
-      <a class="quiet-button" href="/">Plan snapshot</a>
+      <a class="quiet-button" href="/projects/unity-plan/backlog">Unity backlog</a>
     </div>
   </header>
 
@@ -37,7 +37,7 @@
           <article class="project-hub-card">
             <div class="project-hub-card-heading"><span class="project-mark" aria-hidden="true">{project.name.slice(0, 2).toUpperCase()}</span><div><h3>{project.name}</h3><p>{project.visibility === 'private' ? 'Private workspace' : 'Shared workspace'} · owned by {project.owner}</p></div></div>
             <p class="project-hub-card-copy">One board for the active queue, with project files and optional graph context kept close by.</p>
-            <div class="project-hub-card-actions"><a class="primary-button" href={`/projects/${project.slug}`}>Open board</a><a class="project-cloud-link" href={`/projects/${project.slug}/files`}><span aria-hidden="true">☁</span> Cloud</a><a class="quiet-button" href={`/projects/${project.slug}/graph`}>Graph</a></div>
+            <div class="project-hub-card-actions"><a class="primary-button" href={`/projects/${project.slug}`}>Open board</a><a class="quiet-button" href={`/projects/${project.slug}/backlog`}>Backlog</a><a class="project-cloud-link" href={`/projects/${project.slug}/files`}><span aria-hidden="true">☁</span> Cloud</a><a class="quiet-button" href={`/projects/${project.slug}/graph`}>Graph</a></div>
             <small class="project-hub-slug">/{project.slug}</small>
           </article>
         {/each}
