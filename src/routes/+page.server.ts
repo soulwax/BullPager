@@ -1,11 +1,11 @@
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { sessionCookie } from '$lib/server/auth';
 import { loadPlan, readSources, sourcePaths } from '$lib/server/plan';
 import { buildPreview, buildProposedSource, replaceValidated, sourceHash, validateTransition, type TransitionRequest } from '$lib/server/transition';
 import { persistenceEnabled, savePacketNote, saveTransition, syncUnityPlannerCards } from '$lib/server/persistence';
 import type { PacketState } from '$lib/types';
 
-export async function load({ locals }) {
+export async function load() {
   const plan = await loadPlan();
   if (persistenceEnabled() && plan.valid && plan.packets.length) {
     try {
@@ -16,7 +16,7 @@ export async function load({ locals }) {
       console.error('[planner sync] unable to mirror packets into the board', error);
     }
   }
-  return { plan, role: locals.role };
+  throw redirect(303, '/projects/unity-plan');
 }
 
 export const actions = {

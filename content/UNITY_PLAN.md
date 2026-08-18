@@ -29,7 +29,8 @@ files and the project-management database, not by copying runtime state.
 1. `external/docs/MASTERPLAN.md` owns product intent and human acceptance.
 2. This file owns Unity categories, packet order, architecture, and database
    synchronization.
-3. `text/story.screenplay` and linked corpus files own story content.
+3. `text/story.screenplay` and linked corpus files remain root/Python-owned
+   authoring sources; Unity consumes their validated read-only export.
 4. `assets/house/*.json` own authored house, inventory, material, and sound
    data after validation.
 5. Dart files named in section 3 are reference algorithms, never authority.
@@ -135,12 +136,13 @@ owner of story or save state.
 
 ### 2.3 Authored content and import
 
-**Subcategories:** screenplay; dialogue corpus; house rooms; portals; inventory;
+**Subcategories:** scenario export; dialogue corpus; house rooms; portals; inventory;
 materials; soundscape; schema validation; generated Unity assets.
 
 Source JSON/text is validated first, then converted into typed immutable
 runtime data. Stable IDs are mandatory. A failed import names the ID and source
-path and produces no partial asset set.
+path and produces no partial asset set. Unity has no screenplay editor, story
+graph editor, or authoring UI: those remain outside the game project.
 
 ### 2.4 Persistence and database synchronization
 
@@ -175,7 +177,7 @@ available.
 **Subcategories:** event schedule; visitor arrival; conversation choices;
 callbacks; flags; residues; day progression; endings.
 
-The screenplay schedule is the only event authority. The runtime resolves
+The validated scenario schedule is the only event authority. The runtime resolves
 conditions and records choices; it never invents an event because a prototype
 class happens to be available.
 
@@ -352,8 +354,24 @@ are presentation labels only.
 - The project settings retain the full planner digest, last sync timestamp,
   changed count, and changed packet IDs so an administrator can audit the last
   mirror without inspecting every card.
-- Existing cards created under the old `Unity migration plan` name are renamed
-  once to `Unity greenfield build plan`; a custom project name is preserved.
+- Existing cards created under the old `Unity migration plan` or `Unity
+  greenfield build plan` names are renamed once to `Unity implementation
+  board`; a custom project name is preserved.
+
+### 6.2 Canonical Kanban migration
+
+The `unity-plan` project is the only interactive task surface for this plan.
+Every packet becomes one persistent `unity-mig-##` Kanban card, initially in
+`Backlog`; active, blocked, and closed packets map to `In progress`, `Blocked`,
+and `Done` on first sync. The card's checklist mirrors the packet steps, its
+reserved planner tags mirror the packet tags, and its detail text keeps the
+source contract readable without opening the Markdown file.
+
+After the first card is created, lane and position are board-owned. Dragging,
+comments, watching, due dates, and custom tags stay on the Kanban board;
+source synchronization enriches the plan fields without resetting active work.
+The website home route opens this board directly, so there is no separate
+screenplay-like planning editor or secondary to-do view to keep in sync.
 
 The implementation lives in
 `external/project-agile-web/src/lib/server/persistence.ts` (`syncUnityPlannerCards`).
@@ -372,6 +390,36 @@ checked plan export, but Unity must not write directly to Postgres.
 | U5 Production house | 2.5, 2.11 | Rooms, lighting, materials, and audio pass human review |
 | U6 Release candidate | 2.4, 2.9, 2.12 | Windows build, recovery, accessibility, and performance gates pass |
 
+### 7.1 Milestone handoff checklist
+
+Each milestone hands a small, inspectable package to the next one. Do not start
+the next milestone on confidence alone; verify these concrete handoffs:
+
+| Handoff | Required package | Next work may assume |
+|---|---|---|
+| U0 -> U1 | pinned Unity version, empty bootstrap scene, CI command, plan mirror, and source-authority map | the project opens consistently and source changes have one owner |
+| U1 -> U2 | validated sample content, deterministic `GameSession` fixture, one save envelope, and event log | data and rules can be exercised without a scene |
+| U2 -> U3 | Day 1 greybox route, movement/portal/focus proof, cue plan, and input shell | a player can move, act, hear, and receive feedback |
+| U3 -> U4 | clean Day 1 build, reload proof, accessibility capture, known issues ranked by severity | campaign work extends a stable vertical slice |
+| U4 -> U5 | replayable Act I–III fixture set, consequence audit, ending-input report | production art and voice can bind to stable story IDs |
+| U5 -> U6 | approved room batches, lighting profile, performance capture, rights ledger | packaging does not need placeholder or unapproved assets |
+
+### 7.2 Packet execution cadence
+
+Use this cadence inside every packet, even when the packet's local steps are
+shorter:
+
+1. **Prepare:** reread the packet, dependencies, source files, and acceptance
+   check; record any missing authority as `BLOCKED` before editing.
+2. **Prove the gap:** add a failing focused test, importer fixture, or
+   reproducible PlayMode route that demonstrates the missing behaviour.
+3. **Implement the smallest path:** keep rules in plain C# and adapt them to
+   Unity at the edge; avoid opportunistic refactors outside `Files`.
+4. **Integrate once:** exercise the feature through `Bootstrap.unity` or the
+   relevant import/build command rather than only through a unit fixture.
+5. **Verify and hand off:** attach command output, digest, capture, and known
+   remainder; update the packet/card only after the named check passes.
+
 ## 8. Ordered implementation packets
 
 ### MIG-00 — Choose the greenfield contract
@@ -388,9 +436,11 @@ Inputs: `external/docs/MASTERPLAN.md`, this plan, Dart reference map.
 Files: `UNITY_PLAN.md`, `unity/Docs/Decisions/DEC-001-greenfield.md`
 Do not touch: Dart runtime, story prose, database rows.
 Steps:
-1. Confirm Unity 6.3 LTS patch and Windows build target.
-2. Confirm the first playable route and explicit exclusions.
-3. Record whether any optional package is approved.
+1. List the product, source, build, and planning authorities with a named owner for each.
+2. Confirm the exact Unity 6.3 LTS patch, Windows build target, and supported test machine.
+3. Write the Day 1 route as player action -> domain consequence -> saved proof.
+4. Separate approved packages from deferred packages; record a reason and replacement for each deferral.
+5. Capture explicit non-goals so later packets cannot silently grow the first playable.
 Checks: Human review of the charter; no Unity project required yet.
 Evidence: none
 Remainder: none
@@ -409,9 +459,11 @@ Inputs: approved Unity patch, package list, Windows build environment.
 Files: `unity/ProjectSettings`, `unity/Packages`, `unity/Assets/Quarantine/Tests`, CI workflow.
 Do not touch: gameplay rules, imported content, final art.
 Steps:
-1. Create the project and pin packages.
-2. Add `Bootstrap.unity` and a deterministic EditMode smoke test.
-3. Add a reproducible Windows build command.
+1. Create the project from the approved editor version and commit the generated package lock files.
+2. Add folder roots, assembly definitions, `.editorconfig`, and a bootstrap scene with one visible build stamp.
+3. Add a deterministic EditMode smoke test that creates and disposes the composition root without a scene lookup.
+4. Add a reproducible Windows build command that writes logs and an artifact to a known path.
+5. Run the command from a clean checkout and record the editor version, package lock digest, and output path.
 Checks: Clean clone open; EditMode tests; development build.
 Evidence: none
 Remainder: none
@@ -426,13 +478,15 @@ Subcategory: Schemas and IDs
 Tags: content, schemas, validation, ids
 Depends on: MIG-01
 Outcome: C# content records validate house, story, inventory, material, sound, and schedule sources without Unity scene access.
-Inputs: `assets/house/*.json`, screenplay/corpus, Dart parsers as behaviour references.
+Inputs: `assets/house/*.json`, validated scenario export/corpus, Dart parsers as behaviour references.
 Files: `Runtime/Content`, `Editor/Import` schemas and tests.
 Do not touch: generated prefabs, gameplay controllers.
 Steps:
-1. Define stable ID and reference types.
-2. Validate duplicates, missing references, ranges, and source digests.
-3. Add fixture tests for valid and invalid source.
+1. Inventory every source type and identify its stable primary ID, foreign references, optional fields, and allowed ranges.
+2. Define immutable C# definitions plus a single validation result format containing source path, ID, field, and message.
+3. Validate duplicate IDs, missing references, ranges, required text, and source digests before touching generated assets.
+4. Add one minimal valid fixture and one focused invalid fixture for each source family.
+5. Make the importer surface all actionable errors in one run, while refusing to emit a partial asset set.
 Checks: EditMode schema suite; malformed fixture fails with path and ID.
 Evidence: none
 Remainder: none
@@ -451,9 +505,11 @@ Inputs: validated schemas and canonical text/JSON.
 Files: `Editor/Import`, `Content/Generated`.
 Do not touch: runtime session and scene art.
 Steps:
-1. Import screenplay schedule and corpus.
-2. Import room graph, portals, inventory, materials, and soundscape.
-3. Write source digest and importer version into generated assets.
+1. Define an import manifest that lists every source file, parser version, and output asset root.
+2. Import the validated scenario schedule and corpus into typed data with source line/ID diagnostics.
+3. Import room graph, portals, inventory, materials, and soundscape using the same stable-ID rules.
+4. Generate into a temporary output root, validate cross-references there, then swap it into `Content/Generated`.
+5. Write source digest, importer version, and generated-at metadata into the import manifest for review.
 Checks: Two identical imports produce identical IDs/digests; invalid import is atomic.
 Evidence: none
 Remainder: none
@@ -472,10 +528,12 @@ Inputs: `syncUnityPlannerCards`, `DATABASE_URL`, packet parser.
 Files: website persistence/tests and database-sync documentation.
 Do not touch: gameplay save files, user-owned board lane positions.
 Steps:
-1. Add packet category/subcategory and normalized tags to card details and tag links.
-2. Upsert changed source-owned fields while preserving board-owned fields.
-3. Record plan digest and changed packet count in activity.
-4. Add parser validation, retry, tag-preservation, and conflict tests.
+1. Parse packet identity, taxonomy, tags, dependencies, steps, checks, and evidence into a canonical source projection.
+2. Reject duplicate IDs, unknown dependencies, missing taxonomy, or untagged packets before opening a database write.
+3. Add packet category/subcategory and normalized tags to card details and reserved planner tag links.
+4. Upsert changed source-owned fields while preserving lane, position, archive state, comments, watchers, custom tags, and view state.
+5. Record plan digest, changed count, and changed packet IDs only after a complete successful pass.
+6. Add parser validation, retry, tag-preservation, no-op, and conflict tests.
 Checks: Validation rejects duplicate/missing IDs before writes; website tests; hosted sync with a changed packet; repeat sync is a no-op; retry after transient failure.
 Evidence: none
 Remainder: none
@@ -515,9 +573,11 @@ Inputs: `lib/game/session.dart` (`advance`, `sleep`, `spendHoursAndGas`), produc
 Files: `Runtime/Domain/Clock`, `Resources`, `Difficulty`, tests.
 Do not touch: UI timers, MonoBehaviour.Update, final pacing art.
 Steps:
-1. Implement immutable snapshot and command results.
-2. Port only the tested resource invariants.
-3. Add seeded difficulty and day-boundary tests.
+1. Write a command table for advance, spend, collect, sleep, and rejection cases before implementing state changes.
+2. Implement immutable snapshot and command results with explicit before/after time and resource deltas.
+3. Port only the tested resource invariants; retain the Dart rule intent, not its object structure.
+4. Seed difficulty once at run creation and persist the seed in the snapshot.
+5. Add same-day, day-boundary, insufficient-resource, and replay tests with an expected event list.
 Checks: EditMode fixture replay produces the same snapshot and event list.
 Evidence: none
 Remainder: none
@@ -543,7 +603,7 @@ Checks: Replay fixture; locked entry cannot be silently changed.
 Evidence: none
 Remainder: none
 
-### MIG-12 — Implement scheduled story events
+### MIG-12 — Implement the authored encounter schedule
 
 ID: MIG-12
 State: OPEN
@@ -552,8 +612,8 @@ Category: Story delivery and people
 Subcategory: Schedule, choices, and callbacks
 Tags: story, schedule, choices, callbacks
 Depends on: MIG-03, MIG-10, MIG-11
-Outcome: The screenplay schedule delivers one canonical encounter and records its callback flags.
-Inputs: screenplay/corpus import, `NarrativeEncounterDirector.resolveEncounter`, `commitChoice`.
+Outcome: The validated scenario schedule delivers one canonical encounter and records its callback flags.
+Inputs: scenario/corpus import, `NarrativeEncounterDirector.resolveEncounter`, `commitChoice`.
 Files: `Runtime/Story`, tests.
 Do not touch: hard-coded replacement schedules and prototype narrative directors.
 Steps:
@@ -599,9 +659,11 @@ Inputs: `lib/game/save_store.dart` (`write`, `read`), save contract section 5.3.
 Files: `Runtime/Save`, EditMode and PlayMode save tests.
 Do not touch: hosted planner database or per-frame autosave.
 Steps:
-1. Serialize the versioned envelope and checksum.
-2. Write temporary then replace active; retain recovery.
-3. Reject bad data without deleting good data.
+1. Define the envelope schema, version, payload digest, active-slot path, recovery-slot path, and upgrade policy.
+2. Serialize a known `GameSession` snapshot and verify a byte-for-byte round trip in an EditMode test.
+3. Write a temporary file, flush it, validate its checksum, then replace the active slot and retain recovery.
+4. Simulate interruption before replace, corrupted active data, unknown schema, and missing recovery data.
+5. Reject bad data without deleting good data, and expose a clear restore/new-run choice to the UI.
 Checks: Interrupted-write fixture; build-path reload test.
 Evidence: none
 Remainder: none
@@ -620,9 +682,11 @@ Inputs: house JSON, inventory JSON, `HouseInventory.validateAgainst`.
 Files: `Runtime/World`, `Editor/Import`, `Scenes/Day01Greybox`.
 Do not touch: final production models and decorative dressing.
 Steps:
-1. Establish metres, eye height, floor, stairs, and portal conventions.
-2. Generate labeled proxy geometry from room data.
-3. Bind focus points and residues by ID.
+1. Establish metres, eye height, floor, stair, doorway, and portal-plane conventions in one calibration scene.
+2. Add a source-to-scene binding manifest that maps each room/portal/focus ID to its generated object.
+3. Generate labeled proxy geometry from room data with debug labels available in development builds.
+4. Bind focus points and residues by ID, failing import when a referenced binding is absent.
+5. Walk the complete Day 1 route after every generated-world change and capture the room graph version.
 Checks: Room graph validator; PlayMode route reaches every Day 1 target.
 Evidence: none
 Remainder: none
@@ -641,9 +705,11 @@ Inputs: `lib/house/collision.dart` (`Capsule.move`, `_tryAxis`, `_moveOnStair`, 
 Files: `Runtime/World/Movement`, `Runtime/Interaction/Portals`, tests.
 Do not touch: story triggers hidden in movement code.
 Steps:
-1. Implement capsule sweep and axis-separated resolution.
-2. Implement stair enter/restore and portal-plane bounds.
-3. Emit room-change domain command to the session.
+1. Separate input sampling, desired displacement, collision resolution, and session notification into distinct components.
+2. Implement capsule sweep and axis-separated resolution against the generated collision layer.
+3. Implement stair enter/restore and portal-plane bounds with deliberate tests for clipping, backtracking, and blocked doors.
+4. Emit a room-change domain command only after a valid portal crossing; do not hide story triggers in physics callbacks.
+5. Compare the PlayMode route against fixed expected room IDs and movement rejection reasons.
 Checks: Collision fixture; PlayMode ground/upper/cellar route.
 Evidence: none
 Remainder: none
@@ -721,7 +787,7 @@ Subcategory: Dialogue, choices, and fallback
 Tags: story, dialogue, captions, fallback
 Depends on: MIG-12, MIG-23, MIG-30
 Outcome: A visitor conversation presents authored lines, choices, captions, and callbacks without audio.
-Inputs: imported corpus, schedule, caption rules.
+Inputs: imported corpus, validated schedule, caption rules.
 Files: `Runtime/UI/Dialogue`, `Runtime/Story` presentation adapter, tests.
 Do not touch: generated voice assets.
 Steps:
@@ -788,9 +854,11 @@ Inputs: canonical Day 1 content and human review.
 Files: integration scene, build script, evidence index.
 Do not touch: final house art, Acts II–III, locked voice.
 Steps:
-1. Run the complete route from a clean profile.
-2. Save, quit, reload, and verify the residue and journal.
-3. Collect visual/audio/accessibility feedback and fix blockers.
+1. Define one scripted Day 1 acceptance route, including expected prompts, choices, journal states, resources, and room IDs.
+2. Run the complete route from a clean profile on the target Windows configuration.
+3. Save, quit, reload, and verify the residue, journal, resource state, and scheduled-event position.
+4. Collect visual, audio, accessibility, and comprehension feedback in one review record.
+5. Classify findings as blocker, follow-up, or observation; fix blockers and rerun the same route before closing.
 Checks: clean Windows development build; human playthrough approved.
 Evidence: none
 Remainder: none
@@ -867,14 +935,16 @@ Category: Story delivery and people
 Subcategory: Campaign progression
 Tags: story, campaign, schedule, consequences
 Depends on: MIG-40, MIG-52
-Outcome: The full campaign runs from canonical schedule, corpus, journal, resources, and consequences.
+Outcome: The full campaign runs from the validated scenario schedule, corpus, journal, resources, and consequences.
 Inputs: closed story batches, approved room/audio batches.
 Files: campaign fixtures, event bindings, PlayMode scenarios.
 Do not touch: invented event timing and duplicate narrative authorities.
 Steps:
-1. Add one closed story batch at a time.
-2. Replay key choices from a known seed.
-3. Review pacing and restraint after each act.
+1. Divide the canonical schedule into closed batches with explicit day ranges, required room bindings, and expected callbacks.
+2. Add one closed story batch at a time, importing rather than manually recreating line IDs or timing.
+3. Replay key choices from a known seed and compare journal, resources, residues, and callbacks to fixture expectations.
+4. Run a save/reload at the boundary of every story batch to catch persistence gaps early.
+5. Review pacing, restraint, and consequence readability after each act before enabling the next batch.
 Checks: act fixtures, save/reload, human pacing review.
 Evidence: none
 Remainder: none
@@ -914,7 +984,7 @@ Inputs: locked script, rights records, approved performances.
 Files: voice assets, import metadata, mixer routes, caption timings.
 Do not touch: unapproved generated voice in release builds.
 Steps:
-1. Verify line IDs against the corpus.
+1. Verify imported line IDs against the corpus.
 2. Import only rights-cleared files.
 3. Test missing/failed voice fallback and captions.
 Checks: voice audit; headphone/speaker human review.
@@ -935,9 +1005,11 @@ Inputs: all closed packets, target hardware, release profile.
 Files: build scripts, release notes, evidence index, checksums.
 Do not touch: source authority files during packaging.
 Steps:
-1. Run clean checkout tests and content validation.
-2. Measure boot, room transition, memory, frame time, save recovery, and input.
-3. Package the candidate and record exact digest.
+1. Freeze the candidate source digest, package lock, generated-content manifest, and approved rights ledger.
+2. Run clean-checkout tests, content validation, database-plan audit, and a development build before release packaging.
+3. Measure boot, room transition, memory, frame time, save recovery, audio fallback, and keyboard navigation on target hardware.
+4. Install the packaged candidate on a clean Windows profile and complete the release route without developer tools.
+5. Package the candidate, record exact artifact digest, preserve logs/captures, and write rollback notes for any discovered blocker.
 Checks: release preflight; human playthrough; recovery drill.
 Evidence: none
 Remainder: none

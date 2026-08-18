@@ -204,13 +204,13 @@ async function initializeSchema() {
   await rawSql`ALTER TABLE board_users ADD COLUMN IF NOT EXISTS github_id TEXT UNIQUE`;
   await rawSql`
     INSERT INTO board_projects (slug, name, owner, visibility)
-    VALUES ('unity-plan', 'Unity greenfield build plan', ${env.APP_LOGIN || 'superadmin'}, 'private')
+    VALUES ('unity-plan', 'Unity implementation board', ${env.APP_LOGIN || 'superadmin'}, 'private')
     ON CONFLICT (slug) DO NOTHING
   `;
   await rawSql`
     UPDATE board_projects
-    SET name = 'Unity greenfield build plan'
-    WHERE slug = 'unity-plan' AND name = 'Unity migration plan'
+    SET name = 'Unity implementation board'
+    WHERE slug = 'unity-plan' AND name IN ('Unity migration plan', 'Unity greenfield build plan')
   `;
 }
 
@@ -373,8 +373,8 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
   const database = requireDatabase();
   const projectSlug = 'unity-plan';
   const owner = env.APP_LOGIN || 'superadmin';
-  await database.insert(boardProjects).values({ slug: projectSlug, name: 'Unity greenfield build plan', owner, visibility: 'private' }).onConflictDoNothing();
-  await database.update(boardProjects).set({ name: 'Unity greenfield build plan' }).where(and(eq(boardProjects.slug, projectSlug), eq(boardProjects.name, 'Unity migration plan')));
+  await database.insert(boardProjects).values({ slug: projectSlug, name: 'Unity implementation board', owner, visibility: 'private' }).onConflictDoNothing();
+  await database.update(boardProjects).set({ name: 'Unity implementation board' }).where(and(eq(boardProjects.slug, projectSlug), inArray(boardProjects.name, ['Unity migration plan', 'Unity greenfield build plan'])));
   await database.insert(boardSettings).values({ key: `project_${projectSlug}_lanes`, value: JSON.stringify(['Backlog', 'In progress', 'Blocked', 'Done']) }).onConflictDoNothing();
   await database.insert(boardSettings).values({ key: `project_${projectSlug}_theme`, value: 'midnight' }).onConflictDoNothing();
   await ensureDefaultProjectTags(projectSlug);

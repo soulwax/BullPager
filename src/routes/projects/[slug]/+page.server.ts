@@ -1,7 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { createProjectCard, createProjectComment, createProjectTag, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, loadBoardSettings, loadProjectViewState, recordProjectActivity, reorderProjectCard, saveProjectViewState, setProjectCardOrder, setProjectCardWatching, updateProjectCard } from '$lib/server/persistence';
+import { createProjectCard, createProjectComment, createProjectTag, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, loadBoardSettings, loadProjectViewState, persistenceEnabled, recordProjectActivity, reorderProjectCard, saveProjectViewState, setProjectCardOrder, setProjectCardWatching, syncUnityPlannerCards, updateProjectCard } from '$lib/server/persistence';
 import { lanesFromSettings, mergeProjectLanes, projectPrefix, sanitizeProjectViewState, validProjectCardInput } from '$lib/projectState';
+import { loadPlan } from '$lib/server/plan';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
 const persistenceFailure = (message: string, error: unknown) => {
@@ -10,6 +11,18 @@ const persistenceFailure = (message: string, error: unknown) => {
 };
 
 export async function load({ params, url, locals }) {
+  if (params.slug === 'unity-plan' && persistenceEnabled()) {
+    const plan = await loadPlan();
+    if (plan.valid && plan.packets.length) {
+      try {
+        await syncUnityPlannerCards(plan.packets, { sourceDigest: plan.sourceDigest, actor: locals.username || 'planner' });
+      } catch (error) {
+        // The board remains readable if a transient sync fails. The next board
+        // visit resumes the idempotent mirror.
+        console.error('[unity board sync] unable to mirror implementation packets', error);
+      }
+    }
+  }
   const project = await getBoardProject(params.slug);
   if (!project) throw redirect(303, '/settings');
   const allSettings = await loadBoardSettings();
