@@ -10,12 +10,17 @@ import guideSnapshot from '../../../content/HUMAN_AGILE_GUIDE.md?raw';
 const states: PacketState[] = ['OPEN', 'ACTIVE', 'PARTIAL', 'BLOCKED', 'CLOSED', 'DROPPED'];
 const packetHeading = /^###\s+(MIG-[0-9]+)\s+—\s+(.+)$/;
 /** A packet whose source line exceeds this is rejected by `validatePackets`
- * rather than silently truncated — see BUILD_MASTERPLAN.md §B.3 (B3-1). The
- * grammar stays the lenient `u<0-6>-<slug>` form used by the shipped plan
- * today; BUILD_MASTERPLAN.md §B.2's typed-kind grammar is a future tightening
- * that must land together with a rewrite of every packet's `Handles:` line. */
+ * rather than silently truncated — see BUILD_MASTERPLAN.md §B.3 (B3-1). */
 export const MAX_PACKET_HANDLES = 40;
 export const MAX_PACKET_TAGS = 12;
+/** The "right-sized" band from BUILD_MASTERPLAN.md §B.2: fewer means a packet
+ * is under-sliced (a handle isn't really one sitting); more means it should
+ * be split into two packets rather than growing past MAX_PACKET_HANDLES. */
+export const MIN_RIGHTSIZED_HANDLES = 4;
+export const MAX_RIGHTSIZED_HANDLES = 20;
+/** BUILD_MASTERPLAN.md §B.2's typed-kind grammar: `u<milestone>-<scope>-<slice>-<kind>`. */
+const HANDLE_KINDS = ['decide', 'spike', 'schema', 'rule', 'port', 'adapter', 'bind', 'scene', 'asset', 'fixture', 'test', 'route', 'capture', 'review', 'guard', 'doc'] as const;
+const handlePattern = new RegExp(`^u([0-6])-([a-z0-9]+)-[a-z0-9]+(?:-[a-z0-9]+){0,3}-(?:${HANDLE_KINDS.join('|')})$`);
 
 function field(block: string, name: string): string {
   const match = block.match(new RegExp(`^${name}:\\s*(.*(?:\\n(?![A-Za-z ]+:).*)*)$`, 'm'));
@@ -63,6 +68,11 @@ export function parsePackets(markdown: string): Packet[] {
   return packets;
 }
 
+/** Categories where a visible/experiential change means a model's judgment
+ * is not enough to close the packet — BUILD_MASTERPLAN.md §B.2's mandatory
+ * `review` handle rule, mirroring MASTERPLAN.md §9.2's human-eyes gate. */
+const REVIEW_REQUIRED_CATEGORIES = new Set(['House and spatial world', 'UI, input, and accessibility', 'Rendering and presentation']);
+
 export function validatePackets(packets: Packet[]): string[] {
   const errors: string[] = [];
   const seen = new Set<string>();
@@ -73,12 +83,27 @@ export function validatePackets(packets: Packet[]): string[] {
     if (!packet.category?.trim()) errors.push(`${packet.id} has no category.`);
     if (!packet.subcategory?.trim()) errors.push(`${packet.id} has no subcategory.`);
     if (!packet.tags?.length) errors.push(`${packet.id} has no tags; use at least one capability label.`);
-    if (!packet.handles?.length) errors.push(`${packet.id} has no handles; add one or more milestone-prefixed implementation slices.`);
-    if ((packet.handles?.length ?? 0) > MAX_PACKET_HANDLES) errors.push(`${packet.id} has ${packet.handles!.length} handles, over the ${MAX_PACKET_HANDLES} cap; split the packet instead of adding more handles to one card.`);
     if (!packet.runbook?.trim()) errors.push(`${packet.id} has no runbook; add ordered implementation instructions.`);
-    for (const handle of packet.handles ?? []) {
-      if (!/^u[0-6]-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(handle)) errors.push(`${packet.id} has invalid handle ${handle}.`);
+    const handles = packet.handles ?? [];
+    if (!handles.length) {
+      errors.push(`${packet.id} has no handles; add one or more milestone-prefixed implementation slices.`);
+      continue;
     }
+    if (handles.length > MAX_PACKET_HANDLES) errors.push(`${packet.id} has ${handles.length} handles, over the ${MAX_PACKET_HANDLES} cap; split the packet instead of adding more handles to one card.`);
+    else if (handles.length < MIN_RIGHTSIZED_HANDLES || handles.length > MAX_RIGHTSIZED_HANDLES) errors.push(`${packet.id} has ${handles.length} handles, outside the ${MIN_RIGHTSIZED_HANDLES}-${MAX_RIGHTSIZED_HANDLES} right-sized band; under-sliced handles aren't one sitting, and a packet needing more should split (BUILD_MASTERPLAN.md §B.5).`);
+    const expectedMilestoneDigit = milestoneFor(packet.id).replace('U', '');
+    const scopes = new Set<string>();
+    const kinds = new Set<string>();
+    for (const handle of handles) {
+      const match = handle.match(handlePattern);
+      if (!match) { errors.push(`${packet.id} has invalid handle ${handle}; expected u<milestone>-<scope>-<slice>-<kind>.`); continue; }
+      const [, milestoneDigit, scope] = match;
+      if (milestoneDigit !== expectedMilestoneDigit) errors.push(`${packet.id} handle ${handle} is milestoned u${milestoneDigit}, but the packet belongs to ${milestoneFor(packet.id)}.`);
+      scopes.add(scope);
+      kinds.add(handle.slice(handle.lastIndexOf('-') + 1));
+    }
+    if (scopes.size > 1) errors.push(`${packet.id} handles use inconsistent scopes (${[...scopes].join(', ')}); every handle in one packet shares the same scope token.`);
+    if (REVIEW_REQUIRED_CATEGORIES.has(packet.category ?? '') && !kinds.has('review')) errors.push(`${packet.id} is in a visible-change category (${packet.category}) and needs at least one -review handle before it can close on more than a model's judgment.`);
   }
   for (const packet of packets) {
     for (const dependency of packet.dependsOn) {
@@ -88,16 +113,21 @@ export function validatePackets(packets: Packet[]): string[] {
   return errors;
 }
 
+// An explicit table, not a numeric-range heuristic: MIG-04 (U0) and MIG-14
+// (U2) both break a range formula, and only the ledger in UNITY_PLAN.md §11
+// is authoritative for which milestone a packet belongs to.
+const MILESTONE_BY_PACKET: Record<string, string> = {
+  'MIG-00': 'U0', 'MIG-01': 'U0', 'MIG-04': 'U0', 'MIG-05': 'U0',
+  'MIG-02': 'U1', 'MIG-03': 'U1', 'MIG-10': 'U1', 'MIG-11': 'U1', 'MIG-12': 'U1', 'MIG-13': 'U1',
+  'MIG-14': 'U2', 'MIG-20': 'U2', 'MIG-21': 'U2', 'MIG-22': 'U2', 'MIG-23': 'U2',
+  'MIG-30': 'U3', 'MIG-31': 'U3', 'MIG-32': 'U3', 'MIG-33': 'U3', 'MIG-40': 'U3',
+  'MIG-60': 'U4', 'MIG-61': 'U4',
+  'MIG-50': 'U5', 'MIG-51': 'U5', 'MIG-52': 'U5', 'MIG-62': 'U5',
+  'MIG-70': 'U6'
+};
+
 function milestoneFor(id: string): string {
-  const numeric = Number(id.slice(4));
-  if (numeric === 0 || numeric === 1 || numeric === 5) return 'U0';
-  if (numeric < 20) return 'U1';
-  if (numeric < 30) return 'U2';
-  if (numeric < 50) return 'U3';
-  if (numeric < 60) return 'U5';
-  if (numeric < 62) return 'U4';
-  if (numeric < 70) return 'U5';
-  return 'U6';
+  return MILESTONE_BY_PACKET[id] ?? 'U0';
 }
 
 function readyIds(packets: Packet[]): string[] {

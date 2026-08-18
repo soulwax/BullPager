@@ -88,4 +88,94 @@ Depends on: MIG-60`);
     expect(packets.every((packet) => packet.runbook?.trim())).toBe(true);
     expect(validatePackets(packets)).toEqual([]);
   });
+
+  it('fixes MIG-04 and MIG-14 to the ledger milestone rather than a numeric-range guess', () => {
+    // MIG-04 (sync, numeric 4) and MIG-14 (save, numeric 14) both break a
+    // clean numeric-range formula against UNITY_PLAN.md §11's ledger — U0 and
+    // U2 respectively, not U1. Only an explicit table gets these right.
+    const packets = parsePackets(unitySnapshot);
+    const byId = new Map(packets.map((packet) => [packet.id, packet.milestone]));
+    expect(byId.get('MIG-04')).toBe('U0');
+    expect(byId.get('MIG-14')).toBe('U2');
+  });
+
+  it('rejects a handle that does not match u<milestone>-<scope>-<slice>-<kind>', () => {
+    const packets = parsePackets(`### MIG-00 — Foundation
+State: OPEN
+Owner: unassigned
+Category: Foundation and project operations
+Subcategory: Scaffold
+Tags: greenfield
+Handles: u0-charter-nokind
+Runbook: 1. Do it.
+Depends on: none
+Steps: 1. Do it.`);
+    expect(validatePackets(packets)).toEqual(expect.arrayContaining([
+      expect.stringContaining('u0-charter-nokind')
+    ]));
+  });
+
+  it('rejects handles whose milestone digit disagrees with the packet ledger', () => {
+    const packets = parsePackets(`### MIG-00 — Foundation
+State: OPEN
+Owner: unassigned
+Category: Foundation and project operations
+Subcategory: Scaffold
+Tags: greenfield
+Handles: u2-charter-authority-doc, u0-charter-review-review
+Runbook: 1. Do it.
+Depends on: none
+Steps: 1. Do it.`);
+    expect(validatePackets(packets)).toEqual(expect.arrayContaining([
+      expect.stringContaining('is milestoned u2')
+    ]));
+  });
+
+  it('rejects handles that mix more than one scope token in a packet', () => {
+    const packets = parsePackets(`### MIG-00 — Foundation
+State: OPEN
+Owner: unassigned
+Category: Foundation and project operations
+Subcategory: Scaffold
+Tags: greenfield
+Handles: u0-charter-authority-doc, u0-other-side-quest-rule
+Runbook: 1. Do it.
+Depends on: none
+Steps: 1. Do it.`);
+    expect(validatePackets(packets)).toEqual(expect.arrayContaining([
+      expect.stringContaining('inconsistent scopes')
+    ]));
+  });
+
+  it('rejects a packet outside the 4-20 right-sized handle band', () => {
+    const packets = parsePackets(`### MIG-00 — Foundation
+State: OPEN
+Owner: unassigned
+Category: Foundation and project operations
+Subcategory: Scaffold
+Tags: greenfield
+Handles: u0-charter-authority-doc, u0-charter-editor-decide
+Runbook: 1. Do it.
+Depends on: none
+Steps: 1. Do it.`);
+    expect(validatePackets(packets)).toEqual(expect.arrayContaining([
+      expect.stringContaining('outside the 4-20 right-sized band')
+    ]));
+  });
+
+  it('requires a -review handle for visible-change categories', () => {
+    const packets = parsePackets(`### MIG-20 — Build the greybox
+State: OPEN
+Owner: unassigned
+Category: House and spatial world
+Subcategory: Room graph
+Tags: world
+Handles: u2-world-a-scene, u2-world-b-rule, u2-world-c-rule, u2-world-d-rule
+Runbook: 1. Do it.
+Depends on: none
+Steps: 1. Do it.`);
+    expect(validatePackets(packets)).toEqual(expect.arrayContaining([
+      expect.stringContaining('needs at least one -review handle')
+    ]));
+  });
 });

@@ -468,7 +468,13 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
   // text that predates handles). Item ids are stable across re-syncs so an
   // existing `done` flag can be matched and preserved below.
   const checklistItems = (packet: Packet): ProjectChecklistItem[] => {
-    const fromHandles = (packet.handles ?? []).map((handle, index) => ({ id: `${packet.id.toLowerCase()}-handle-${index + 1}`, text: handle, done: false }));
+    // The id is derived from the handle's own text, not its position in the
+    // list. Handles get reordered and inserted as a packet's decomposition is
+    // refined (exactly what happened when BUILD_MASTERPLAN.md §B.4 replaced
+    // every packet's short handle list with the full one-sitting breakdown) —
+    // a positional id like `mig-00-handle-2` would silently reattach an
+    // earlier tick to a completely different new handle at the same index.
+    const fromHandles = (packet.handles ?? []).map((handle) => ({ id: `${packet.id.toLowerCase()}-${handle}`, text: handle, done: false }));
     if (fromHandles.length) return fromHandles.slice(0, MAX_PACKET_CHECKLIST_ITEMS);
     return packet.steps
       .split(/\r?\n/)

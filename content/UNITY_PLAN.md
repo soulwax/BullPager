@@ -471,7 +471,7 @@ Owner: unassigned
 Category: Foundation and project operations
 Subcategory: Scope and decisions
 Tags: greenfield, unity, decisions
-Handles: u0-contract, u0-authority-map, u0-day1-slice, u0-non-goals
+Handles: u0-charter-authority-doc, u0-charter-editor-decide, u0-charter-hardware-decide, u0-charter-source-roots-doc, u0-charter-package-set-decide, u0-charter-day1-route-doc, u0-charter-nongoals-doc, u0-charter-risk-doc, u0-charter-approval-review
 Runbook:
 1. Read the masterplan and source-authority map, then write a one-page decision draft without creating Unity files.
 2. Resolve the target editor, Day 1 route, source roots, and explicit non-goals with the accountable reviewer.
@@ -499,7 +499,7 @@ Owner: unassigned
 Category: Foundation and project operations
 Subcategory: Project scaffold and CI
 Tags: greenfield, unity, ci, tooling
-Handles: u0-unity-project, u0-assemblies, u0-bootstrap, u0-ci-build
+Handles: u0-found-project-asset, u0-found-folders-asset, u0-found-domain-asmdef-guard, u0-found-asmdef-map-guard, u0-found-bootstrap-scene, u0-found-composition-adapter, u0-found-buildstamp-adapter, u0-found-smoke-test, u0-found-build-command-adapter, u0-found-ci-guard, u0-found-clean-clone-route, u0-found-version-capture
 Runbook:
 1. Create the project with the approved Unity patch and commit the generated package lock before adding gameplay code.
 2. Add assemblies, bootstrap scene, smoke test, and Windows build command one handle at a time; run each after adding it.
@@ -527,7 +527,7 @@ Owner: unassigned
 Category: Authored content and import
 Subcategory: Schemas and IDs
 Tags: content, schemas, validation, ids
-Handles: u1-schema-contracts, u1-id-registry, u1-fixtures, u1-validation-report
+Handles: u1-schema-source-census-doc, u1-schema-result-format-rule, u1-schema-id-registry-schema, u1-schema-house-schema, u1-schema-portal-schema, u1-schema-inventory-schema, u1-schema-material-schema, u1-schema-sound-schema, u1-schema-scenario-schema, u1-schema-corpus-schema, u1-schema-valid-fixture, u1-schema-invalid-fixture, u1-schema-suite-test, u1-schema-failure-report-capture
 Runbook:
 1. Catalogue every source file family and write its ID, references, ranges, and required fields in a schema table.
 2. Implement immutable definitions and validators before any importer or scene binding, with valid and invalid fixtures beside each definition.
@@ -555,7 +555,7 @@ Owner: unassigned
 Category: Authored content and import
 Subcategory: Import and generated assets
 Tags: content, import, determinism, assets
-Handles: u1-import-manifest, u1-scenario-import, u1-house-import, u1-atomic-output
+Handles: u1-import-manifest-schema, u1-import-temp-root-rule, u1-import-house-adapter, u1-import-inventory-adapter, u1-import-material-adapter, u1-import-sound-adapter, u1-import-scenario-adapter, u1-import-corpus-adapter, u1-import-crossref-rule, u1-import-swap-rule, u1-import-digest-rule, u1-import-menu-adapter, u1-import-determinism-test, u1-import-atomicity-test, u1-import-manifest-capture
 Runbook:
 1. Create the import manifest and temporary output root, listing parser version and digest for every input.
 2. Import scenario, house, inventory, material, and sound data into the temporary root, stopping on any validation error.
@@ -583,7 +583,7 @@ Owner: unassigned
 Category: Persistence and database synchronization
 Subcategory: Planner cards and activity
 Tags: database, sync, planner, audit
-Handles: u0-plan-projection, u0-db-upsert, u0-sync-audit, u0-conflict-tests
+Handles: u0-sync-projection-rule, u0-sync-handle-parse-rule, u0-sync-validation-guard, u0-sync-checklist-merge-rule, u0-sync-upsert-adapter, u0-sync-tag-namespace-rule, u0-sync-board-owned-guard, u0-sync-activity-rule, u0-sync-noop-test, u0-sync-conflict-test, u0-sync-retry-test, u0-sync-hosted-route, u0-sync-audit-capture
 Runbook:
 1. Parse the plan into one canonical projection and deliberately test duplicate IDs, missing taxonomy, handles, and dependencies.
 2. Upsert only source-owned fields, then prove a dragged lane, a comment, and a custom tag survive a changed source packet.
@@ -612,7 +612,7 @@ Owner: unassigned
 Category: Foundation and project operations
 Subcategory: Code quality and review
 Tags: unity, csharp, testing, guardrails
-Handles: u0-domain-boundary, u0-static-analysis, u0-review-template
+Handles: u0-guard-domain-boundary-guard, u0-guard-analyzer-set-guard, u0-guard-editorconfig-doc, u0-guard-empty-test-guard, u0-guard-generated-edit-guard, u0-guard-naming-doc, u0-guard-review-checklist-doc, u0-guard-violation-fixture, u0-guard-ci-failure-route, u0-guard-contributing-doc
 Runbook:
 1. Add assembly boundaries and analyzer rules before feature assemblies grow.
 2. Create the contribution checklist with test, source-ownership, generated-file, and scene-integration prompts.
@@ -638,7 +638,7 @@ Owner: unassigned
 Category: Domain simulation
 Subcategory: Day loop and resource commands
 Tags: domain, clock, resources, determinism
-Handles: u1-clock-commands, u1-resource-rules, u1-seed-policy, u1-replay-fixtures
+Handles: u1-clock-command-table-doc, u1-clock-state-rule, u1-clock-advance-rule, u1-clock-day-boundary-rule, u1-clock-spend-atomic-rule, u1-clock-ration-rule, u1-clock-rejection-rule, u1-clock-seed-create-rule, u1-clock-seed-persist-rule, u1-clock-session-port, u1-clock-boundary-fixture, u1-clock-replay-test, u1-clock-event-list-capture
 Runbook:
 1. Write the command/rejection table for time, heat, rations, collection, and sleep before coding state mutation.
 2. Implement immutable state transitions and seed creation in plain C#, then cover day boundaries and insufficient-resource cases.
@@ -666,7 +666,7 @@ Owner: unassigned
 Category: Journal and evidence
 Subcategory: Entries, corrections, and night drift
 Tags: journal, evidence, consequences, save
-Handles: u1-journal-model, u1-citation-rules, u1-night-drift
+Handles: u1-journal-entry-schema, u1-journal-status-rule, u1-journal-citation-rule, u1-journal-revision-rule, u1-journal-correction-rule, u1-journal-lock-rule, u1-journal-attention-rule, u1-journal-drift-select-rule, u1-journal-drift-apply-rule, u1-journal-drift-port, u1-journal-state-fixture, u1-journal-lock-rejection-test, u1-journal-drift-replay-test
 Runbook:
 1. Define entry statuses, citations, correction rules, and locks in a pure domain fixture.
 2. Implement sleep-boundary drift from the stored seed, never from frame time or UI state.
@@ -692,7 +692,7 @@ Owner: unassigned
 Category: Story delivery and people
 Subcategory: Schedule, choices, and callbacks
 Tags: story, schedule, choices, callbacks
-Handles: u1-schedule-resolver, u1-choice-commit, u1-residue-events
+Handles: u1-story-event-schema, u1-story-condition-rule, u1-story-resolver-rule, u1-story-choice-commit-rule, u1-story-flag-rule, u1-story-residue-rule, u1-story-journal-fact-rule, u1-story-duplicate-guard, u1-story-director-port, u1-story-single-event-fixture, u1-story-roster-integrity-test, u1-story-replay-test
 Runbook:
 1. Start with one imported event and resolve it only from day, time, stable conditions, and schedule IDs.
 2. Commit the selected choice, flags, residue, journal fact, and activity as one domain operation.
@@ -718,7 +718,7 @@ Owner: unassigned
 Category: Domain simulation
 Subcategory: Composition root and event queue
 Tags: domain, session, events, integration
-Handles: u1-session-compose, u1-event-drain, u1-bootstrap-probe
+Handles: u1-session-compose-rule, u1-session-snapshot-rule, u1-session-event-drain-rule, u1-session-rejection-telemetry-rule, u1-session-bootstrap-adapter, u1-session-single-owner-guard, u1-session-compose-test, u1-session-drain-test, u1-session-probe-route
 Runbook:
 1. Compose all completed pure services in one `GameSession` constructor with no scene lookup or global singleton.
 2. Expose a read-only snapshot and a drain-once event stream, then wire a minimal Bootstrap consumer.
@@ -744,7 +744,7 @@ Owner: unassigned
 Category: Persistence and database synchronization
 Subcategory: Save slots and recovery
 Tags: save, recovery, checksums, persistence
-Handles: u2-save-envelope, u2-atomic-write, u2-recovery-drill, u2-schema-upgrades
+Handles: u2-save-envelope-schema, u2-save-serialize-rule, u2-save-checksum-rule, u2-save-temp-write-adapter, u2-save-replace-rule, u2-save-recovery-slot-rule, u2-save-schema-upgrade-rule, u2-save-rejection-rule, u2-save-store-port, u2-save-roundtrip-test, u2-save-interrupt-fixture, u2-save-corrupt-fixture, u2-save-restore-choice-adapter, u2-save-recovery-route
 Runbook:
 1. Specify the save envelope, version policy, active and recovery locations, and rejection message before serializing data.
 2. Implement temporary-write, flush, checksum, replace, and recovery retention in that exact order.
@@ -772,7 +772,7 @@ Owner: unassigned
 Category: House and spatial world
 Subcategory: Room graph, scale, and binding
 Tags: world, rooms, portals, greybox
-Handles: u2-room-graph, u2-greybox-binder, u2-portal-map, u2-traversal-route
+Handles: u2-world-calibration-scene, u2-world-scale-decide, u2-world-roomgraph-rule, u2-world-portal-topology-rule, u2-world-stair-geometry-asset, u2-world-collision-layer-asset, u2-world-proxy-generator-adapter, u2-world-binding-manifest-bind, u2-world-focus-anchor-bind, u2-world-residue-anchor-bind, u2-world-debug-label-adapter, u2-world-graph-validator-test, u2-world-day1-route, u2-world-route-capture, u2-world-greybox-review
 Runbook:
 1. Build the Day 1 room and portal graph from stable IDs using primitives only.
 2. Bind one room pair at a time and validate scale, portal bounds, collider clearance, and focus anchors.
@@ -800,7 +800,7 @@ Owner: unassigned
 Category: Movement and tactile interaction
 Subcategory: Capsule, stairs, and room transitions
 Tags: movement, collision, stairs, portals
-Handles: u2-capsule-move, u2-stairs, u2-portal-cross, u2-movement-tests
+Handles: u2-move-input-adapter, u2-move-look-adapter, u2-move-capsule-rule, u2-move-axis-rule, u2-move-collision-port, u2-move-stairs-rule, u2-move-crouch-rule, u2-move-portal-plane-rule, u2-move-portal-command-adapter, u2-move-rejection-rule, u2-move-clipping-test, u2-move-stairs-test, u2-move-portal-test, u2-move-day1-route, u2-move-route-capture
 Runbook:
 1. Separate input sampling, desired displacement, collision solve, stairs, and room notification into distinct components.
 2. Implement capsule and axis resolution against the generated collision layer before adding any story trigger.
@@ -828,7 +828,7 @@ Owner: unassigned
 Category: Movement and tactile interaction
 Subcategory: Focus, doors, letterbox, and objects
 Tags: interaction, focus, doors, inventory
-Handles: u2-focus-query, u2-door-chain, u2-inventory-use, u2-interaction-feedback
+Handles: u2-focus-query-rule, u2-focus-occlusion-rule, u2-focus-target-bind, u2-focus-prompt-adapter, u2-focus-door-rule, u2-focus-chain-rule, u2-focus-letterbox-rule, u2-focus-hold-rule, u2-focus-drag-rule, u2-focus-inventory-rule, u2-focus-feedback-adapter, u2-focus-rejection-doc, u2-focus-order-test, u2-focus-threshold-route
 Runbook:
 1. Define focus targets and typed accepted/rejected actions from generated IDs, never scene object names.
 2. Implement door, chain, letterbox, hold, drag, and inventory paths with a visible and audible response for each result.
@@ -854,7 +854,7 @@ Owner: unassigned
 Category: Audio, voice, and acoustics
 Subcategory: Portal transmission and cues
 Tags: audio, acoustics, cues, captions
-Handles: u2-cue-catalogue, u2-portal-routing, u2-day1-mix, u2-audio-fallback
+Handles: u2-audio-cue-schema, u2-audio-catalogue-doc, u2-audio-route-rule, u2-audio-transmission-rule, u2-audio-muffle-rule, u2-audio-distance-rule, u2-audio-planner-port, u2-audio-mixer-asset, u2-audio-source-adapter, u2-audio-caption-rule, u2-audio-fallback-guard, u2-audio-plan-fixture, u2-audio-plan-test, u2-audio-hardware-route, u2-audio-mix-review
 Runbook:
 1. Make a cue catalogue with stable IDs, source room, required caption, and explicit fallback before adding clips.
 2. Route one visitor and one broadcast through portals, then tune distance and closed-door loss in the mixer.
@@ -880,7 +880,7 @@ Owner: unassigned
 Category: UI, input, and accessibility
 Subcategory: Pause, settings, and input actions
 Tags: ui, input, settings, accessibility
-Handles: u3-ui-shell, u3-input-actions, u3-settings-model, u3-save-feedback
+Handles: u3-shell-ui-root-adapter, u3-shell-panel-settings-asset, u3-shell-input-actions-asset, u3-shell-remap-rule, u3-shell-pause-scene, u3-shell-focus-order-rule, u3-shell-settings-schema, u3-shell-settings-store-adapter, u3-shell-save-feedback-adapter, u3-shell-settings-persist-test, u3-shell-keyboard-route, u3-shell-restart-route, u3-shell-usability-review
 Runbook:
 1. Create one Bootstrap-owned UI root and map pause, settings, and input actions without duplicating session state.
 2. Implement keyboard navigation and settings persistence independently from game-save persistence.
@@ -906,7 +906,7 @@ Owner: unassigned
 Category: Story delivery and people
 Subcategory: Dialogue, choices, and fallback
 Tags: story, dialogue, captions, fallback
-Handles: u3-dialogue-presenter, u3-choice-navigation, u3-caption-fallback, u3-line-id-check
+Handles: u3-dialogue-presenter-adapter, u3-dialogue-line-bind, u3-dialogue-choice-adapter, u3-dialogue-commit-rule, u3-dialogue-caption-rule, u3-dialogue-timing-rule, u3-dialogue-lineid-test, u3-dialogue-replay-fixture, u3-dialogue-textonly-route, u3-dialogue-route-capture
 Runbook:
 1. Render one imported line and choice sequence from stable IDs, with no hard-coded replacement text.
 2. Send the selected choice through the domain command and prove the resulting callback is committed once.
@@ -932,7 +932,7 @@ Owner: unassigned
 Category: Journal and evidence
 Subcategory: Entry editing and citations
 Tags: journal, ui, citations, evidence
-Handles: u3-journal-view, u3-citation-display, u3-correction-flow, u3-lock-feedback
+Handles: u3-record-view-adapter, u3-record-entry-template-asset, u3-record-uncertainty-adapter, u3-record-citation-adapter, u3-record-residue-link-bind, u3-record-write-adapter, u3-record-correct-adapter, u3-record-lock-adapter, u3-record-rejection-doc, u3-record-screenreader-test, u3-record-reload-route, u3-record-route-capture
 Runbook:
 1. Render immutable journal state, uncertainty, citations, and residue references before enabling edits.
 2. Wire write, correct, verify, and lock controls to domain commands and show each rejection reason without exposing hidden truth.
@@ -958,7 +958,7 @@ Owner: unassigned
 Category: UI, input, and accessibility
 Subcategory: Keyboard, captions, contrast, and reduced motion
 Tags: accessibility, keyboard, captions, reduced-motion
-Handles: u3-keyboard-route, u3-text-scale, u3-motion-reduction, u3-route-capture
+Handles: u3-access-control-census-doc, u3-access-text-scale-adapter, u3-access-caption-toggle-adapter, u3-access-motion-reduction-adapter, u3-access-hold-alternative-rule, u3-access-brightness-adapter, u3-access-focus-order-test, u3-access-suite-test, u3-access-keyboard-route, u3-access-contrast-review, u3-access-route-capture, u3-access-severity-doc
 Runbook:
 1. List every required Day 1 control and complete the route with keyboard input before polishing pointer interactions.
 2. Check focus order, contrast, text scaling, captions, and reduced motion at their supported extremes.
@@ -984,7 +984,7 @@ Owner: unassigned
 Category: Verification, telemetry, and release
 Subcategory: Day 1 integration gate
 Tags: vertical-slice, qa, telemetry, human-test
-Handles: u3-playable-route, u3-regression-suite, u3-human-test, u3-issue-triage
+Handles: u3-slice-script-doc, u3-slice-expected-state-fixture, u3-slice-regression-test, u3-slice-clean-profile-route, u3-slice-reload-route, u3-slice-route-capture, u3-slice-human-review, u3-slice-comprehension-doc, u3-slice-triage-doc, u3-slice-blocker-rerun-route
 Runbook:
 1. Freeze a single Day 1 acceptance script with expected prompts, room IDs, resources, choices, and journal outcomes.
 2. Run it from a clean Windows profile, including quit/reload, and collect visual, audio, accessibility, and comprehension notes.
@@ -1012,7 +1012,7 @@ Owner: unassigned
 Category: House and spatial world
 Subcategory: Production meshes and dressing
 Tags: world, art, meshes, dressing
-Handles: u5-rights-ledger, u5-asset-intake, u5-domestic-prop-batch, u5-hero-prop-brief
+Handles: u5-house-rights-ledger-doc, u5-house-intake-quarantine-guard, u5-house-intake-checksum-rule, u5-house-prop-batch-asset, u5-house-room-pair-asset, u5-house-collision-refit-bind, u5-house-scale-verify-test, u5-house-portal-clearance-test, u5-house-focus-id-test, u5-house-hero-prop-doc, u5-house-batch-capture, u5-house-batch-review
 Runbook:
 1. Create rights-ledger entries and quarantine files before importing any third-party asset.
 2. Replace proxies for one room pair using stable bindings, then check collision, scale, portals, and focus IDs.
@@ -1038,7 +1038,7 @@ Owner: unassigned
 Category: Rendering and presentation
 Subcategory: URP baseline, practicals, and weather
 Tags: rendering, urp, lighting, weather
-Handles: u5-material-library, u5-lighting-profile, u5-wetness-variants, u5-visual-budget
+Handles: u5-light-urp-asset, u5-light-exposure-calibration-scene, u5-light-material-library-asset, u5-light-practical-asset, u5-light-shadow-profile-decide, u5-light-fog-asset, u5-light-rain-asset, u5-light-wetness-asset, u5-light-quality-tier-guard, u5-light-perf-capture, u5-light-readability-review, u5-light-baseline-doc
 Runbook:
 1. Establish a neutral URP exposure and lighting calibration scene before tuning individual rooms.
 2. Build reusable material, practical-light, rain, and wetness variants from approved assets only.
@@ -1064,7 +1064,7 @@ Owner: unassigned
 Category: House and spatial world
 Subcategory: Room pairs, physical consequences, and sound
 Tags: world, residues, acoustics, production
-Handles: u5-room-batches, u5-residue-variants, u5-sound-batches, u5-batch-review
+Handles: u5-expand-batch-selection-doc, u5-expand-room-pair-asset, u5-expand-residue-asset, u5-expand-residue-bind, u5-expand-cue-bind, u5-expand-soundscene-asset, u5-expand-day-route, u5-expand-batch-capture, u5-expand-acoustic-review, u5-expand-visual-review
 Runbook:
 1. Choose one room pair with its specific consequence and acoustic requirements.
 2. Bind visual residue and cues by stable IDs, then replay the route without changing schedule or domain code.
@@ -1090,7 +1090,7 @@ Owner: unassigned
 Category: Story delivery and people
 Subcategory: Campaign progression
 Tags: story, campaign, schedule, consequences
-Handles: u4-act-schedule, u4-event-integration, u4-consequence-audit, u4-campaign-fixtures
+Handles: u4-act-batch-doc, u4-act-one-bind, u4-act-one-fixture, u4-act-two-bind, u4-act-two-fixture, u4-act-three-bind, u4-act-three-fixture, u4-act-consequence-test, u4-act-callback-audit-doc, u4-act-saveload-route, u4-act-pacing-review, u4-act-batch-capture
 Runbook:
 1. Split the approved schedule into day-range batches with required rooms, choices, callbacks, and expected residues.
 2. Import and integrate one batch at a time, then replay known seeds instead of manually recreating timing or line IDs.
@@ -1118,7 +1118,7 @@ Owner: unassigned
 Category: Domain simulation
 Subcategory: Endings and final record
 Tags: domain, endings, journal, consequences
-Handles: u4-day21-resolver, u4-ending-derivation, u4-ending-replay
+Handles: u4-end-input-schema, u4-end-resolver-rule, u4-end-compliance-fixture, u4-end-sync-fixture, u4-end-rupture-fixture, u4-end-boundary-test, u4-end-final-record-adapter, u4-end-rupture-scene, u4-end-replay-test, u4-end-campaign-review
 Runbook:
 1. List the exact snapshot inputs for each ending and implement a deterministic resolver without hidden developer switches.
 2. Build fixtures for every ending and boundary combination, including incomplete journal and residue cases.
@@ -1144,7 +1144,7 @@ Owner: unassigned
 Category: Audio, voice, and acoustics
 Subcategory: Voice coverage and licensing
 Tags: audio, voice, licensing, captions
-Handles: u5-voice-rights, u5-voice-import, u5-caption-review, u5-fallback-drill
+Handles: u5-voice-textlock-decide, u5-voice-rights-doc, u5-voice-lineid-test, u5-voice-import-adapter, u5-voice-caption-timing-bind, u5-voice-mixer-bind, u5-voice-missing-fallback-test, u5-voice-audio-off-route, u5-voice-coverage-capture, u5-voice-hardware-review
 Runbook:
 1. Freeze text and line IDs, then record a rights ledger for every approved performance before importing audio.
 2. Import clips through metadata that maps each line to captions, timing, mixer route, and a text-only fallback.
@@ -1170,7 +1170,7 @@ Owner: unassigned
 Category: Verification, telemetry, and release
 Subcategory: Performance, recovery, and packaging
 Tags: release, windows, performance, recovery
-Handles: u6-release-manifest, u6-clean-install, u6-performance-capture, u6-rollback-note
+Handles: u6-rel-manifest-doc, u6-rel-digest-freeze-rule, u6-rel-preflight-guard, u6-rel-build-adapter, u6-rel-checksum-doc, u6-rel-clean-install-route, u6-rel-no-devtools-route, u6-rel-recovery-route, u6-rel-accessibility-route, u6-rel-perf-capture, u6-rel-rollback-doc, u6-rel-human-review
 Runbook:
 1. Freeze the release manifest, package lock, generated-content digest, rights ledger, and known-issue list.
 2. Build and install from a clean Windows profile, then complete the release route without developer tools.
