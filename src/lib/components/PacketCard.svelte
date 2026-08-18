@@ -6,6 +6,7 @@
 <a class:selected class:compact href={href} aria-current={selected ? 'true' : undefined} class="card">
   <span class="id">{packet.id}</span>
   <strong>{packet.title}</strong>
+  <span class="taxonomy" title={packet.subcategory}>{packet.category || 'Uncategorized'} <span>·</span> {packet.subcategory || 'General'}</span>
   <span class="meta">{packet.owner} · {packet.milestone}</span>
   <span class={`state state-${packet.state.toLowerCase()}`}>{packet.state}</span>
   {#if showOutcome && packet.outcome}<span class="outcome">{packet.outcome}</span>{/if}
@@ -20,6 +21,8 @@
   .card:hover, .card.selected { border-color: var(--accent); }
   .id, .meta, .state, .ready { font-size: .72rem; color: var(--muted); }
   .id { color: var(--accent); font-weight: 700; }
+  .taxonomy { overflow: hidden; color: #9eb4ca; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
+  .taxonomy span { color: #5f7287; }
   .state { width: max-content; padding: .14rem .4rem; border: 1px solid var(--line); border-radius: 99px; letter-spacing: .04em; }
   .state-active, .state-partial { color: #ffd28b; border-color: #80683b; }
   .state-blocked { color: #ffc19e; border-color: #9a6249; }

@@ -38,7 +38,7 @@
   const selected = $derived(selectedId ? data.plan.packets.find((packet) => packet.id === selectedId) : undefined);
   const dependents = $derived(selected ? data.plan.packets.filter((packet) => packet.dependsOn.includes(selected.id)) : []);
   const filtered = $derived(data.plan.packets.filter((packet) => {
-    const text = `${packet.id} ${packet.title} ${packet.outcome}`.toLowerCase();
+    const text = `${packet.id} ${packet.title} ${packet.category} ${packet.subcategory} ${packet.outcome}`.toLowerCase();
     return (!query || text.includes(query.toLowerCase())) &&
       (selectedState === 'ALL' || packet.state === selectedState) &&
       (milestone === 'ALL' || packet.milestone === milestone) &&
@@ -113,6 +113,8 @@
       `State: ${packet.state}`,
       `Owner: ${packet.owner}`,
       `Milestone: ${packet.milestone}`,
+      `Category: ${packet.category || 'Uncategorized'}`,
+      `Subcategory: ${packet.subcategory || 'General'}`,
       `Outcome: ${packet.outcome || 'Not recorded.'}`,
       `Checks: ${packet.checks || 'Not recorded.'}`,
       `Evidence: ${packet.evidence || 'None recorded.'}`,
@@ -148,11 +150,11 @@
 
 <svelte:window onkeydown={focusSearch} />
 
-<svelte:head><title>Project Agile Board</title><meta name="description" content="A local project plan board backed by the migration authority." /></svelte:head>
+<svelte:head><title>Project Agile Board</title><meta name="description" content="A source-backed greenfield Unity implementation plan." /></svelte:head>
 
 <main class={`board-page theme-${data.plan.projectSettings.project_unity_theme || 'midnight'} project-lane-${data.plan.projectSettings.project_unity_lane_style || 'scroll'}`}>
   <header class="topbar board-topbar">
-    <div><p class="eyebrow">REFERENCE PLAN</p><h1>Unity plan</h1><p class="subtitle">A source-backed plan view for the Unity project. Open Projects for the working boards.</p><p class="source-mode">{data.plan.packets.length} packets · {data.plan.sourceMode}</p></div>
+    <div><p class="eyebrow">REFERENCE PLAN</p><h1>Unity plan</h1><p class="subtitle">A source-backed plan view for the Unity project. Open Projects for the working boards.</p><p class="source-mode">{data.plan.packets.length} packets · {data.plan.sourceMode}{#if data.plan.projectSettings.project_unity_planner_digest} · DB mirror {data.plan.projectSettings.project_unity_planner_digest.slice(0, 12)}{/if}</p></div>
     <div class="top-actions"><div class:valid={data.plan.valid} class="health">{data.plan.valid ? 'Plan valid' : 'Plan needs attention'}</div><div class="top-links"><a class="quiet-button" href="/projects">Projects</a>{#if ['superadmin', 'admin', 'editor'].includes(data.role ?? '')}<a class="quiet-button" href="/projects/new">New project</a>{/if}{#if ['superadmin', 'admin'].includes(data.role ?? '')}<a class="quiet-button icon-link" href="/settings"><img class="ui-icon" src="/assets/icons/settings.svg" alt="" /> Settings</a>{/if}</div></div>
   </header>
 
@@ -169,7 +171,7 @@
 
       <div class="board-heading"><div><p class="eyebrow"><img class="ui-icon" src="/assets/icons/layout-kanban.svg" alt="" /> BOARD</p><h2>Packet flow</h2></div><div class="board-actions"><p>{selected ? `Inspecting ${selected.id}.` : 'Select a card to open its details.'}</p><div class="lane-actions"><button type="button" class="quiet-button" onclick={() => setAllColumns(true)}>Collapse all</button><button type="button" class="quiet-button" onclick={() => setAllColumns(false)}>Expand all</button>{#if selected}<a class="quiet-button" href={clearSelectionHref()}>Clear selection</a>{/if}</div></div></div>
       <div class:inspector-hidden={!inspectorVisible} class="layout">
-        <section class="board" aria-label="Migration packets">
+        <section class="board" aria-label="Unity implementation packets">
       {#if filtered.length === 0}
         <div class="board-empty-state"><img src="/assets/illustrations/organizing-projects.svg" alt="" /><div><p class="eyebrow">EMPTY VIEW</p><h2>No packets match these filters.</h2><p class="empty">Clear the search or reset the filters to bring the workflow back into view.</p><button type="button" class="quiet-button" onclick={resetFilters}>Reset filters</button></div></div>
       {:else}{#each columns as column}
@@ -181,7 +183,7 @@
       {/if}
         </section>
 
-      {#if selected && inspectorVisible}<a class="detail-backdrop" href={clearSelectionHref()} aria-label="Close packet details"></a><div class="detail" role="dialog" aria-modal="true" aria-label="Selected packet"><p class="eyebrow">CARD DETAILS</p><div class="detail-heading"><div><h2>{selected.id}</h2><h3>{selected.title}</h3></div><div class="detail-actions"><button class="quiet-button" type="button" onclick={() => copyPacketBrief(selected)}>Copy brief</button><a class="quiet-button" href={clearSelectionHref()}>Close</a></div></div>{#if copyStatus}<p class="copy-status" role="status">{copyStatus}</p>{/if}<p class="meta">{selected.state} · {selected.owner} · {selected.milestone}</p>{#if data.plan.readyIds.includes(selected.id)}<p class="ready-banner">Dependencies are closed. This packet is ready to pull.</p>{/if}<dl><dt>Outcome</dt><dd>{selected.outcome || 'Not recorded.'}</dd><dt>Inputs</dt><dd>{selected.inputs || 'Not recorded.'}</dd><dt>Files</dt><dd>{selected.files || 'Not recorded.'}</dd><dt>Do not touch</dt><dd>{selected.doNotTouch || 'Not recorded.'}</dd><dt>Dependencies</dt><dd>{#if selected.dependsOn.length}{#each selected.dependsOn as dependency, index}{#if index > 0}, {/if}<a href={packetHref(dependency)}>{dependency}</a>{/each}{:else}None{/if}</dd><dt>Downstream</dt><dd>{#if dependents.length}{#each dependents as packet, index}{#if index > 0}, {/if}<a href={packetHref(packet.id)}>{packet.id}</a>{/each}{:else}None{/if}</dd><dt>Checks</dt><dd>{selected.checks || 'Not recorded.'}</dd><dt>Evidence</dt><dd>{selected.evidence || 'None recorded.'}</dd><dt>Remainder</dt><dd>{selected.remainder || 'None recorded.'}</dd></dl><details class="steps"><summary>Implementation steps</summary><pre>{selected.steps || 'No steps recorded.'}</pre></details>
+      {#if selected && inspectorVisible}<a class="detail-backdrop" href={clearSelectionHref()} aria-label="Close packet details"></a><div class="detail" role="dialog" aria-modal="true" aria-label="Selected packet"><p class="eyebrow">CARD DETAILS</p><div class="detail-heading"><div><h2>{selected.id}</h2><h3>{selected.title}</h3></div><div class="detail-actions"><button class="quiet-button" type="button" onclick={() => copyPacketBrief(selected)}>Copy brief</button><a class="quiet-button" href={clearSelectionHref()}>Close</a></div></div>{#if copyStatus}<p class="copy-status" role="status">{copyStatus}</p>{/if}<p class="meta">{selected.state} · {selected.owner} · {selected.milestone}</p><p class="taxonomy-detail">{selected.category || 'Uncategorized'} <span>·</span> {selected.subcategory || 'General'}</p>{#if data.plan.readyIds.includes(selected.id)}<p class="ready-banner">Dependencies are closed. This packet is ready to pull.</p>{/if}<dl><dt>Outcome</dt><dd>{selected.outcome || 'Not recorded.'}</dd><dt>Inputs</dt><dd>{selected.inputs || 'Not recorded.'}</dd><dt>Files</dt><dd>{selected.files || 'Not recorded.'}</dd><dt>Do not touch</dt><dd>{selected.doNotTouch || 'Not recorded.'}</dd><dt>Dependencies</dt><dd>{#if selected.dependsOn.length}{#each selected.dependsOn as dependency, index}{#if index > 0}, {/if}<a href={packetHref(dependency)}>{dependency}</a>{/each}{:else}None{/if}</dd><dt>Downstream</dt><dd>{#if dependents.length}{#each dependents as packet, index}{#if index > 0}, {/if}<a href={packetHref(packet.id)}>{packet.id}</a>{/each}{:else}None{/if}</dd><dt>Checks</dt><dd>{selected.checks || 'Not recorded.'}</dd><dt>Evidence</dt><dd>{selected.evidence || 'None recorded.'}</dd><dt>Remainder</dt><dd>{selected.remainder || 'None recorded.'}</dd></dl><details class="steps"><summary>Implementation steps</summary><pre>{selected.steps || 'No steps recorded.'}</pre></details>
       {#if data.plan.transitionHistory.some((entry) => entry.packetId === selected.id)}<details class="activity"><summary>Recent activity</summary><ol>{#each data.plan.transitionHistory.filter((entry) => entry.packetId === selected.id) as entry}<li><strong>{entry.nextState}</strong><span>{entry.owner || 'unassigned'} · {new Date(entry.createdAt).toLocaleString()}</span>{#if entry.evidence}<small>{entry.evidence}</small>{/if}</li>{/each}</ol></details>{/if}
       <section class="notes"><h3>Packet notes</h3>{#if data.plan.packetNotes.some((note) => note.packetId === selected.id)}<ul>{#each data.plan.packetNotes.filter((note) => note.packetId === selected.id) as note}<li><div><strong>{note.author}</strong><span>{new Date(note.createdAt).toLocaleString()}</span></div><p>{note.body}</p></li>{/each}</ul>{:else}<p class="empty">No notes yet.</p>{/if}<form method="POST" action="?/saveNote" class="note-form"><input type="hidden" name="packetId" value={selected.id} /><label>Author <input name="author" value={selected.owner} maxlength="120" /></label><label>Note <textarea name="body" rows="3" maxlength="2000" placeholder="Leave durable context for the next pass."></textarea></label><button type="submit">Save note</button></form></section>
       <form method="POST" action="?/previewTransition" class="transition-form">

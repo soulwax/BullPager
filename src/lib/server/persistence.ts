@@ -204,8 +204,13 @@ async function initializeSchema() {
   await rawSql`ALTER TABLE board_users ADD COLUMN IF NOT EXISTS github_id TEXT UNIQUE`;
   await rawSql`
     INSERT INTO board_projects (slug, name, owner, visibility)
-    VALUES ('unity-plan', 'Unity migration plan', ${env.APP_LOGIN || 'superadmin'}, 'private')
+    VALUES ('unity-plan', 'Unity greenfield build plan', ${env.APP_LOGIN || 'superadmin'}, 'private')
     ON CONFLICT (slug) DO NOTHING
+  `;
+  await rawSql`
+    UPDATE board_projects
+    SET name = 'Unity greenfield build plan'
+    WHERE slug = 'unity-plan' AND name = 'Unity migration plan'
   `;
 }
 
@@ -340,22 +345,28 @@ async function ensureDefaultProjectTags(projectSlug: string) {
 }
 
 /**
- * Keep the Unity planner and its Kanban project in step without replacing
- * cards that have already been edited on the board. Packet IDs are used as
- * stable card IDs, so this operation is safe to run on every planner load.
+ * Keep the Unity planner and its Kanban project in step. Packet IDs are stable
+ * card IDs, so this operation is safe to run on every planner load. Planner
+ * fields (title, details, checklist, owner, priority, and cover) are refreshed;
+ * board-owned fields (lane, position, archive state, comments, watchers, and
+ * view state) are deliberately left untouched for existing cards.
  */
-export async function syncUnityPlannerCards(packets: Packet[]): Promise<number> {
+export async function syncUnityPlannerCards(packets: Packet[], options: { sourceDigest?: string; actor?: string } = {}): Promise<number> {
   if (!databaseConfigured()) return 0;
   await ensureSchema();
   const database = requireDatabase();
   const projectSlug = 'unity-plan';
   const owner = env.APP_LOGIN || 'superadmin';
-  await database.insert(boardProjects).values({ slug: projectSlug, name: 'Unity migration plan', owner, visibility: 'private' }).onConflictDoNothing();
+  await database.insert(boardProjects).values({ slug: projectSlug, name: 'Unity greenfield build plan', owner, visibility: 'private' }).onConflictDoNothing();
+  await database.update(boardProjects).set({ name: 'Unity greenfield build plan' }).where(and(eq(boardProjects.slug, projectSlug), eq(boardProjects.name, 'Unity migration plan')));
   await database.insert(boardSettings).values({ key: `project_${projectSlug}_lanes`, value: JSON.stringify(['Backlog', 'In progress', 'Blocked', 'Done']) }).onConflictDoNothing();
   await database.insert(boardSettings).values({ key: `project_${projectSlug}_theme`, value: 'midnight' }).onConflictDoNothing();
   await ensureDefaultProjectTags(projectSlug);
-  const rows = await database.select({ id: boardProjectCards.id }).from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug));
-  const existing = new Set(rows.map((row) => row.id));
+  const digestKey = `project_${projectSlug}_planner_digest`;
+  const previousDigestRow = await database.select({ value: boardSettings.value }).from(boardSettings).where(eq(boardSettings.key, digestKey)).limit(1);
+  const previousDigest = previousDigestRow[0]?.value || '';
+  const rows = await database.select().from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug));
+  const existing = new Map(rows.map((row) => [row.id, row]));
   const positions = new Map<string, number>();
   const current = await database.select({ lane: boardProjectCards.lane, position: boardProjectCards.position }).from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug));
   for (const row of current) positions.set(row.lane, Math.max(positions.get(row.lane) ?? -1, row.position));
@@ -369,7 +380,8 @@ export async function syncUnityPlannerCards(packets: Packet[]): Promise<number> 
     .slice(0, 20)
     .map((text, index) => ({ id: `${packetId.toLowerCase()}-step-${index + 1}`, text: text.slice(0, 240), done: false }));
   const details = (packet: Packet) => [
-    `Unity planner packet ${packet.id}`,
+    `Unity implementation packet ${packet.id}`,
+    `Category: ${packet.category || 'Uncategorized'} · Subcategory: ${packet.subcategory || 'General'}`,
     `Milestone: ${packet.milestone} · State: ${packet.state} · Owner: ${packet.owner || 'unassigned'}`,
     packet.outcome ? `Outcome: ${packet.outcome}` : '',
     packet.inputs ? `Inputs: ${packet.inputs}` : '',
@@ -385,32 +397,78 @@ export async function syncUnityPlannerCards(packets: Packet[]): Promise<number> 
     if (packet.state === 'ACTIVE' || packet.state === 'PARTIAL') tags.push(tagId(projectSlug, 'priority'));
     return tags;
   };
-  const missing = packets.filter((packet) => !existing.has(`unity-${packet.id.toLowerCase()}`));
-  if (!missing.length) return 0;
-  for (const packet of missing) {
+  const managedTagIds = new Set([
+    tagId(projectSlug, 'content'),
+    tagId(projectSlug, 'blocked'),
+    tagId(projectSlug, 'priority')
+  ]);
+  let changed = 0;
+  const changedPacketIds: string[] = [];
+  for (const packet of packets) {
     const lane = stateLane(packet.state);
+    const id = `unity-${packet.id.toLowerCase()}`;
+    const current = existing.get(id);
+    const sourceValues = {
+      title: `${packet.id} · ${packet.title}`,
+      details: details(packet),
+      checklist: JSON.stringify(checklist(packet.steps, packet.id)),
+      coverColor: stateColor(packet.state),
+      owner: packet.owner || 'unassigned',
+      priority: priority(packet.state)
+    };
+    const desiredTags = tagIds(packet);
+    if (current) {
+      const cardTagRows = await database.select({ tagId: boardProjectCardTags.tagId }).from(boardProjectCardTags).where(eq(boardProjectCardTags.cardId, id));
+      const customTags = cardTagRows.map((row) => row.tagId).filter((tag) => !managedTagIds.has(tag));
+      const nextTags = [...new Set([...customTags, ...desiredTags])].sort();
+      const currentTags = [...new Set(cardTagRows.map((row) => row.tagId))].sort();
+      const sourceChanged = current.title !== sourceValues.title || current.details !== sourceValues.details || current.checklist !== sourceValues.checklist || current.coverColor !== sourceValues.coverColor || current.owner !== sourceValues.owner || current.priority !== sourceValues.priority;
+      const tagsChanged = currentTags.length !== nextTags.length || currentTags.some((tag, index) => tag !== nextTags[index]);
+      if (sourceChanged) {
+        await database.update(boardProjectCards).set({ ...sourceValues, updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, id), eq(boardProjectCards.projectSlug, projectSlug)));
+      }
+      if (tagsChanged) await replaceCardTags(projectSlug, id, nextTags, database);
+      if (sourceChanged || tagsChanged) {
+        changed += 1;
+        changedPacketIds.push(packet.id);
+      }
+      continue;
+    }
     const position = (positions.get(lane) ?? -1) + 1;
     positions.set(lane, position);
-    const id = `unity-${packet.id.toLowerCase()}`;
     // Neon's HTTP driver does not expose interactive transactions. Each
     // insert is idempotent and the next request resumes any partial sync.
     await database.insert(boardProjectCards).values({
       id,
       projectSlug,
-      title: `${packet.id} · ${packet.title}`,
-      details: details(packet),
+      ...sourceValues,
       lane,
       position,
       archived: false,
-      checklist: JSON.stringify(checklist(packet.steps, packet.id)),
-      coverColor: stateColor(packet.state),
-      owner: packet.owner || 'unassigned',
-      priority: priority(packet.state),
       dueDate: null
     }).onConflictDoNothing();
-    await replaceCardTags(projectSlug, id, tagIds(packet), database);
+    await replaceCardTags(projectSlug, id, desiredTags, database);
+    changed += 1;
+    changedPacketIds.push(packet.id);
   }
-  return missing.length;
+  if (changed > 0 || (options.sourceDigest && options.sourceDigest !== previousDigest)) {
+    await saveBoardSettings({
+      [digestKey]: options.sourceDigest || '',
+      [`project_${projectSlug}_last_sync_at`]: new Date().toISOString(),
+      [`project_${projectSlug}_last_sync_count`]: String(changed),
+      [`project_${projectSlug}_last_sync_packets`]: changedPacketIds.join(', ')
+    });
+  }
+  if (changed > 0) {
+    await recordProjectActivity({
+      projectSlug,
+      actor: options.actor || owner || 'system',
+      action: 'updated',
+      cardId: '',
+      summary: `Unity plan sync: ${changed} card${changed === 1 ? '' : 's'} changed${options.sourceDigest ? ` · ${options.sourceDigest.slice(0, 12)}` : ''}${changedPacketIds.length ? ` · ${changedPacketIds.slice(0, 8).join(', ')}${changedPacketIds.length > 8 ? ', …' : ''}` : ''}`
+    });
+  }
+  return changed;
 }
 
 export async function listProjectTags(projectSlug: string): Promise<ProjectTag[]> {

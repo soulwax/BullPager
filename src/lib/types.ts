@@ -5,6 +5,9 @@ export type Packet = {
   title: string;
   state: PacketState;
   owner: string;
+  /** Human-facing planning taxonomy; optional for older local fixtures. */
+  category?: string;
+  subcategory?: string;
   dependsOn: string[];
   milestone: string;
   outcome: string;
@@ -29,6 +32,7 @@ export type PlanView = {
   transitionHistory: TransitionRecord[];
   packetNotes: PacketNote[];
   projectSettings: Record<string, string>;
+  sourceDigest?: string;
 };
 
 export type TransitionRecord = {

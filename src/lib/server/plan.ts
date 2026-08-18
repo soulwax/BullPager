@@ -15,7 +15,7 @@ function field(block: string, name: string): string {
   return match?.[1]?.trim() ?? '';
 }
 
-function parsePackets(markdown: string): Packet[] {
+export function parsePackets(markdown: string): Packet[] {
   const lines = markdown.split(/\r?\n/);
   const packets: Packet[] = [];
   for (let index = 0; index < lines.length; index += 1) {
@@ -31,6 +31,8 @@ function parsePackets(markdown: string): Packet[] {
       title: heading[2].trim(),
       state: states.includes(state) ? state : 'OPEN',
       owner: field(block, 'Owner') || 'unassigned',
+      category: field(block, 'Category') || 'Uncategorized',
+      subcategory: field(block, 'Subcategory') || 'General',
       dependsOn: depends && depends.toLowerCase() !== 'none'
         ? [...depends.matchAll(/MIG-\d+/g)].map((match) => match[0])
         : [],
@@ -49,15 +51,34 @@ function parsePackets(markdown: string): Packet[] {
   return packets;
 }
 
+export function validatePackets(packets: Packet[]): string[] {
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  for (const packet of packets) {
+    if (seen.has(packet.id)) errors.push(`Duplicate packet ID: ${packet.id}.`);
+    seen.add(packet.id);
+    if (!packet.title.trim()) errors.push(`${packet.id} has no title.`);
+    if (!packet.category?.trim()) errors.push(`${packet.id} has no category.`);
+    if (!packet.subcategory?.trim()) errors.push(`${packet.id} has no subcategory.`);
+  }
+  for (const packet of packets) {
+    for (const dependency of packet.dependsOn) {
+      if (!seen.has(dependency)) errors.push(`${packet.id} depends on missing packet ${dependency}.`);
+    }
+  }
+  return errors;
+}
+
 function milestoneFor(id: string): string {
   const numeric = Number(id.slice(4));
   if (numeric === 0 || numeric === 1 || numeric === 5) return 'U0';
   if (numeric < 20) return 'U1';
   if (numeric < 30) return 'U2';
   if (numeric < 50) return 'U3';
-  if (numeric < 60) return 'U6';
-  if (numeric < 70) return 'U5–U6';
-  return 'U7';
+  if (numeric < 60) return 'U5';
+  if (numeric < 62) return 'U4';
+  if (numeric < 70) return 'U5';
+  return 'U6';
 }
 
 function readyIds(packets: Packet[]): string[] {
@@ -74,14 +95,27 @@ export async function loadPlan(): Promise<PlanView> {
   let transitionHistory = [] as Awaited<ReturnType<typeof loadTransitionHistory>>;
   let packetNotes = [] as Awaited<ReturnType<typeof loadPacketNotes>>;
   let projectSettings: Record<string, string> = {};
+  let planDigest: string | undefined;
   try {
     const [unity, guide] = await readSources();
+    planDigest = sourceDigest(unity);
     packets = overlayTransitions(parsePackets(unity), await loadPersistedTransitions());
     transitionHistory = await loadTransitionHistory();
     packetNotes = await loadPacketNotes();
-    projectSettings = Object.fromEntries(Object.entries(await loadBoardSettings()).filter(([key]) => key.startsWith('project_unity_')));
+    const allSettings = await loadBoardSettings();
+    projectSettings = Object.fromEntries(Object.entries(allSettings).filter(([key]) => key.startsWith('project_unity_')));
+    // The board slug contains a hyphen, while the legacy plan view used an
+    // underscore prefix. Expose both under the legacy view key without
+    // overwriting an explicitly configured plan-view setting.
+    const projectPrefix = 'project_unity-plan_';
+    for (const [key, value] of Object.entries(allSettings)) {
+      if (!key.startsWith(projectPrefix)) continue;
+      const normalized = `project_unity_${key.slice(projectPrefix.length)}`;
+      if (!(normalized in projectSettings)) projectSettings[normalized] = value;
+    }
     if (!guide.includes('HUMAN AGILE GUIDE')) errors.push('The operating guide marker was not found.');
-    if (packets.length === 0) errors.push('No migration packets were found.');
+    if (packets.length === 0) errors.push('No Unity implementation packets were found.');
+    errors.push(...validatePackets(packets));
   } catch (error) {
     errors.push(error instanceof Error ? error.message : 'Unable to read plan sources.');
   }
@@ -97,7 +131,8 @@ export async function loadPlan(): Promise<PlanView> {
     readyIds: readyIds(packets),
     transitionHistory,
     packetNotes,
-    projectSettings
+    projectSettings,
+    sourceDigest: planDigest
   };
 }
 

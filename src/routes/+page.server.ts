@@ -7,9 +7,9 @@ import type { PacketState } from '$lib/types';
 
 export async function load({ locals }) {
   const plan = await loadPlan();
-  if (persistenceEnabled() && plan.packets.length) {
+  if (persistenceEnabled() && plan.valid && plan.packets.length) {
     try {
-      await syncUnityPlannerCards(plan.packets);
+      await syncUnityPlannerCards(plan.packets, { sourceDigest: plan.sourceDigest });
     } catch (error) {
       // The planner remains usable if a transient database failure occurs;
       // the next load will retry the additive sync.
