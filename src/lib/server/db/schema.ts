@@ -57,6 +57,8 @@ export const boardProjectCards = pgTable('board_project_cards', {
   owner: text('owner').notNull().default(''),
   priority: text('priority').$type<'low' | 'normal' | 'high' | 'urgent'>().notNull().default('normal'),
   dueDate: date('due_date'),
+  dueComplete: boolean('due_complete').notNull().default(false),
+  startDate: date('start_date'),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow()
 }, (table) => ({ projectLaneIndex: index('board_project_cards_project_lane_idx').on(table.projectSlug, table.lane) }));
@@ -115,6 +117,18 @@ export const boardProjectGraphs = pgTable('board_project_graphs', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow()
 });
 
+export const boardProjectCardAttachments = pgTable('board_project_card_attachments', {
+  id: text('id').primaryKey(),
+  projectSlug: text('project_slug').notNull(),
+  cardId: text('card_id').notNull(),
+  name: text('name').notNull(),
+  url: text('url').notNull(),
+  mimeType: text('mime_type').notNull().default('application/octet-stream'),
+  size: integer('size').notNull().default(0),
+  createdBy: text('created_by').notNull().default('unknown'),
+  createdAt: createdAt()
+}, (table) => ({ cardIndex: index('board_project_card_attachments_card_idx').on(table.cardId) }));
+
 export const boardProjectFiles = pgTable('board_project_files', {
   id: text('id').primaryKey(),
   projectSlug: text('project_slug').notNull(),
@@ -167,4 +181,4 @@ export const boardProjectGraphEdges = pgTable('board_project_graph_edges', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow()
 }, (table) => ({ projectIndex: index('board_project_graph_edges_project_idx').on(table.projectSlug) }));
 
-export const schema = { packetTransitions, packetNotes, boardUsers, boardProjects, boardSettings, boardProjectCards, boardProjectTags, boardProjectCardTags, boardProjectCardWatchers, boardProjectViews, boardProjectActivity, boardProjectComments, boardProjectFiles, boardProjectGraphs, boardProjectGraphNodes, boardProjectGraphEdges };
+export const schema = { packetTransitions, packetNotes, boardUsers, boardProjects, boardSettings, boardProjectCards, boardProjectTags, boardProjectCardTags, boardProjectCardWatchers, boardProjectViews, boardProjectActivity, boardProjectComments, boardProjectCardAttachments, boardProjectFiles, boardProjectGraphs, boardProjectGraphNodes, boardProjectGraphEdges };

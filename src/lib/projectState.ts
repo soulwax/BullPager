@@ -2,6 +2,17 @@ import type { ProjectCard, ProjectViewState } from '$lib/types';
 
 export const projectPriorities = ['low', 'normal', 'high', 'urgent'] as const;
 export type ProjectPriority = (typeof projectPriorities)[number];
+/** Keep in step with `CARD_DETAILS_LIMIT` in `$lib/server/persistence` — that
+ * constant governs the synced Unity-plan card body; this one governs what a
+ * human can type directly into a card on any board. */
+export const PROJECT_CARD_DETAILS_LIMIT = 8000;
+
+/** Fields the board must render read-only and the server must reject writes
+ * to when a project's cards are mirrored from a source file (e.g. the Unity
+ * plan). Lane, dates, comments, attachments, and watchers stay board-owned. */
+export function isSourceOwnedProject(settings: Record<string, string>, prefix: string): boolean {
+  return settings[`${prefix}source`] === 'plan';
+}
 
 export function projectPrefix(slug: string) {
   return `project_${slug}_`;
@@ -53,8 +64,8 @@ export function validDueDate(value: string | null) {
   return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-export function validProjectCardInput(input: { title: string; details: string; lane: string; priority: string; dueDate: string | null }, lanes: string[]) {
-  return input.title.length >= 1 && input.title.length <= 160 && input.details.length <= 4000 && lanes.includes(input.lane) && projectPriorities.includes(input.priority as ProjectPriority) && validDueDate(input.dueDate);
+export function validProjectCardInput(input: { title: string; details: string; lane: string; priority: string; dueDate: string | null; startDate?: string | null }, lanes: string[]) {
+  return input.title.length >= 1 && input.title.length <= 160 && input.details.length <= PROJECT_CARD_DETAILS_LIMIT && lanes.includes(input.lane) && projectPriorities.includes(input.priority as ProjectPriority) && validDueDate(input.dueDate) && validDueDate(input.startDate ?? null);
 }
 
 export function sanitizeProjectViewState(raw: unknown): ProjectViewState {

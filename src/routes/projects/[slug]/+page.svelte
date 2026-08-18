@@ -1,11 +1,13 @@
 <script lang="ts">
-  import type { BoardProject, BoardUser, ProjectActivity, ProjectCard, ProjectComment, ProjectTag, ProjectViewState } from '$lib/types';
-  import { moveProjectCard } from '$lib/projectState';
+  import { onMount } from 'svelte';
+  import type { BoardProject, BoardUser, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectComment, ProjectTag, ProjectViewState } from '$lib/types';
+  import { moveProjectCard, PROJECT_CARD_DETAILS_LIMIT } from '$lib/projectState';
   import { defaultProjectTags, tagId, tagPalette } from '$lib/projectTags';
   import { projectBackground } from '$lib/projectBackgrounds';
   import { invalidateAll } from '$app/navigation';
+  import { marked } from 'marked';
 
-  let { data, form }: { data: { project: BoardProject; prefix: string; settings: Record<string, string>; lanes: string[]; cards: ProjectCard[]; tags: ProjectTag[]; members: BoardUser[]; activity: ProjectActivity[]; comments: ProjectComment[]; viewState: ProjectViewState; canEdit: boolean; username: string; role: string; openCard?: string | null; created: boolean }; form?: { message?: string; error?: string } } = $props();
+  let { data, form }: { data: { project: BoardProject; prefix: string; settings: Record<string, string>; sourceOwned: boolean; lanes: string[]; cards: ProjectCard[]; tags: ProjectTag[]; members: BoardUser[]; activity: ProjectActivity[]; comments: ProjectComment[]; attachments: ProjectCardAttachment[]; viewState: ProjectViewState; canEdit: boolean; username: string; role: string; openCard?: string | null; created: boolean }; form?: { message?: string; error?: string } } = $props();
   const setting = (name: string, fallback = '') => data.settings[`${data.prefix}${name}`] ?? fallback;
   const boardBackground = $derived(projectBackground(setting('background', 'none')));
   const glassIntensity = $derived(Math.max(0, Math.min(100, Number(setting('glass_intensity', '38')) || 0)));
@@ -32,6 +34,194 @@
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let commentDraft = $state('');
   let commentUploadStatus = $state('');
+  let editingDescription = $state(false);
+  let attachmentUploadStatus = $state('');
+  let draggedLane = $state('');
+  let dropTargetLaneHeader = $state('');
+  let toast = $state<{ message: string; undo?: () => void } | null>(null);
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  let sanitizeHtml: ((html: string) => string) | undefined = $state(undefined);
+  let searchInput: HTMLInputElement | undefined = $state(undefined);
+  let showShortcutHelp = $state(false);
+
+  onMount(() => {
+    void import('dompurify').then((module) => { sanitizeHtml = module.default(window).sanitize; });
+    const poll = setInterval(() => {
+      // Pause while a card or composer is open so a background refresh never
+      // clobbers text someone is mid-way through typing.
+      if (document.hidden || editingCardId || composerLane !== null) return;
+      void invalidateAll();
+    }, 20000);
+    return () => clearInterval(poll);
+  });
+
+  function renderMarkdown(source: string): string {
+    if (!source.trim()) return '';
+    const html = marked.parse(source, { breaks: true, gfm: true }) as string;
+    return sanitizeHtml ? sanitizeHtml(html) : '';
+  }
+
+  function showToast(message: string, undo?: () => void) {
+    if (toastTimer) clearTimeout(toastTimer);
+    toast = { message, undo };
+    toastTimer = setTimeout(() => { toast = null; }, undo ? 8000 : 3000);
+  }
+
+  // SvelteKit form actions return a devalue-encoded envelope, not plain JSON
+  // — the same reason `saveOrder`/`saveView` elsewhere in this file only ever
+  // check `response.ok` rather than parsing the body. Follow that pattern.
+  async function postAction(action: string, body: FormData): Promise<{ ok: boolean }> {
+    try {
+      const response = await fetch(action, { method: 'POST', body, headers: { accept: 'application/json' } });
+      return { ok: response.ok };
+    } catch {
+      return { ok: false };
+    }
+  }
+
+  async function quickArchive(card: ProjectCard, archived: boolean) {
+    const body = new FormData();
+    body.set('id', card.id);
+    body.set('archived', String(archived));
+    const result = await postAction(`?/archiveCard`, body);
+    if (!result.ok) { showToast(archived ? 'Could not archive the card.' : 'Could not restore the card.'); return; }
+    await invalidateAll();
+    showToast(archived ? `“${card.title}” archived` : `“${card.title}” restored`, async () => {
+      const undoBody = new FormData();
+      undoBody.set('id', card.id);
+      undoBody.set('archived', String(!archived));
+      await postAction('?/archiveCard', undoBody);
+      await invalidateAll();
+    });
+  }
+
+  async function quickMove(card: ProjectCard, lane: string) {
+    const previousLane = card.lane;
+    if (previousLane === lane) return;
+    const body = new FormData();
+    body.set('id', card.id);
+    body.set('lane', lane);
+    const result = await postAction(`?/moveCard`, body);
+    if (!result.ok) { showToast('Could not move the card.'); return; }
+    await invalidateAll();
+    showToast(`Moved “${card.title}” to ${lane}`, async () => {
+      const undoBody = new FormData();
+      undoBody.set('id', card.id);
+      undoBody.set('lane', previousLane);
+      await postAction('?/moveCard', undoBody);
+      await invalidateAll();
+    });
+  }
+
+  function focusOnMount(node: HTMLElement) { node.focus(); }
+
+  function attachmentsFor(cardId: string) { return data.attachments.filter((attachment) => attachment.cardId === cardId); }
+
+  async function uploadAttachment(cardId: string, file: File) {
+    if (!data.canEdit) return;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const body = new FormData();
+    body.set('file', file);
+    body.set('path', `attachments/${cardId}/${timestamp}-${file.name || 'file'}`);
+    attachmentUploadStatus = `Uploading ${file.name || 'file'}…`;
+    try {
+      const response = await fetch(`/projects/${data.project.slug}/files/upload`, { method: 'POST', body });
+      const result = await response.json() as { id?: string; path?: string; url?: string; error?: string };
+      if (!response.ok || !result.url) throw new Error(result.error || 'Upload failed.');
+      const linkBody = new FormData();
+      linkBody.set('cardId', cardId);
+      linkBody.set('name', file.name || result.path || 'file');
+      linkBody.set('url', result.url);
+      linkBody.set('mimeType', file.type || 'application/octet-stream');
+      linkBody.set('size', String(file.size));
+      const linked = await postAction('?/attachFile', linkBody);
+      if (!linked.ok) throw new Error('Could not attach the uploaded file.');
+      attachmentUploadStatus = 'Attached';
+      await invalidateAll();
+    } catch (error) {
+      attachmentUploadStatus = error instanceof Error ? error.message : 'Upload failed.';
+    } finally {
+      setTimeout(() => { attachmentUploadStatus = ''; }, 2400);
+    }
+  }
+
+  async function removeAttachment(attachment: { id: string; cardId: string }) {
+    const body = new FormData();
+    body.set('id', attachment.id);
+    body.set('cardId', attachment.cardId);
+    const result = await postAction('?/deleteAttachment', body);
+    if (!result.ok) { showToast('Could not remove the attachment.'); return; }
+    await invalidateAll();
+  }
+
+  function formatBytes(size: number) {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function startLaneDrag(lane: string, event: DragEvent) {
+    if (!data.canEdit) return;
+    draggedLane = lane;
+    event.dataTransfer?.setData('text/plain', lane);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  }
+
+  async function dropLane(targetLane: string) {
+    dropTargetLaneHeader = '';
+    const source = draggedLane;
+    draggedLane = '';
+    if (!source || source === targetLane) return;
+    const order = [...data.lanes];
+    const from = order.indexOf(source);
+    const to = order.indexOf(targetLane);
+    if (from < 0 || to < 0) return;
+    order.splice(to, 0, ...order.splice(from, 1));
+    const body = new FormData();
+    body.set('lanes', JSON.stringify(order));
+    const result = await postAction('?/reorderLanes', body);
+    if (!result.ok) { showToast('Could not reorder lists.'); return; }
+    await invalidateAll();
+  }
+
+  function isEditable(target: EventTarget | null) {
+    return target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable || target.tagName === 'SELECT');
+  }
+
+  /** A single line submits normally (native form POST, same as every other
+   * form on this page). Multiple lines — typically a paste — create one card
+   * per non-empty line instead of one card with a multi-line title. */
+  function enhanceComposer(node: HTMLFormElement, _params: { lane: string }) {
+    async function handleSubmit(event: SubmitEvent) {
+      const titleField = node.querySelector('textarea[name="title"]') as HTMLTextAreaElement | null;
+      const lines = (titleField?.value ?? '').split('\n').map((line) => line.trim()).filter(Boolean);
+      if (lines.length <= 1) return;
+      event.preventDefault();
+      const formData = new FormData(node);
+      for (const line of lines) {
+        const body = new FormData();
+        for (const [key, value] of formData.entries()) if (key !== 'title') body.append(key, value as string);
+        body.set('title', line);
+        await postAction('?/createCard', body);
+      }
+      composerLane = null;
+      await invalidateAll();
+    }
+    node.addEventListener('submit', handleSubmit);
+    return { destroy() { node.removeEventListener('submit', handleSubmit); } };
+  }
+
+  function handleShortcut(event: KeyboardEvent) {
+    if (isEditable(event.target)) return;
+    if (event.key === '?') { showShortcutHelp = !showShortcutHelp; return; }
+    if (showShortcutHelp) { if (event.key === 'Escape') showShortcutHelp = false; return; }
+    if (event.key === 'Escape') { if (editingCardId) closeEditor(); else if (composerLane !== null) composerLane = null; return; }
+    if (event.key === '/') { event.preventDefault(); searchInput?.focus(); return; }
+    if (event.key === 'x') { clearFilters(); return; }
+    if (event.key === 'q') { assigneeFilter = assigneeFilter === data.username ? 'all' : data.username; queueViewSave(); return; }
+    if (event.key === 'n' && data.canEdit && !data.sourceOwned) { composerLane = data.lanes.find((lane) => !collapsed[lane]) ?? data.lanes[0] ?? null; return; }
+  }
+
   $effect(() => {
     collapsed = { ...(data.viewState.collapsed ?? {}) };
     density = data.viewState.density === 'compact' ? 'compact' : 'comfortable';
@@ -234,14 +424,14 @@
   }
 </script>
 
-<svelte:window ondragstart={captureWindowDrag} ondragend={finishWindowDrag} />
+<svelte:window ondragstart={captureWindowDrag} ondragend={finishWindowDrag} onkeydown={handleShortcut} />
 
 <svelte:head><title>{data.project.name} · Project Agile Board</title></svelte:head>
 
 <main class={`project-workspace theme-${setting('theme', 'midnight')} project-lane-${setting('lane_style', 'scroll')}`} class:has-project-background={Boolean(boardBackground.src)} style={boardSurfaceStyle}>
   {#if data.members.length}<datalist id="project-members">{#each data.members as member}<option value={member.username}>{member.role}</option>{/each}</datalist>{/if}
   <header class="topbar project-board-header">
-    <div class="board-title-group"><a class="board-switcher" href="/projects" aria-label="Open project boards"><span aria-hidden="true">▦</span><span>Board</span></a><span class="board-divider" aria-hidden="true"></span><div><p class="eyebrow">{data.project.visibility} workspace</p><h1>{data.project.name}</h1></div><span class="board-card-count">{boardCards.length} {boardCards.length === 1 ? 'card' : 'cards'}</span></div>
+    <div class="board-title-group"><a class="board-switcher" href="/projects" aria-label="Open project boards"><span aria-hidden="true">▦</span><span>Board</span></a><span class="board-divider" aria-hidden="true"></span><div><p class="eyebrow">{data.project.visibility} workspace</p><h1>{data.project.name}{#if data.sourceOwned}<span class="source-lock-chip" title="Title, description, checklist text, owner, priority, and cover are synced from UNITY_PLAN.md. Lane, dates, comments, attachments, and checklist ticks stay editable here.">🔒 synced from plan</span>{/if}</h1></div><span class="board-card-count">{boardCards.length} {boardCards.length === 1 ? 'card' : 'cards'}</span></div>
     <div class="top-links board-header-actions"><a class="quiet-button" href={`/projects/${data.project.slug}/backlog`}><span aria-hidden="true">☷</span> Backlog</a><a class="board-cloud-link" href={`/projects/${data.project.slug}/files`}><span aria-hidden="true">☁</span> Cloud</a><a class="quiet-button" href={`/projects/${data.project.slug}/graph`}><span aria-hidden="true">⌘</span> Graph</a><a class="quiet-button" href={`/projects/${data.project.slug}/settings`} aria-label="Project settings">⚙</a></div>
   </header>
 
@@ -249,7 +439,7 @@
   {#if form?.message}<p class="success" role="status">{form.message}</p>{/if}
   {#if form?.error}<p class="action-errors" role="alert">{form.error}</p>{/if}
 
-  <div class="project-toolbar"><div class="project-toolbar-copy"><details class="find-work-menu"><summary><span class="find-work-icon">⌕</span><span><strong>Find work</strong><small>{visibleCards.length} visible · {activeCards.length} active</small></span></summary><div class="find-work-body"><p>Jump to the work that needs attention.</p><div class="find-work-actions"><button type="button" class:active={!filtered} class="quiet-button" onclick={clearFilters}>All cards</button><button type="button" class:active={assigneeFilter === data.username} class="quiet-button" onclick={() => { assigneeFilter = data.username; queueViewSave(); }}>My cards</button><button type="button" class:active={priorityFilter === 'urgent'} class="quiet-button" onclick={() => { priorityFilter = 'urgent'; queueViewSave(); }}>Urgent</button><button type="button" class="quiet-button" onclick={() => { query = ''; priorityFilter = 'all'; tagFilter = 'all'; assigneeFilter = 'unassigned'; showArchived = false; queueViewSave(); }}>Unassigned</button></div></div></details><a class="project-cloud-button" href={`/projects/${data.project.slug}/files`} aria-label="Open project cloud"><span class="project-cloud-glyph" aria-hidden="true">☁</span><span>Cloud</span></a>{#if savedStatus}<span class="save-status" role="status" aria-live="polite">{savedStatus}</span>{/if}</div><div class="project-stats" aria-label="Project summary"><span><strong>{activeCards.length}</strong> active</span><span><strong>{urgentCount}</strong> urgent</span><span><strong>{data.tags.length}</strong> tags</span><span><strong>{archivedCount}</strong> archived</span></div>{#if workflowPulseVisible}<div class="workflow-pulse" aria-label="Workflow state summary">{#each workflowPulse as entry}{#if entry.lanes.length}<span class={`workflow-state workflow-${entry.state}`}><strong>{entry.cards}</strong> {entry.state}</span>{/if}{/each}</div>{/if}<div class="project-controls"><label class="project-search">Search <input bind:value={query} oninput={queueViewSave} placeholder="Find cards by title, owner, or detail" aria-label="Search project cards" /></label><label>Priority <select bind:value={priorityFilter} onchange={queueViewSave}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label><label>Tag <select bind:value={tagFilter} onchange={queueViewSave}><option value="all">All tags</option>{#each data.tags as tag}<option value={tag.id}>{tag.name}</option>{/each}</select></label><label>Assignee <select bind:value={assigneeFilter} onchange={queueViewSave}><option value="all">Everyone</option><option value="unassigned">Unassigned</option>{#each data.members as member}<option value={member.username}>{member.username}</option>{/each}</select></label><label>Density <select bind:value={density} onchange={queueViewSave}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>{#if archivedCount}<button type="button" class:active={showArchived} class="quiet-button archive-toggle" onclick={() => { showArchived = !showArchived; queueViewSave(); }}>{showArchived ? "Hide archived" : "Show archived"}</button>{/if}{#if filtered}<button type="button" class="quiet-button clear-project-filters" onclick={clearFilters}>Clear</button>{/if}<details class="tag-manager"><summary>Manage tags</summary><div class="tag-manager-body"><div class="tag-cloud">{#each data.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}><span>{tag.name}</span>{#if data.canEdit && !isDefaultTag(tag.id)}<form method="POST" action="?/deleteTag"><input type="hidden" name="id" value={tag.id} /><button type="submit" aria-label={`Remove ${tag.name} tag`} title="Remove tag">×</button></form>{/if}</span>{/each}</div>{#if data.canEdit}<form method="POST" action="?/createTag" class="tag-create-form"><input name="name" maxlength="32" placeholder="New tag" aria-label="New tag name" required /><select name="color" aria-label="New tag color">{#each tagPalette as palette}<option value={palette.color}>{palette.name}</option>{/each}</select><button type="submit">Create tag</button></form>{/if}</div></details></div></div>
+  <div class="project-toolbar"><div class="project-toolbar-copy"><details class="find-work-menu"><summary><span class="find-work-icon">⌕</span><span><strong>Find work</strong><small>{visibleCards.length} visible · {activeCards.length} active</small></span></summary><div class="find-work-body"><p>Jump to the work that needs attention.</p><div class="find-work-actions"><button type="button" class:active={!filtered} class="quiet-button" onclick={clearFilters}>All cards</button><button type="button" class:active={assigneeFilter === data.username} class="quiet-button" onclick={() => { assigneeFilter = data.username; queueViewSave(); }}>My cards</button><button type="button" class:active={priorityFilter === 'urgent'} class="quiet-button" onclick={() => { priorityFilter = 'urgent'; queueViewSave(); }}>Urgent</button><button type="button" class="quiet-button" onclick={() => { query = ''; priorityFilter = 'all'; tagFilter = 'all'; assigneeFilter = 'unassigned'; showArchived = false; queueViewSave(); }}>Unassigned</button></div></div></details><a class="project-cloud-button" href={`/projects/${data.project.slug}/files`} aria-label="Open project cloud"><span class="project-cloud-glyph" aria-hidden="true">☁</span><span>Cloud</span></a>{#if savedStatus}<span class="save-status" role="status" aria-live="polite">{savedStatus}</span>{/if}</div><div class="project-stats" aria-label="Project summary"><span><strong>{activeCards.length}</strong> active</span><span><strong>{urgentCount}</strong> urgent</span><span><strong>{data.tags.length}</strong> tags</span><span><strong>{archivedCount}</strong> archived</span></div>{#if workflowPulseVisible}<div class="workflow-pulse" aria-label="Workflow state summary">{#each workflowPulse as entry}{#if entry.lanes.length}<span class={`workflow-state workflow-${entry.state}`}><strong>{entry.cards}</strong> {entry.state}</span>{/if}{/each}</div>{/if}<div class="project-controls"><label class="project-search">Search <input bind:this={searchInput} bind:value={query} oninput={queueViewSave} placeholder="Find cards by title, owner, or detail (press / to focus)" aria-label="Search project cards" /></label><label>Priority <select bind:value={priorityFilter} onchange={queueViewSave}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label><label>Tag <select bind:value={tagFilter} onchange={queueViewSave}><option value="all">All tags</option>{#each data.tags as tag}<option value={tag.id}>{tag.name}</option>{/each}</select></label><label>Assignee <select bind:value={assigneeFilter} onchange={queueViewSave}><option value="all">Everyone</option><option value="unassigned">Unassigned</option>{#each data.members as member}<option value={member.username}>{member.username}</option>{/each}</select></label><label>Density <select bind:value={density} onchange={queueViewSave}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>{#if archivedCount}<button type="button" class:active={showArchived} class="quiet-button archive-toggle" onclick={() => { showArchived = !showArchived; queueViewSave(); }}>{showArchived ? "Hide archived" : "Show archived"}</button>{/if}{#if filtered}<button type="button" class="quiet-button clear-project-filters" onclick={clearFilters}>Clear</button>{/if}<details class="tag-manager"><summary>Manage tags</summary><div class="tag-manager-body"><div class="tag-cloud">{#each data.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}><span>{tag.name}</span>{#if data.canEdit && !isDefaultTag(tag.id)}<form method="POST" action="?/deleteTag"><input type="hidden" name="id" value={tag.id} /><button type="submit" aria-label={`Remove ${tag.name} tag`} title="Remove tag">×</button></form>{/if}</span>{/each}</div>{#if data.canEdit}<form method="POST" action="?/createTag" class="tag-create-form"><input name="name" maxlength="32" placeholder="New tag" aria-label="New tag name" required /><select name="color" aria-label="New tag color">{#each tagPalette as palette}<option value={palette.color}>{palette.name}</option>{/each}</select><button type="submit">Create tag</button></form>{/if}</div></details></div></div>
 
   {#if boardCards.length === 0}
     <section class="project-empty-intro"><img src="/assets/illustrations/organizing-projects.svg" alt="" /><div><p class="eyebrow">EMPTY SLATE</p><h2>Nothing is stuck here yet.</h2><p class="subtitle">This board has {data.lanes.length} lanes from your template. Add one small, concrete card and the empty state will disappear.</p></div></section>
@@ -260,16 +450,17 @@
   {#if boardCards.length === 0 || visibleCards.length > 0}<section class:project-board-compact={density === 'compact'} class="project-board" aria-label={`${data.project.name} workflow`}>
     {#each data.lanes as lane, index}
       {@const laneCards = cardsFor(lane)}
-      <section id={laneId(lane)} role="list" aria-label={`${lane} lane`} class:collapsed={collapsed[lane]} class:drop-target={dropTargetLane === lane && !dropTargetCardId} class:project-column-backlog={index === 0} class="project-column" ondragenter={() => { dropTargetLane = lane; dropTargetCardId = ''; }} ondragover={(event) => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'; }} ondrop={(event) => dropCard(lane, '', event)}>
-        <h2><span>{lane}<small>{laneCards.length} {laneCards.length === 1 ? 'card' : 'cards'}</small></span><span class="lane-header-actions"><details class="lane-menu"><summary aria-label={`More actions for ${lane}`}>•••</summary><div class="lane-menu-body"><button type="button" onclick={() => { composerLane = lane; }}>+ Add card</button><button type="button" onclick={() => toggleLane(lane)}>{collapsed[lane] ? 'Expand list' : 'Collapse list'}</button></div></details><button class="collapse-button" type="button" aria-expanded={!collapsed[lane]} aria-label={`${collapsed[lane] ? 'Expand' : 'Collapse'} ${lane}`} onclick={() => toggleLane(lane)}>{collapsed[lane] ? '+' : '−'}</button></span></h2>
+      <section id={laneId(lane)} role="list" aria-label={`${lane} lane`} class:collapsed={collapsed[lane]} class:drop-target={dropTargetLane === lane && !dropTargetCardId} class:lane-drop-target={dropTargetLaneHeader === lane} class:project-column-backlog={index === 0} class="project-column" ondragenter={() => { dropTargetLane = lane; dropTargetCardId = ''; }} ondragover={(event) => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'; }} ondrop={(event) => dropCard(lane, '', event)}>
+        <h2 draggable={data.canEdit} ondragstart={(event) => startLaneDrag(lane, event)} ondragend={() => { draggedLane = ''; dropTargetLaneHeader = ''; }} ondragenter={(event) => { if (draggedLane) { event.stopPropagation(); dropTargetLaneHeader = lane; } }} ondragover={(event) => { if (draggedLane) { event.preventDefault(); event.stopPropagation(); } }} ondrop={(event) => { if (draggedLane) { event.preventDefault(); event.stopPropagation(); void dropLane(lane); } }} title={data.canEdit ? 'Drag to reorder lists' : undefined}><span>{lane}<small>{laneCards.length} {laneCards.length === 1 ? 'card' : 'cards'}</small></span><span class="lane-header-actions"><details class="lane-menu"><summary aria-label={`More actions for ${lane}`}>•••</summary><div class="lane-menu-body">{#if data.canEdit && !data.sourceOwned}<button type="button" onclick={() => { composerLane = lane; }}>+ Add card</button>{/if}<button type="button" onclick={() => toggleLane(lane)}>{collapsed[lane] ? 'Expand list' : 'Collapse list'}</button></div></details><button class="collapse-button" type="button" aria-expanded={!collapsed[lane]} aria-label={`${collapsed[lane] ? 'Expand' : 'Collapse'} ${lane}`} onclick={() => toggleLane(lane)}>{collapsed[lane] ? '+' : '−'}</button></span></h2>
         {#if !collapsed[lane]}
+          {#if data.canEdit && !data.sourceOwned && laneCards.length > 0}<button type="button" class="add-card-button add-card-top" onclick={() => { composerLane = lane; }}>+ Add a card</button>{/if}
           <div class="project-column-cards">
             {#each laneCards as card}
-              <div role="listitem" class:dragging={draggedCardId === card.id} class:drop-target={dropTargetCardId === card.id} class="project-card-shell" draggable={data.canEdit} ondragstart={(event) => startDrag(card, event)} ondragend={() => { draggedCardId = ''; dropTargetLane = ''; dropTargetCardId = ''; }} ondragenter={(event) => { event.stopPropagation(); dropTargetLane = card.lane; dropTargetCardId = card.id; }} ondragover={(event) => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'; }} ondrop={(event) => { event.stopPropagation(); dropCard(card.lane, card.id, event); }}><a aria-label={`${card.title}, ${card.priority} priority`} href={`?card=${encodeURIComponent(card.id)}`} class:archived={card.archived} class="project-card">{#if card.coverColor}<div class="card-cover" style={`--cover-color: ${card.coverColor}`} aria-hidden="true"></div>{/if}<div class="project-card-heading"><strong>{card.title}</strong><span class="priority-badge" class:priority-low={card.priority === 'low'} class:priority-high={card.priority === 'high'} class:priority-urgent={card.priority === 'urgent'}>{card.priority}</span></div>{#if card.tags.length}<div class="project-card-tags">{#each card.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}>{tag.name}</span>{/each}</div>{/if}{#if card.checklist.length}{@const checklistDone = card.checklist.filter((item) => item.done).length}<div class="checklist-summary" aria-label={`${checklistDone} of ${card.checklist.length} checklist items complete`}><span>✓ {checklistDone}/{card.checklist.length}</span><progress max={card.checklist.length} value={checklistDone}></progress></div>{/if}{#if card.archived}<span class="archived-badge">Archived</span>{/if}<div class="project-card-meta"><span>{card.owner || 'unassigned'}</span>{#if card.dueDate}<span class={`due-date due-${dueState(card.dueDate)}`}>Due {dueLabel(card.dueDate)}</span>{/if}{#if card.watcherCount}<span class:watching={card.watching} aria-label={`${card.watcherCount} watchers`}>◉ {card.watcherCount}</span>{/if}{#if commentsFor(card.id).length}<span aria-label={`${commentsFor(card.id).length} comments`}>▱ {commentsFor(card.id).length}</span>{/if}{#if data.canEdit}<span class="drag-hint">Drag to move</span>{/if}</div>{#if card.details}<p>{card.details}</p>{/if}</a><details class="card-quick-menu"><summary aria-label={`Quick actions for ${card.title}`}>•••</summary><div class="card-quick-menu-body"><button type="button" onclick={() => copyCardLink(card.id)}>Copy link</button>{#if data.username && data.username !== 'anonymous'}<form method="POST" action="?/toggleWatch"><input type="hidden" name="id" value={card.id} /><input type="hidden" name="watching" value={String(!card.watching)} /><button type="submit">{card.watching ? 'Unwatch' : 'Watch'}</button></form>{/if}{#if data.canEdit}<form method="POST" action="?/moveCard" class="card-move-form"><input type="hidden" name="id" value={card.id} /><label>Move to <select name="lane">{#each data.lanes as option}<option value={option} selected={option === card.lane}>{option}</option>{/each}</select></label><button type="submit">Move</button></form><form method="POST" action="?/duplicateCard"><input type="hidden" name="id" value={card.id} /><button type="submit">Duplicate</button></form><form method="POST" action="?/archiveCard"><input type="hidden" name="id" value={card.id} /><input type="hidden" name="archived" value={String(!card.archived)} /><button type="submit" onclick={(event) => { if (!confirm(card.archived ? 'Restore this card?' : 'Archive this card?')) event.preventDefault(); }}>{card.archived ? 'Restore' : 'Archive'}</button></form>{/if}</div></details></div>
+              <div role="listitem" class:dragging={draggedCardId === card.id} class:drop-target={dropTargetCardId === card.id} class="project-card-shell" draggable={data.canEdit} ondragstart={(event) => startDrag(card, event)} ondragend={() => { draggedCardId = ''; dropTargetLane = ''; dropTargetCardId = ''; }} ondragenter={(event) => { event.stopPropagation(); dropTargetLane = card.lane; dropTargetCardId = card.id; }} ondragover={(event) => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'; }} ondrop={(event) => { event.stopPropagation(); dropCard(card.lane, card.id, event); }}><a aria-label={`${card.title}, ${card.priority} priority`} href={`?card=${encodeURIComponent(card.id)}`} class:archived={card.archived} class="project-card">{#if card.coverColor}<div class="card-cover" style={`--cover-color: ${card.coverColor}`} aria-hidden="true"></div>{/if}<div class="project-card-heading"><strong>{card.title}</strong><span class="priority-badge" class:priority-low={card.priority === 'low'} class:priority-high={card.priority === 'high'} class:priority-urgent={card.priority === 'urgent'}>{card.priority}</span></div>{#if card.tags.length}<div class="project-card-tags">{#each card.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}>{tag.name}</span>{/each}</div>{/if}{#if card.checklist.length}{@const checklistDone = card.checklist.filter((item) => item.done).length}<div class="checklist-summary" aria-label={`${checklistDone} of ${card.checklist.length} checklist items complete`}><span>✓ {checklistDone}/{card.checklist.length}</span><progress max={card.checklist.length} value={checklistDone}></progress></div>{/if}{#if card.archived}<span class="archived-badge">Archived</span>{/if}{#if card.dueComplete}<span class="due-complete-badge" aria-label="Due date complete">✓ Done</span>{/if}<div class="project-card-meta"><span>{card.owner || 'unassigned'}</span>{#if card.startDate}<span class="start-date" aria-label={`Starts ${dueLabel(card.startDate)}`}>▶ {dueLabel(card.startDate)}</span>{/if}{#if card.dueDate}<span class={`due-date due-${dueState(card.dueDate)}`} class:due-complete={card.dueComplete}>Due {dueLabel(card.dueDate)}</span>{/if}{#if card.details}<span class="badge-description" aria-label="Has a description" title="Has a description">≡</span>{/if}{#if card.attachmentCount}<span aria-label={`${card.attachmentCount} attachments`} title={`${card.attachmentCount} attachments`}>📎 {card.attachmentCount}</span>{/if}{#if card.watcherCount}<span class:watching={card.watching} aria-label={`${card.watcherCount} watchers`}>◉ {card.watcherCount}</span>{/if}{#if commentsFor(card.id).length}<span aria-label={`${commentsFor(card.id).length} comments`}>▱ {commentsFor(card.id).length}</span>{/if}{#if data.canEdit}<span class="drag-hint">Drag to move</span>{/if}</div></a><details class="card-quick-menu"><summary aria-label={`Quick actions for ${card.title}`}>•••</summary><div class="card-quick-menu-body"><button type="button" onclick={() => copyCardLink(card.id)}>Copy link</button>{#if data.username && data.username !== 'anonymous'}<form method="POST" action="?/toggleWatch"><input type="hidden" name="id" value={card.id} /><input type="hidden" name="watching" value={String(!card.watching)} /><button type="submit">{card.watching ? 'Unwatch' : 'Watch'}</button></form>{/if}{#if data.canEdit}<div class="card-move-form"><label>Move to <select value={card.lane} onchange={(event) => quickMove(card, event.currentTarget.value)}>{#each data.lanes as option}<option value={option}>{option}</option>{/each}</select></label></div>{#if !data.sourceOwned}<form method="POST" action="?/duplicateCard"><input type="hidden" name="id" value={card.id} /><button type="submit">Duplicate</button></form>{/if}<button type="button" onclick={() => { if (card.archived) quickArchive(card, false); else if (confirm('Archive this card?')) quickArchive(card, true); }}>{card.archived ? 'Restore' : 'Archive'}</button>{/if}</div></details></div>
             {:else}<div class="project-column-empty"><strong>{draggedCardId && dropTargetLane === lane ? 'Drop card here' : filtered ? 'No matching cards' : index === 0 ? 'Add the first card' : 'Ready when you are'}</strong><p>{draggedCardId && dropTargetLane === lane ? 'Release to move this card into the column.' : filtered ? 'Clear the filters or keep this lane focused.' : index === 0 ? 'Capture one outcome, request, or question.' : 'Cards will collect here as work moves forward.'}</p></div>{/each}
           </div>
-          {#if data.canEdit}
-            {#if composerLane === lane}<form method="POST" action="?/createCard" class="card-composer"><label>Title <input name="title" maxlength="160" required placeholder="What needs to move?" /></label><label>Details <textarea name="details" rows="3" maxlength="4000" placeholder="Outcome, context, or next check"></textarea></label><div class="card-form-grid"><label>Owner <input name="owner" list="project-members" maxlength="120" placeholder="Optional" /></label><label>Priority <select name="priority"><option value="normal">Normal</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent</option></select></label></div><label>Due date <input name="dueDate" type="date" /></label><input type="hidden" name="lane" value={lane} /><fieldset class="tag-picker"><legend>Tags</legend><div class="tag-options">{#each data.tags as option}<label><input type="checkbox" name="tagId" value={option.id} /><span class="tag-chip" style={`--tag-color: ${option.color}`}>{option.name}</span></label>{/each}</div></fieldset><div class="card-actions"><button type="submit">Save card</button><button class="quiet-button" type="button" onclick={() => { composerLane = null; }}>Cancel</button></div></form>{:else}<button type="button" class="add-card-button" onclick={() => { composerLane = lane; }}>+ Add card</button>{/if}
+          {#if data.canEdit && !data.sourceOwned}
+            {#if composerLane === lane}<form method="POST" action="?/createCard" class="card-composer" use:enhanceComposer={{ lane }}><label>Title <textarea name="title" rows="1" maxlength="160" required placeholder="What needs to move? (Enter to save, Shift+Enter for a new line, one line per card)" onkeydown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } if (event.key === 'Escape') composerLane = null; }}></textarea></label><label>Details <textarea name="details" rows="3" maxlength={PROJECT_CARD_DETAILS_LIMIT} placeholder="Outcome, context, or next check"></textarea></label><div class="card-form-grid"><label>Owner <input name="owner" list="project-members" maxlength="120" placeholder="Optional" /></label><label>Priority <select name="priority"><option value="normal">Normal</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent</option></select></label></div><label>Due date <input name="dueDate" type="date" /></label><input type="hidden" name="lane" value={lane} /><fieldset class="tag-picker"><legend>Tags</legend><div class="tag-options">{#each data.tags as option}<label><input type="checkbox" name="tagId" value={option.id} /><span class="tag-chip" style={`--tag-color: ${option.color}`}>{option.name}</span></label>{/each}</div></fieldset><div class="card-actions"><button type="submit">Save card</button><button class="quiet-button" type="button" onclick={() => { composerLane = null; }}>Cancel</button></div></form>{:else}<button type="button" class="add-card-button" onclick={() => { composerLane = lane; }}>+ Add card</button>{/if}
           {/if}
         {/if}
       </section>
@@ -279,22 +470,51 @@
   {#if editingCard}
     <div class="modal-backdrop" role="presentation" onclick={(event) => { if (event.currentTarget === event.target) closeEditor(); }}></div>
     <dialog open class="card-editor-modal" aria-labelledby="card-editor-title">
-      <section class="card-editor-overview" aria-label="Card summary"><span class={`card-editor-state priority-${editingCard.priority}`}>{editingCard.priority}</span><span class="card-editor-lane">{editingCard.lane}</span><span>{editingCard.owner || 'Unassigned'}</span>{#if editingCard.dueDate}<span class={`due-date due-${dueState(editingCard.dueDate)}`}>Due {dueLabel(editingCard.dueDate)}</span>{/if}{#if editingCard.checklist.length}<span>✓ {editingCard.checklist.filter((item) => item.done).length}/{editingCard.checklist.length}</span>{/if}<span>{commentsFor(editingCard.id).length} {commentsFor(editingCard.id).length === 1 ? 'comment' : 'comments'}</span></section>
-      <nav class="card-action-rail" aria-label="Card sections"><a href="#card-editor-form">Description & details</a><a href="#card-checklist">Checklist</a><a href="#card-comments-title">Comments</a><a href={`/projects/${data.project.slug}/files`}>☁ Cloud</a></nav>
-      <div class="modal-heading"><div><p class="eyebrow">EDIT CARD</p><h2 id="card-editor-title">{editingCard.title}</h2><p class="subtitle">Changes are saved only when you confirm.</p></div><div class="modal-heading-actions"><button type="submit" form="card-editor-form" class="quiet-button watch-button" formaction="?/toggleWatch" name="watching" value={String(!editingCard.watching)}>{editingCard.watching ? 'Watching' : 'Watch'}</button><button type="button" class="quiet-button" onclick={() => copyCardLink(editingCard.id)}>Copy link</button><button type="button" class="quiet-button" aria-label="Close card editor" onclick={closeEditor}>×</button></div></div>
+      <section class="card-editor-overview" aria-label="Card summary"><span class={`card-editor-state priority-${editingCard.priority}`}>{editingCard.priority}</span><span class="card-editor-lane">{editingCard.lane}</span><span>{editingCard.owner || 'Unassigned'}</span>{#if editingCard.startDate}<span class="start-date">Starts {dueLabel(editingCard.startDate)}</span>{/if}{#if editingCard.dueDate}<span class={`due-date due-${dueState(editingCard.dueDate)}`} class:due-complete={editingCard.dueComplete}>Due {dueLabel(editingCard.dueDate)}{editingCard.dueComplete ? ' · complete' : ''}</span>{/if}{#if editingCard.checklist.length}<span>✓ {editingCard.checklist.filter((item) => item.done).length}/{editingCard.checklist.length}</span>{/if}<span>{commentsFor(editingCard.id).length} {commentsFor(editingCard.id).length === 1 ? 'comment' : 'comments'}</span></section>
+      <nav class="card-action-rail" aria-label="Card sections"><a href="#card-editor-form">Description & details</a><a href="#card-checklist">Checklist</a><a href="#card-attachments">Attachments</a><a href="#card-comments-title">Comments</a><a href={`/projects/${data.project.slug}/files`}>☁ Cloud</a></nav>
+      <div class="modal-heading"><div><p class="eyebrow">EDIT CARD{#if data.sourceOwned}<span class="source-lock-chip" title="Title, description, checklist text, owner, priority, and cover are synced from UNITY_PLAN.md.">🔒 synced</span>{/if}</p><h2 id="card-editor-title">{editingCard.title}</h2><p class="subtitle">{data.sourceOwned ? 'Lane, dates, comments, attachments, and checklist ticks are saved here; everything else comes from the plan file.' : 'Changes are saved only when you confirm.'}</p></div><div class="modal-heading-actions"><button type="submit" form="card-editor-form" class="quiet-button watch-button" formaction="?/toggleWatch" name="watching" value={String(!editingCard.watching)}>{editingCard.watching ? 'Watching' : 'Watch'}</button><button type="button" class="quiet-button" onclick={() => copyCardLink(editingCard.id)}>Copy link</button><button type="button" class="quiet-button" aria-label="Close card editor" onclick={closeEditor}>×</button></div></div>
       <form method="POST" action="?/updateCard" class="card-edit-form" id="card-editor-form">
         <input type="hidden" name="id" value={editingCard.id} /><input type="hidden" name="cardArchived" value={String(editingCard.archived)} />
-        <label>Title <input name="title" value={editingCard.title} maxlength="160" required /></label>
-        <label>Details <textarea name="details" rows="5" maxlength="4000">{editingCard.details}</textarea></label>
-        <div class="card-form-grid"><label>Owner <input name="owner" list="project-members" value={editingCard.owner} maxlength="120" /></label><label>Lane <select name="lane">{#each data.lanes as option}<option value={option} selected={option === editingCard.lane}>{option}</option>{/each}</select></label></div>
-        <div class="card-form-grid"><label>Priority <select name="priority"><option value="low" selected={editingCard.priority === 'low'}>Low</option><option value="normal" selected={editingCard.priority === 'normal'}>Normal</option><option value="high" selected={editingCard.priority === 'high'}>High</option><option value="urgent" selected={editingCard.priority === 'urgent'}>Urgent</option></select></label><label>Due date <input name="dueDate" type="date" value={editingCard.dueDate ?? ''} /></label></div>
+        <label>Title <input name="title" value={editingCard.title} maxlength="160" required readonly={data.sourceOwned} aria-readonly={data.sourceOwned} /></label>
+        <div class="card-description-field">
+          <span class="field-label">Details</span>
+          {#if data.sourceOwned}
+            <div class="markdown-preview-block">{#if editingCard.details}{@html renderMarkdown(editingCard.details)}{:else}<p class="empty">No description.</p>{/if}</div>
+          {:else if editingDescription}
+            <textarea name="details" rows="6" maxlength={PROJECT_CARD_DETAILS_LIMIT} placeholder="Outcome, context, or next check — Markdown supported" onblur={() => { editingDescription = false; }} use:focusOnMount>{editingCard.details}</textarea>
+          {:else}
+            <div class="description-preview" role="button" tabindex="0" onclick={() => { editingDescription = true; }} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); editingDescription = true; } }}>{#if editingCard.details}{@html renderMarkdown(editingCard.details)}{:else}<span class="empty">Click to add a description…</span>{/if}</div>
+          {/if}
+        </div>
+        <div class="card-form-grid"><label>Owner <input name="owner" list="project-members" value={editingCard.owner} maxlength="120" readonly={data.sourceOwned} aria-readonly={data.sourceOwned} /></label><label>Lane <select name="lane">{#each data.lanes as option}<option value={option} selected={option === editingCard.lane}>{option}</option>{/each}</select></label></div>
+        <div class="card-form-grid"><label>Priority <select name="priority" disabled={data.sourceOwned}><option value="low" selected={editingCard.priority === 'low'}>Low</option><option value="normal" selected={editingCard.priority === 'normal'}>Normal</option><option value="high" selected={editingCard.priority === 'high'}>High</option><option value="urgent" selected={editingCard.priority === 'urgent'}>Urgent</option></select></label><label>Start date <input name="startDate" type="date" value={editingCard.startDate ?? ''} /></label></div>
+        <div class="card-form-grid"><label>Due date <input name="dueDate" type="date" value={editingCard.dueDate ?? ''} /></label><label class="due-complete-field"><input type="checkbox" name="dueComplete" value="true" checked={editingCard.dueComplete} /> Due date complete</label></div>
         <fieldset class="tag-picker"><legend>Labels</legend><div class="tag-options">{#each data.tags as option}<label><input type="checkbox" name="tagId" value={option.id} checked={editingCard.tags.some((tag) => tag.id === option.id)} /><span class="tag-chip" style={`--tag-color: ${option.color}`}>{option.name}</span></label>{/each}</div></fieldset>
-        <fieldset class="cover-picker"><legend>Card cover</legend><div class="cover-options"><label><input type="radio" name="coverColor" value="" checked={!editingCard.coverColor} /><span class="cover-swatch cover-none">None</span></label>{#each ['#5E9CFF', '#9B8AFB', '#F08FC0', '#F4B860', '#68D6A4', '#55C2C9'] as color}<label><input type="radio" name="coverColor" value={color} checked={editingCard.coverColor === color} /><span class="cover-swatch" style={`--cover-color: ${color}`} aria-label={`Use ${color} cover`}></span></label>{/each}</div></fieldset>
-        <fieldset id="card-checklist" class="checklist-editor"><legend>Checklist <small>{editingCard.checklist.filter((item) => item.done).length}/{editingCard.checklist.length} complete</small></legend>{#each editingCard.checklist as item}<div class="checklist-edit-row"><input type="hidden" name="checkItemId" value={item.id} /><input class="checklist-done" type="checkbox" name="checkItemDone" value={item.id} checked={item.done} aria-label={`Complete ${item.text}`} /><input name="checkItemText" value={item.text} maxlength="240" aria-label="Checklist item" /></div>{/each}<div class="checklist-edit-row checklist-new-row"><input type="hidden" name="checkItemId" value="new" /><span class="checklist-new-marker" aria-hidden="true">＋</span><input name="checkItemText" maxlength="240" placeholder="Add a checklist item" aria-label="New checklist item" /></div></fieldset>
-        <div class="modal-actions"><button type="button" class="quiet-button" onclick={closeEditor}>Cancel</button><button type="submit">Confirm changes</button><button type="submit" class="quiet-button" formaction="?/duplicateCard" name="id" value={editingCard.id}>Duplicate</button><button type="submit" class="quiet-button danger" formaction="?/archiveCard" name="archived" value={String(!editingCard.archived)} onclick={(event) => { if (!confirm(editingCard.archived ? 'Restore this card?' : 'Archive this card?')) event.preventDefault(); }}>{editingCard.archived ? 'Restore' : 'Archive'}</button><button type="submit" class="quiet-button danger" formaction="?/deleteCard" onclick={(event) => { if (!confirm('Delete this card?')) event.preventDefault(); }}>Delete</button></div>
+        <fieldset class="cover-picker" disabled={data.sourceOwned}><legend>Card cover</legend><div class="cover-options"><label><input type="radio" name="coverColor" value="" checked={!editingCard.coverColor} /><span class="cover-swatch cover-none">None</span></label>{#each ['#5E9CFF', '#9B8AFB', '#F08FC0', '#F4B860', '#68D6A4', '#55C2C9'] as color}<label><input type="radio" name="coverColor" value={color} checked={editingCard.coverColor === color} /><span class="cover-swatch" style={`--cover-color: ${color}`} aria-label={`Use ${color} cover`}></span></label>{/each}</div></fieldset>
+        <fieldset id="card-checklist" class="checklist-editor"><legend>Checklist <small>{editingCard.checklist.filter((item) => item.done).length}/{editingCard.checklist.length} complete</small></legend>{#each editingCard.checklist as item}<div class="checklist-edit-row"><input type="hidden" name="checkItemId" value={item.id} /><input class="checklist-done" type="checkbox" name="checkItemDone" value={item.id} checked={item.done} aria-label={`Complete ${item.text}`} /><input name="checkItemText" value={item.text} maxlength="240" aria-label="Checklist item" readonly={data.sourceOwned} aria-readonly={data.sourceOwned} /></div>{/each}{#if !data.sourceOwned}<div class="checklist-edit-row checklist-new-row"><input type="hidden" name="checkItemId" value="new" /><span class="checklist-new-marker" aria-hidden="true">＋</span><input name="checkItemText" maxlength="240" placeholder="Add a checklist item" aria-label="New checklist item" /></div>{/if}</fieldset>
+        <div class="modal-actions"><button type="button" class="quiet-button" onclick={closeEditor}>Cancel</button><button type="submit">Confirm changes</button>{#if !data.sourceOwned}<button type="submit" class="quiet-button" formaction="?/duplicateCard" name="id" value={editingCard.id}>Duplicate</button>{/if}<button type="button" class="quiet-button danger" onclick={() => { const next = !editingCard.archived; if (next && !confirm('Archive this card?')) return; quickArchive(editingCard, next); closeEditor(); }}>{editingCard.archived ? 'Restore' : 'Archive'}</button>{#if !data.sourceOwned}<button type="submit" class="quiet-button danger" formaction="?/deleteCard" onclick={(event) => { if (!confirm('Delete this card?')) event.preventDefault(); }}>Delete</button>{/if}</div>
       </form>
-      <section class="card-comments" aria-labelledby="card-comments-title"><div class="card-comments-heading"><h3 id="card-comments-title">Comments</h3><span>{commentsFor(editingCard.id).length}</span></div>{#if commentsFor(editingCard.id).length}<ol class="card-comment-list">{#each commentsFor(editingCard.id) as comment}<li><div><strong>{comment.author}</strong><time datetime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString()}</time>{#if data.canEdit && (comment.author === data.username || ['superadmin', 'admin'].includes(data.role))}<form method="POST" action="?/deleteComment"><input type="hidden" name="id" value={comment.id} /><button type="submit" class="comment-delete" aria-label="Delete comment">×</button></form>{/if}</div>{#if commentText(comment.body)}<p>{commentText(comment.body)}</p>{/if}{#each commentImages(comment.body) as image}<img class="comment-attachment" src={image.url} alt={image.alt} loading="lazy" />{/each}</li>{/each}</ol>{:else}<p class="comment-empty">No comments yet. Leave context for the next person.</p>{/if}{#if data.canEdit}<form method="POST" action="?/createComment" class="comment-form"><input type="hidden" name="cardId" value={editingCard.id} /><textarea bind:value={commentDraft} onpaste={uploadCommentImage} name="body" rows="3" maxlength="4000" placeholder="Add a decision, update, or handoff note… Paste a screenshot here" required></textarea><small class="comment-paste-help">Paste a screenshot directly into this box to attach it to the project drive.{#if commentUploadStatus} {commentUploadStatus}{/if}</small><button type="submit">Add comment</button></form>{/if}</section>
+      <section id="card-attachments" class="card-attachments" aria-labelledby="card-attachments-title"><div class="card-comments-heading"><h3 id="card-attachments-title">Attachments</h3><span>{attachmentsFor(editingCard.id).length}</span></div>{#if attachmentsFor(editingCard.id).length}<ul class="card-attachment-list">{#each attachmentsFor(editingCard.id) as attachment}<li>{#if attachment.mimeType.startsWith('image/')}<img class="attachment-thumb" src={attachment.url} alt="" loading="lazy" />{:else}<span class="attachment-icon" aria-hidden="true">📄</span>{/if}<a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.name}</a><span class="attachment-meta">{formatBytes(attachment.size)}</span>{#if data.canEdit}<button type="button" class="comment-delete" aria-label={`Remove ${attachment.name}`} onclick={() => { if (confirm('Remove this attachment?')) void removeAttachment(attachment); }}>×</button>{/if}</li>{/each}</ul>{:else}<p class="comment-empty">No files attached yet.</p>{/if}{#if data.canEdit}<label class="attachment-upload"><input type="file" onchange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void uploadAttachment(editingCard.id, file); event.currentTarget.value = ''; }} />+ Attach a file{#if attachmentUploadStatus} · {attachmentUploadStatus}{/if}</label>{/if}</section>
+      <section class="card-comments" aria-labelledby="card-comments-title"><div class="card-comments-heading"><h3 id="card-comments-title">Comments</h3><span>{commentsFor(editingCard.id).length}</span></div>{#if commentsFor(editingCard.id).length}<ol class="card-comment-list">{#each commentsFor(editingCard.id) as comment}<li><div><strong>{comment.author}</strong><time datetime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString()}</time>{#if data.canEdit && (comment.author === data.username || ['superadmin', 'admin'].includes(data.role))}<form method="POST" action="?/deleteComment"><input type="hidden" name="id" value={comment.id} /><button type="submit" class="comment-delete" aria-label="Delete comment">×</button></form>{/if}</div>{#if commentText(comment.body)}<div class="comment-body">{@html renderMarkdown(commentText(comment.body))}</div>{/if}{#each commentImages(comment.body) as image}<img class="comment-attachment" src={image.url} alt={image.alt} loading="lazy" />{/each}</li>{/each}</ol>{:else}<p class="comment-empty">No comments yet. Leave context for the next person.</p>{/if}{#if data.canEdit}<form method="POST" action="?/createComment" class="comment-form"><input type="hidden" name="cardId" value={editingCard.id} /><textarea bind:value={commentDraft} onpaste={uploadCommentImage} name="body" rows="3" maxlength="4000" placeholder="Add a decision, update, or handoff note… Markdown supported, paste a screenshot here" required></textarea><small class="comment-paste-help">Paste a screenshot directly into this box to attach it to the project drive.{#if commentUploadStatus} {commentUploadStatus}{/if}</small><button type="submit">Add comment</button></form>{/if}</section>
       <section class="card-activity" aria-labelledby="card-activity-title"><div class="card-comments-heading"><h3 id="card-activity-title">Activity</h3><span>{activityFor(editingCard.id).length}</span></div>{#if activityFor(editingCard.id).length}<ol>{#each activityFor(editingCard.id) as entry}<li><span class="activity-dot" aria-hidden="true"></span><div><strong>{entry.action}</strong><p>{entry.summary}</p><time datetime={entry.createdAt}>{entry.actor || 'System'} · {new Date(entry.createdAt).toLocaleString()}</time></div></li>{/each}</ol>{:else}<p class="comment-empty">Card activity will appear here as the work changes.</p>{/if}</section>
+    </dialog>
+  {/if}
+
+  {#if toast}<div class="board-toast" role="status"><span>{toast.message}</span>{#if toast.undo}<button type="button" onclick={() => { toast?.undo?.(); toast = null; }}>Undo</button>{/if}</div>{/if}
+
+  {#if showShortcutHelp}
+    <div class="modal-backdrop" role="presentation" onclick={() => { showShortcutHelp = false; }}></div>
+    <dialog open class="shortcut-help-modal" aria-labelledby="shortcut-help-title">
+      <div class="modal-heading"><div><h2 id="shortcut-help-title">Keyboard shortcuts</h2></div><button type="button" class="quiet-button" aria-label="Close shortcut help" onclick={() => { showShortcutHelp = false; }}>×</button></div>
+      <dl class="shortcut-list">
+        <div><dt>/</dt><dd>Focus search</dd></div>
+        <div><dt>n</dt><dd>Add a card in the first open list</dd></div>
+        <div><dt>q</dt><dd>Toggle "my cards" filter</dd></div>
+        <div><dt>x</dt><dd>Clear all filters</dd></div>
+        <div><dt>Esc</dt><dd>Close the open card or composer</dd></div>
+        <div><dt>?</dt><dd>Show this help</dd></div>
+      </dl>
+      <p class="subtitle">Shortcuts are inert while typing in a field. Every shortcut also has a menu you can click instead.</p>
     </dialog>
   {/if}
 

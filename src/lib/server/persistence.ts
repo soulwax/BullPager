@@ -1,10 +1,17 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
+import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
 import { defaultProjectTags, slugifyTag, tagColors, tagId, tagPalette } from '$lib/projectTags';
 import { databaseConfigured, db, neonClient } from './db';
-import { boardProjectActivity, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
+import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
+
+/** Card description/detail length before the sync appends a truncation marker
+ * instead of silently cutting the text mid-sentence. */
+export const CARD_DETAILS_LIMIT = 8000;
+/** Upper bound on synced checklist items per card; matches the packet handle
+ * cap in `parsePackets` so a fully handle-decomposed packet never loses one. */
+export const MAX_PACKET_CHECKLIST_ITEMS = 40;
 
 export type PersistedTransition = {
   packetId: string;
@@ -138,6 +145,18 @@ async function initializeSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_project_card_attachments (
+      id TEXT PRIMARY KEY,
+      project_slug TEXT NOT NULL,
+      card_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL,
+      mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+      size INTEGER NOT NULL DEFAULT 0,
+      created_by TEXT NOT NULL DEFAULT 'unknown',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `, rawSql`
     CREATE TABLE IF NOT EXISTS board_project_files (
       id TEXT PRIMARY KEY,
       project_slug TEXT NOT NULL,
@@ -200,7 +219,7 @@ async function initializeSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `]);
-  await rawSql`ALTER TABLE board_project_cards ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS due_date DATE, ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS checklist TEXT NOT NULL DEFAULT '[]', ADD COLUMN IF NOT EXISTS cover_color TEXT NOT NULL DEFAULT ''`;
+  await rawSql`ALTER TABLE board_project_cards ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS due_date DATE, ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS checklist TEXT NOT NULL DEFAULT '[]', ADD COLUMN IF NOT EXISTS cover_color TEXT NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS due_complete BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS start_date DATE`;
   await rawSql`ALTER TABLE board_users ADD COLUMN IF NOT EXISTS github_id TEXT UNIQUE`;
   await rawSql`
     INSERT INTO board_projects (slug, name, owner, visibility)
@@ -377,11 +396,17 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
   await database.update(boardProjects).set({ name: 'Unity implementation board' }).where(and(eq(boardProjects.slug, projectSlug), inArray(boardProjects.name, ['Unity migration plan', 'Unity greenfield build plan'])));
   await database.insert(boardSettings).values({ key: `project_${projectSlug}_lanes`, value: JSON.stringify(['Backlog', 'In progress', 'Blocked', 'Done']) }).onConflictDoNothing();
   await database.insert(boardSettings).values({ key: `project_${projectSlug}_theme`, value: 'midnight' }).onConflictDoNothing();
+  // Marks title/details/checklist-text/owner/priority/cover as source-owned in
+  // the UI; board-owned fields (lane, dates, comments, watchers…) stay editable.
+  await database.insert(boardSettings).values({ key: `project_${projectSlug}_source`, value: 'plan' }).onConflictDoNothing();
   await ensureDefaultProjectTags(projectSlug);
   await ensurePlannerTags(projectSlug, packets);
   const digestKey = `project_${projectSlug}_planner_digest`;
   const previousDigestRow = await database.select({ value: boardSettings.value }).from(boardSettings).where(eq(boardSettings.key, digestKey)).limit(1);
   const previousDigest = previousDigestRow[0]?.value || '';
+  // The whole per-packet diff below is skippable once the source hasn't
+  // changed: repeatedly opening the board must never write or log activity.
+  if (options.sourceDigest && options.sourceDigest === previousDigest) return 0;
   const rows = await database.select().from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug));
   const existing = new Map(rows.map((row) => [row.id, row]));
   const positions = new Map<string, number>();
@@ -390,27 +415,37 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
   const stateLane = (state: PacketState) => state === 'BLOCKED' ? 'Blocked' : state === 'ACTIVE' || state === 'PARTIAL' ? 'In progress' : state === 'CLOSED' || state === 'DROPPED' ? 'Done' : 'Backlog';
   const stateColor = (state: PacketState) => state === 'BLOCKED' ? '#F17878' : state === 'ACTIVE' || state === 'PARTIAL' ? '#5E9CFF' : state === 'CLOSED' ? '#68D6A4' : '#A7B1C2';
   const priority = (state: PacketState): ProjectCard['priority'] => state === 'BLOCKED' ? 'urgent' : state === 'ACTIVE' || state === 'PARTIAL' ? 'high' : state === 'CLOSED' || state === 'DROPPED' ? 'low' : 'normal';
-  const checklist = (steps: string, packetId: string): ProjectChecklistItem[] => steps
-    .split(/\r?\n/)
-    .map((line) => line.match(/^\s*(?:\d+[.)]|[-*])\s+(.+)$/)?.[1]?.trim())
-    .filter((item): item is string => Boolean(item))
-    .slice(0, 20)
-    .map((text, index) => ({ id: `${packetId.toLowerCase()}-step-${index + 1}`, text: text.slice(0, 240), done: false }));
-  const details = (packet: Packet) => [
-    `Unity implementation packet ${packet.id}`,
-    `Category: ${packet.category || 'Uncategorized'} · Subcategory: ${packet.subcategory || 'General'}`,
-    packet.tags?.length ? `Tags: ${packet.tags.join(', ')}` : '',
-    packet.handles?.length ? `Implementation handles: ${packet.handles.join(' → ')}` : '',
-    packet.runbook ? `Runbook:\n${packet.runbook}` : '',
-    `Milestone: ${packet.milestone} · State: ${packet.state} · Owner: ${packet.owner || 'unassigned'}`,
-    packet.outcome ? `Outcome: ${packet.outcome}` : '',
-    packet.inputs ? `Inputs: ${packet.inputs}` : '',
-    packet.files ? `Files: ${packet.files}` : '',
-    packet.checks ? `Checks: ${packet.checks}` : '',
-    packet.evidence ? `Evidence: ${packet.evidence}` : '',
-    packet.remainder ? `Remainder: ${packet.remainder}` : '',
-    packet.dependsOn.length ? `Depends on: ${packet.dependsOn.join(', ')}` : ''
-  ].filter(Boolean).join('\n\n').slice(0, 4000);
+  // The checklist is what a human ticks off, so it is built from the packet's
+  // one-sitting handles (falling back to numbered/bulleted steps for source
+  // text that predates handles). Item ids are stable across re-syncs so an
+  // existing `done` flag can be matched and preserved below.
+  const checklistItems = (packet: Packet): ProjectChecklistItem[] => {
+    const fromHandles = (packet.handles ?? []).map((handle, index) => ({ id: `${packet.id.toLowerCase()}-handle-${index + 1}`, text: handle, done: false }));
+    if (fromHandles.length) return fromHandles.slice(0, MAX_PACKET_CHECKLIST_ITEMS);
+    return packet.steps
+      .split(/\r?\n/)
+      .map((line) => line.match(/^\s*(?:\d+[.)]|[-*])\s+(.+)$/)?.[1]?.trim())
+      .filter((item): item is string => Boolean(item))
+      .slice(0, MAX_PACKET_CHECKLIST_ITEMS)
+      .map((text, index) => ({ id: `${packet.id.toLowerCase()}-step-${index + 1}`, text: text.slice(0, 240), done: false }));
+  };
+  const detailsFor = (packet: Packet) => {
+    const body = [
+      `Unity implementation packet ${packet.id}`,
+      `Category: ${packet.category || 'Uncategorized'} · Subcategory: ${packet.subcategory || 'General'}`,
+      packet.tags?.length ? `Tags: ${packet.tags.join(', ')}` : '',
+      packet.runbook ? `Runbook:\n${packet.runbook}` : '',
+      `Milestone: ${packet.milestone} · State: ${packet.state} · Owner: ${packet.owner || 'unassigned'}`,
+      packet.outcome ? `Outcome: ${packet.outcome}` : '',
+      packet.inputs ? `Inputs: ${packet.inputs}` : '',
+      packet.files ? `Files: ${packet.files}` : '',
+      packet.checks ? `Checks: ${packet.checks}` : '',
+      packet.evidence ? `Evidence: ${packet.evidence}` : '',
+      packet.remainder ? `Remainder: ${packet.remainder}` : '',
+      packet.dependsOn.length ? `Depends on: ${packet.dependsOn.join(', ')}` : ''
+    ].filter(Boolean).join('\n\n');
+    return body.length > CARD_DETAILS_LIMIT ? `${body.slice(0, CARD_DETAILS_LIMIT)}\n\n[truncated — see the source packet for the rest]` : body;
+  };
   const tagIds = (packet: Packet) => {
     const tags = [tagId(projectSlug, 'content'), ...(packet.tags ?? []).map((tag) => plannerTagId(projectSlug, tag))];
     if (packet.state === 'BLOCKED') tags.push(tagId(projectSlug, 'blocked'));
@@ -428,10 +463,15 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
     const lane = stateLane(packet.state);
     const id = `unity-${packet.id.toLowerCase()}`;
     const current = existing.get(id);
+    // The item TEXT is source-owned; whether it is TICKED is board-owned.
+    // Merge by item id so a completed handle survives an unrelated source
+    // change instead of being reset to unchecked on the next sync.
+    const existingDoneById = current ? new Map(parseChecklist(current.checklist).map((item) => [item.id, item.done])) : new Map<string, boolean>();
+    const mergedChecklist = checklistItems(packet).map((item) => ({ id: item.id, text: item.text, done: existingDoneById.get(item.id) ?? false }));
     const sourceValues = {
       title: `${packet.id} · ${packet.title}`,
-      details: details(packet),
-      checklist: JSON.stringify(checklist(packet.steps, packet.id)),
+      details: detailsFor(packet),
+      checklist: JSON.stringify(mergedChecklist),
       coverColor: stateColor(packet.state),
       owner: packet.owner || 'unassigned',
       priority: priority(packet.state)
@@ -660,6 +700,9 @@ export async function listProjectCards(projectSlug: string, username = ''): Prom
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
   const cardTags = rows.length ? await database.select({ cardId: boardProjectCardTags.cardId, tagId: boardProjectCardTags.tagId }).from(boardProjectCardTags).where(inArray(boardProjectCardTags.cardId, rows.map((row) => row.id))) : [];
   const watchers = rows.length ? await database.select({ cardId: boardProjectCardWatchers.cardId, username: boardProjectCardWatchers.username }).from(boardProjectCardWatchers).where(inArray(boardProjectCardWatchers.cardId, rows.map((row) => row.id))) : [];
+  const attachmentRows = rows.length ? await database.select({ cardId: boardProjectCardAttachments.cardId }).from(boardProjectCardAttachments).where(inArray(boardProjectCardAttachments.cardId, rows.map((row) => row.id))) : [];
+  const attachmentCounts = new Map<string, number>();
+  for (const row of attachmentRows) attachmentCounts.set(row.cardId, (attachmentCounts.get(row.cardId) ?? 0) + 1);
   const watcherCounts = new Map<string, number>();
   const watchedByUser = new Set<string>();
   for (const watcher of watchers) {
@@ -671,10 +714,35 @@ export async function listProjectCards(projectSlug: string, username = ''): Prom
     const tag = tagById.get(entry.tagId);
     if (tag) tagsByCard.set(entry.cardId, [...(tagsByCard.get(entry.cardId) ?? []), tag]);
   }
-  return rows.map((row) => ({ id: row.id, projectSlug: row.projectSlug, title: row.title, details: row.details, lane: row.lane, position: row.position, archived: row.archived, checklist: parseChecklist(row.checklist), coverColor: row.coverColor, watcherCount: watcherCounts.get(row.id) ?? 0, watching: watchedByUser.has(row.id), owner: row.owner, priority: row.priority, dueDate: row.dueDate, tags: tagsByCard.get(row.id) ?? [], createdAt: row.createdAt, updatedAt: row.updatedAt }));
+  return rows.map((row) => ({ id: row.id, projectSlug: row.projectSlug, title: row.title, details: row.details, lane: row.lane, position: row.position, archived: row.archived, checklist: parseChecklist(row.checklist), coverColor: row.coverColor, watcherCount: watcherCounts.get(row.id) ?? 0, watching: watchedByUser.has(row.id), owner: row.owner, priority: row.priority, dueDate: row.dueDate, dueComplete: row.dueComplete, startDate: row.startDate, attachmentCount: attachmentCounts.get(row.id) ?? 0, tags: tagsByCard.get(row.id) ?? [], createdAt: row.createdAt, updatedAt: row.updatedAt }));
 }
 
-type ProjectCardWrite = Pick<ProjectCard, 'id' | 'projectSlug' | 'title' | 'details' | 'lane' | 'owner' | 'priority' | 'dueDate' | 'archived' | 'checklist' | 'coverColor'> & { tagIds?: string[] };
+function attachmentFromRow(row: typeof boardProjectCardAttachments.$inferSelect): ProjectCardAttachment {
+  return { id: row.id, projectSlug: row.projectSlug, cardId: row.cardId, name: row.name, url: row.url, mimeType: row.mimeType, size: row.size, createdBy: row.createdBy, createdAt: row.createdAt };
+}
+
+export async function listCardAttachments(projectSlug: string, cardId?: string): Promise<ProjectCardAttachment[]> {
+  if (!databaseConfigured()) return [];
+  await ensureSchema();
+  const conditions = cardId ? and(eq(boardProjectCardAttachments.projectSlug, projectSlug), eq(boardProjectCardAttachments.cardId, cardId)) : eq(boardProjectCardAttachments.projectSlug, projectSlug);
+  const rows = await requireDatabase().select().from(boardProjectCardAttachments).where(conditions).orderBy(desc(boardProjectCardAttachments.createdAt));
+  return rows.map(attachmentFromRow);
+}
+
+export async function createCardAttachment(attachment: Omit<ProjectCardAttachment, 'createdAt'>): Promise<ProjectCardAttachment> {
+  await ensureSchema();
+  await requireDatabase().insert(boardProjectCardAttachments).values({ ...attachment, name: attachment.name.slice(0, 200), url: attachment.url.slice(0, 2000), mimeType: attachment.mimeType.slice(0, 120) });
+  const row = (await requireDatabase().select().from(boardProjectCardAttachments).where(eq(boardProjectCardAttachments.id, attachment.id)).limit(1))[0];
+  if (!row) throw new Error('The attachment could not be loaded after creation.');
+  return attachmentFromRow(row);
+}
+
+export async function deleteCardAttachment(projectSlug: string, id: string) {
+  await ensureSchema();
+  await requireDatabase().delete(boardProjectCardAttachments).where(and(eq(boardProjectCardAttachments.projectSlug, projectSlug), eq(boardProjectCardAttachments.id, id)));
+}
+
+type ProjectCardWrite = Pick<ProjectCard, 'id' | 'projectSlug' | 'title' | 'details' | 'lane' | 'owner' | 'priority' | 'dueDate' | 'dueComplete' | 'startDate' | 'archived' | 'checklist' | 'coverColor'> & { tagIds?: string[] };
 
 export async function createProjectCard(card: ProjectCardWrite) {
   await ensureSchema();
@@ -693,7 +761,7 @@ export async function updateProjectCard(card: ProjectCardWrite) {
   const { tagIds = [], checklist = [], ...values } = card;
   const database = requireDatabase();
   await database.transaction(async (tx) => {
-    await tx.update(boardProjectCards).set({ title: values.title, details: values.details, lane: values.lane, owner: values.owner, priority: values.priority, dueDate: values.dueDate, archived: values.archived, checklist: JSON.stringify(checklist), coverColor: values.coverColor || '', updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, values.id), eq(boardProjectCards.projectSlug, values.projectSlug)));
+    await tx.update(boardProjectCards).set({ title: values.title, details: values.details, lane: values.lane, owner: values.owner, priority: values.priority, dueDate: values.dueDate, dueComplete: values.dueComplete, startDate: values.startDate, archived: values.archived, checklist: JSON.stringify(checklist), coverColor: values.coverColor || '', updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, values.id), eq(boardProjectCards.projectSlug, values.projectSlug)));
     await replaceCardTags(card.projectSlug, card.id, tagIds, tx as any);
   });
 }

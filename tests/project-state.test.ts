@@ -25,7 +25,7 @@ describe('project state helpers', () => {
   });
 
   it('moves a card across columns and reindexes both columns', () => {
-    const card = (id: string, lane: string, position: number) => ({ id, projectSlug: 'demo', title: id, details: '', lane, position, owner: '', priority: 'normal' as const, dueDate: null, archived: false, checklist: [], tags: [], coverColor: '', watcherCount: 0, watching: false, createdAt: '', updatedAt: '' });
+    const card = (id: string, lane: string, position: number) => ({ id, projectSlug: 'demo', title: id, details: '', lane, position, owner: '', priority: 'normal' as const, dueDate: null, dueComplete: false, startDate: null, attachmentCount: 0, archived: false, checklist: [], tags: [], coverColor: '', watcherCount: 0, watching: false, createdAt: '', updatedAt: '' });
     const moved = moveProjectCard([card('one', 'Backlog', 0), card('two', 'Done', 0), card('three', 'Done', 1)], 'one', 'Done', 'three');
     expect(moved.map(({ id, lane, position }) => ({ id, lane, position }))).toEqual([
       { id: 'two', lane: 'Done', position: 0 },

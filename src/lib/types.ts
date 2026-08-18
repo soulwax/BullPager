@@ -95,6 +95,18 @@ export type ProjectComment = {
   createdAt: string;
 };
 
+export type ProjectCardAttachment = {
+  id: string;
+  projectSlug: string;
+  cardId: string;
+  name: string;
+  url: string;
+  mimeType: string;
+  size: number;
+  createdBy: string;
+  createdAt: string;
+};
+
 export type ProjectFile = {
   id: string;
   projectSlug: string;
@@ -174,10 +186,18 @@ export type ProjectCard = {
   owner: string;
   priority: 'low' | 'normal' | 'high' | 'urgent';
   dueDate: string | null;
+  dueComplete: boolean;
+  startDate: string | null;
+  attachmentCount: number;
   tags: ProjectTag[];
   createdAt: string;
   updatedAt: string;
 };
+
+/** Fields a source sync (e.g. the Unity plan mirror) owns on a card; the board
+ * UI renders these read-only and the server rejects writes to them. */
+export const SOURCE_OWNED_CARD_FIELDS = ['title', 'details', 'checklist', 'owner', 'priority', 'coverColor'] as const;
+export type SourceOwnedCardField = (typeof SOURCE_OWNED_CARD_FIELDS)[number];
 
 export type ProjectViewState = {
   density?: 'comfortable' | 'compact';

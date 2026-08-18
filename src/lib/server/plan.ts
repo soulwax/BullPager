@@ -9,6 +9,13 @@ import guideSnapshot from '../../../content/HUMAN_AGILE_GUIDE.md?raw';
 
 const states: PacketState[] = ['OPEN', 'ACTIVE', 'PARTIAL', 'BLOCKED', 'CLOSED', 'DROPPED'];
 const packetHeading = /^###\s+(MIG-[0-9]+)\s+—\s+(.+)$/;
+/** A packet whose source line exceeds this is rejected by `validatePackets`
+ * rather than silently truncated — see BUILD_MASTERPLAN.md §B.3 (B3-1). The
+ * grammar stays the lenient `u<0-6>-<slug>` form used by the shipped plan
+ * today; BUILD_MASTERPLAN.md §B.2's typed-kind grammar is a future tightening
+ * that must land together with a rewrite of every packet's `Handles:` line. */
+export const MAX_PACKET_HANDLES = 40;
+export const MAX_PACKET_TAGS = 12;
 
 function field(block: string, name: string): string {
   const match = block.match(new RegExp(`^${name}:\\s*(.*(?:\\n(?![A-Za-z ]+:).*)*)$`, 'm'));
@@ -33,8 +40,10 @@ export function parsePackets(markdown: string): Packet[] {
       owner: field(block, 'Owner') || 'unassigned',
       category: field(block, 'Category') || 'Uncategorized',
       subcategory: field(block, 'Subcategory') || 'General',
-      tags: [...new Set(field(block, 'Tags').split(',').map((tag) => tag.trim().toLowerCase()).filter((tag) => tag && tag !== 'none'))].slice(0, 12),
-      handles: [...new Set(field(block, 'Handles').split(',').map((handle) => handle.trim().toLowerCase()).filter(Boolean))].slice(0, 12),
+      tags: [...new Set(field(block, 'Tags').split(',').map((tag) => tag.trim().toLowerCase()).filter((tag) => tag && tag !== 'none'))].slice(0, MAX_PACKET_TAGS),
+      // Not capped here: a packet exceeding MAX_PACKET_HANDLES must fail
+      // validation below, not silently lose handles off the end of the list.
+      handles: [...new Set(field(block, 'Handles').split(',').map((handle) => handle.trim().toLowerCase()).filter(Boolean))],
       runbook: field(block, 'Runbook'),
       dependsOn: depends && depends.toLowerCase() !== 'none'
         ? [...depends.matchAll(/MIG-\d+/g)].map((match) => match[0])
@@ -65,6 +74,7 @@ export function validatePackets(packets: Packet[]): string[] {
     if (!packet.subcategory?.trim()) errors.push(`${packet.id} has no subcategory.`);
     if (!packet.tags?.length) errors.push(`${packet.id} has no tags; use at least one capability label.`);
     if (!packet.handles?.length) errors.push(`${packet.id} has no handles; add one or more milestone-prefixed implementation slices.`);
+    if ((packet.handles?.length ?? 0) > MAX_PACKET_HANDLES) errors.push(`${packet.id} has ${packet.handles!.length} handles, over the ${MAX_PACKET_HANDLES} cap; split the packet instead of adding more handles to one card.`);
     if (!packet.runbook?.trim()) errors.push(`${packet.id} has no runbook; add ordered implementation instructions.`);
     for (const handle of packet.handles ?? []) {
       if (!/^u[0-6]-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(handle)) errors.push(`${packet.id} has invalid handle ${handle}.`);

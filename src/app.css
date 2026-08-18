@@ -1658,3 +1658,55 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
   .project-board-header h1 { max-width: 13rem; }
   .board-header-actions .quiet-button, .board-cloud-link { padding-inline: .42rem; }
 }
+
+/* Trello-parity additions: source lock, markdown, attachments, due-complete,
+   list reordering, undo toast, and the keyboard-shortcut help overlay. */
+.source-lock-chip { display: inline-flex; align-items: center; gap: .3rem; padding: .1rem .5rem; margin-left: .55rem; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 99px; color: var(--accent); font-size: .62rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; }
+.card-editor-modal .modal-heading .eyebrow .source-lock-chip { margin-left: .4rem; text-transform: none; }
+
+.card-description-field { display: grid; gap: .35rem; }
+.card-description-field .field-label { color: var(--muted); font-size: .85rem; }
+.markdown-preview-block, .description-preview { padding: .6rem .75rem; border: 1px solid var(--line); border-radius: .5rem; background: color-mix(in srgb, var(--panel) 92%, transparent); font-size: .85rem; line-height: 1.5; }
+.description-preview { cursor: text; }
+.description-preview:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.description-preview .empty, .markdown-preview-block .empty { color: var(--muted); }
+.markdown-preview-block :global(p:first-child), .description-preview :global(p:first-child), .comment-body :global(p:first-child) { margin-top: 0; }
+.markdown-preview-block :global(p:last-child), .description-preview :global(p:last-child), .comment-body :global(p:last-child) { margin-bottom: 0; }
+.markdown-preview-block :global(code), .description-preview :global(code), .comment-body :global(code) { padding: .1rem .3rem; border-radius: .3rem; background: color-mix(in srgb, var(--line) 45%, transparent); font-size: .85em; }
+.markdown-preview-block :global(a), .description-preview :global(a), .comment-body :global(a) { color: var(--accent); }
+.comment-body { font-size: .85rem; line-height: 1.5; }
+
+.due-complete-field { display: flex; flex-direction: row; align-items: center; gap: .4rem; font-size: .85rem; }
+.due-complete-field input { min-height: auto; }
+.due-complete-badge { padding: .1rem .4rem; border-radius: 99px; color: var(--good); border: 1px solid #377a59; font-size: .68rem; font-weight: 700; width: max-content; }
+.due-date.due-complete { text-decoration: line-through; opacity: .75; }
+.start-date { color: var(--muted); }
+.badge-description { color: var(--muted); font-weight: 700; }
+
+.project-column h2[draggable="true"] { cursor: grab; }
+.project-column h2[draggable="true"]:active { cursor: grabbing; }
+.project-column.lane-drop-target { outline: 2px dashed var(--accent); outline-offset: 2px; }
+
+.add-card-top { margin: 0 0 .5rem; }
+
+.card-attachments { margin-top: 1rem; }
+.card-attachment-list { display: grid; gap: .4rem; padding: 0; margin: 0; list-style: none; }
+.card-attachment-list li { display: flex; align-items: center; gap: .5rem; padding: .4rem .55rem; border: 1px solid var(--line); border-radius: .5rem; }
+.card-attachment-list a { overflow: hidden; color: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-thumb { width: 2rem; height: 2rem; border-radius: .3rem; object-fit: cover; }
+.attachment-icon { font-size: 1.1rem; }
+.attachment-meta { margin-left: auto; color: var(--muted); font-size: .72rem; }
+.attachment-upload { display: inline-flex; align-items: center; gap: .4rem; margin-top: .55rem; padding: .4rem .65rem; border: 1px dashed var(--line); border-radius: .5rem; color: var(--muted); font-size: .78rem; cursor: pointer; }
+.attachment-upload:hover { border-color: var(--accent); color: var(--accent); }
+.attachment-upload input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+
+.board-toast { position: fixed; right: 1.2rem; bottom: 1.2rem; z-index: 60; display: flex; align-items: center; gap: .75rem; padding: .65rem 1rem; border: 1px solid var(--line); border-radius: .6rem; background: var(--panel); box-shadow: 0 12px 30px rgb(0 0 0 / .35); font-size: .85rem; }
+.board-toast button { color: var(--accent); font-weight: 800; background: none; border: none; cursor: pointer; }
+
+.shortcut-help-modal { display: grid; gap: .8rem; width: min(26rem, calc(100vw - 2rem)); padding: 1.2rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--panel); }
+.shortcut-list { display: grid; gap: .5rem; margin: 0; }
+.shortcut-list > div { display: flex; align-items: baseline; gap: .7rem; }
+.shortcut-list dt { min-width: 3rem; padding: .1rem .4rem; border: 1px solid var(--line); border-radius: .35rem; color: var(--accent); font-family: ui-monospace, monospace; font-size: .78rem; text-align: center; }
+.shortcut-list dd { margin: 0; color: var(--muted); font-size: .82rem; }
+
+.card-composer textarea[name="title"] { min-height: 2.4rem; resize: vertical; }
