@@ -33,6 +33,7 @@ export function parsePackets(markdown: string): Packet[] {
       owner: field(block, 'Owner') || 'unassigned',
       category: field(block, 'Category') || 'Uncategorized',
       subcategory: field(block, 'Subcategory') || 'General',
+      tags: [...new Set(field(block, 'Tags').split(',').map((tag) => tag.trim().toLowerCase()).filter((tag) => tag && tag !== 'none'))].slice(0, 12),
       dependsOn: depends && depends.toLowerCase() !== 'none'
         ? [...depends.matchAll(/MIG-\d+/g)].map((match) => match[0])
         : [],
@@ -60,6 +61,7 @@ export function validatePackets(packets: Packet[]): string[] {
     if (!packet.title.trim()) errors.push(`${packet.id} has no title.`);
     if (!packet.category?.trim()) errors.push(`${packet.id} has no category.`);
     if (!packet.subcategory?.trim()) errors.push(`${packet.id} has no subcategory.`);
+    if (!packet.tags?.length) errors.push(`${packet.id} has no tags; use at least one capability label.`);
   }
   for (const packet of packets) {
     for (const dependency of packet.dependsOn) {

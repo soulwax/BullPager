@@ -7,6 +7,7 @@
   <span class="id">{packet.id}</span>
   <strong>{packet.title}</strong>
   <span class="taxonomy" title={packet.subcategory}>{packet.category || 'Uncategorized'} <span>·</span> {packet.subcategory || 'General'}</span>
+  {#if packet.tags?.length}<span class="tags" aria-label="Packet tags">{#each packet.tags.slice(0, 4) as tag}<span>{tag}</span>{/each}{#if packet.tags.length > 4}<span>+{packet.tags.length - 4}</span>{/if}</span>{/if}
   <span class="meta">{packet.owner} · {packet.milestone}</span>
   <span class={`state state-${packet.state.toLowerCase()}`}>{packet.state}</span>
   {#if showOutcome && packet.outcome}<span class="outcome">{packet.outcome}</span>{/if}
@@ -23,6 +24,8 @@
   .id { color: var(--accent); font-weight: 700; }
   .taxonomy { overflow: hidden; color: #9eb4ca; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
   .taxonomy span { color: #5f7287; }
+  .tags { display: flex; flex-wrap: wrap; gap: .25rem; }
+  .tags span { padding: .12rem .35rem; border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line)); border-radius: 99px; color: #b8d8ff; background: color-mix(in srgb, var(--accent) 10%, transparent); font-size: .62rem; line-height: 1.2; }
   .state { width: max-content; padding: .14rem .4rem; border: 1px solid var(--line); border-radius: 99px; letter-spacing: .04em; }
   .state-active, .state-partial { color: #ffd28b; border-color: #80683b; }
   .state-blocked { color: #ffc19e; border-color: #9a6249; }

@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
-import { defaultProjectTags, slugifyTag, tagColors, tagId } from '$lib/projectTags';
+import { defaultProjectTags, slugifyTag, tagColors, tagId, tagPalette } from '$lib/projectTags';
 import { databaseConfigured, db, neonClient } from './db';
 import { boardProjectActivity, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
 
@@ -344,6 +344,22 @@ async function ensureDefaultProjectTags(projectSlug: string) {
   await database.insert(boardProjectTags).values(defaultProjectTags.map((tag) => ({ id: tagId(projectSlug, tag.slug), projectSlug, name: tag.name, color: tag.color }))).onConflictDoNothing();
 }
 
+function plannerTagId(projectSlug: string, tag: string) {
+  return tagId(projectSlug, `plan-${slugifyTag(tag)}`);
+}
+
+async function ensurePlannerTags(projectSlug: string, packets: Packet[]) {
+  const names = [...new Set(packets.flatMap((packet) => packet.tags ?? []).map((tag) => tag.trim().toLowerCase()).filter(Boolean))].sort();
+  if (!names.length) return;
+  const values = names.map((name, index) => ({
+    id: plannerTagId(projectSlug, name),
+    projectSlug,
+    name: name.slice(0, 32),
+    color: tagPalette[index % tagPalette.length].color
+  }));
+  await requireDatabase().insert(boardProjectTags).values(values).onConflictDoNothing();
+}
+
 /**
  * Keep the Unity planner and its Kanban project in step. Packet IDs are stable
  * card IDs, so this operation is safe to run on every planner load. Planner
@@ -362,6 +378,7 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
   await database.insert(boardSettings).values({ key: `project_${projectSlug}_lanes`, value: JSON.stringify(['Backlog', 'In progress', 'Blocked', 'Done']) }).onConflictDoNothing();
   await database.insert(boardSettings).values({ key: `project_${projectSlug}_theme`, value: 'midnight' }).onConflictDoNothing();
   await ensureDefaultProjectTags(projectSlug);
+  await ensurePlannerTags(projectSlug, packets);
   const digestKey = `project_${projectSlug}_planner_digest`;
   const previousDigestRow = await database.select({ value: boardSettings.value }).from(boardSettings).where(eq(boardSettings.key, digestKey)).limit(1);
   const previousDigest = previousDigestRow[0]?.value || '';
@@ -382,6 +399,7 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
   const details = (packet: Packet) => [
     `Unity implementation packet ${packet.id}`,
     `Category: ${packet.category || 'Uncategorized'} · Subcategory: ${packet.subcategory || 'General'}`,
+    packet.tags?.length ? `Tags: ${packet.tags.join(', ')}` : '',
     `Milestone: ${packet.milestone} · State: ${packet.state} · Owner: ${packet.owner || 'unassigned'}`,
     packet.outcome ? `Outcome: ${packet.outcome}` : '',
     packet.inputs ? `Inputs: ${packet.inputs}` : '',
@@ -392,7 +410,7 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
     packet.dependsOn.length ? `Depends on: ${packet.dependsOn.join(', ')}` : ''
   ].filter(Boolean).join('\n\n').slice(0, 4000);
   const tagIds = (packet: Packet) => {
-    const tags = [tagId(projectSlug, 'content')];
+    const tags = [tagId(projectSlug, 'content'), ...(packet.tags ?? []).map((tag) => plannerTagId(projectSlug, tag))];
     if (packet.state === 'BLOCKED') tags.push(tagId(projectSlug, 'blocked'));
     if (packet.state === 'ACTIVE' || packet.state === 'PARTIAL') tags.push(tagId(projectSlug, 'priority'));
     return tags;
@@ -419,7 +437,7 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
     const desiredTags = tagIds(packet);
     if (current) {
       const cardTagRows = await database.select({ tagId: boardProjectCardTags.tagId }).from(boardProjectCardTags).where(eq(boardProjectCardTags.cardId, id));
-      const customTags = cardTagRows.map((row) => row.tagId).filter((tag) => !managedTagIds.has(tag));
+      const customTags = cardTagRows.map((row) => row.tagId).filter((tag) => !managedTagIds.has(tag) && !tag.startsWith(`${projectSlug}-tag-plan-`));
       const nextTags = [...new Set([...customTags, ...desiredTags])].sort();
       const currentTags = [...new Set(cardTagRows.map((row) => row.tagId))].sort();
       const sourceChanged = current.title !== sourceValues.title || current.details !== sourceValues.details || current.checklist !== sourceValues.checklist || current.coverColor !== sourceValues.coverColor || current.owner !== sourceValues.owner || current.priority !== sourceValues.priority;

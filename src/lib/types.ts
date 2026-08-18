@@ -8,6 +8,7 @@ export type Packet = {
   /** Human-facing planning taxonomy; optional for older local fixtures. */
   category?: string;
   subcategory?: string;
+  tags?: string[];
   dependsOn: string[];
   milestone: string;
   outcome: string;

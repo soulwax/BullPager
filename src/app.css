@@ -55,6 +55,8 @@ input, select { min-height: 2.4rem; padding: .45rem .6rem; border: 1px solid var
 .detail h3 { margin-bottom: .5rem; }
 .taxonomy-detail { margin: -.15rem 0 .7rem; color: #9eb4ca; font-size: .8rem; font-weight: 650; }
 .taxonomy-detail span { color: #5f7287; }
+.taxonomy-tags { display: flex; flex-wrap: wrap; gap: .3rem; margin: -.2rem 0 .8rem; }
+.taxonomy-tags span { padding: .15rem .42rem; border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line)); border-radius: 99px; color: #b8d8ff; background: color-mix(in srgb, var(--accent) 10%, transparent); font-size: .68rem; }
 .detail-heading { display: flex; align-items: start; justify-content: space-between; gap: .6rem; }
 .detail-heading .quiet-button { flex-shrink: 0; }
 .copy-status { margin: .3rem 0; color: var(--good); font-size: .8rem; }
