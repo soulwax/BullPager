@@ -57,6 +57,28 @@ input, select { min-height: 2.4rem; padding: .45rem .6rem; border: 1px solid var
 .taxonomy-detail span { color: #5f7287; }
 .taxonomy-tags { display: flex; flex-wrap: wrap; gap: .3rem; margin: -.2rem 0 .8rem; }
 .taxonomy-tags span { padding: .15rem .42rem; border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line)); border-radius: 99px; color: #b8d8ff; background: color-mix(in srgb, var(--accent) 10%, transparent); font-size: .68rem; }
+
+.backlog-page { max-width: 1280px; }
+.backlog-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: .7rem; padding: .8rem; margin-bottom: 1rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--panel); }
+.backlog-toolbar > label:first-child { flex: 1 1 20rem; }
+.backlog-toolbar input, .backlog-toolbar select { min-width: 9rem; }
+.backlog-count { margin-left: auto; padding-bottom: .45rem; color: var(--muted); font-size: .82rem; }
+.backlog-list { display: grid; gap: .8rem; margin: 0; padding: 0; list-style: none; }
+.backlog-card { padding: 1rem 1.1rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--panel); box-shadow: 0 .25rem .8rem rgb(0 0 0 / .08); }
+.backlog-card.archived { opacity: .65; }
+.backlog-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.backlog-card-heading h2 { margin-bottom: .25rem; font-size: 1.1rem; }
+.backlog-card-id { margin-bottom: .25rem; color: var(--accent); font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
+.backlog-meta, .backlog-tags { display: flex; flex-wrap: wrap; gap: .35rem; margin: .65rem 0; }
+.backlog-meta span { padding: .16rem .42rem; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: .72rem; }
+.backlog-tags span { padding: .16rem .45rem; border-radius: 99px; color: color-mix(in srgb, var(--tag-color) 78%, white); background: color-mix(in srgb, var(--tag-color) 17%, transparent); font-size: .72rem; font-weight: 700; }
+.backlog-details { max-width: 80rem; margin: .75rem 0; color: color-mix(in srgb, var(--muted) 82%, white); white-space: pre-wrap; line-height: 1.55; }
+.backlog-checklist { margin-top: .8rem; padding-top: .65rem; border-top: 1px solid var(--line); }
+.backlog-checklist summary { cursor: pointer; color: var(--accent); font-weight: 700; }
+.backlog-checklist ol { display: grid; gap: .35rem; margin: .65rem 0 0; padding-left: 1.15rem; }
+.backlog-checklist li { color: var(--muted); }
+.backlog-checklist li.done { color: var(--good); text-decoration: line-through; }
+@media (max-width: 700px) { .backlog-card-heading { align-items: stretch; flex-direction: column; } .backlog-card-heading .quiet-button { width: max-content; } .backlog-count { width: 100%; margin-left: 0; } }
 .detail-heading { display: flex; align-items: start; justify-content: space-between; gap: .6rem; }
 .detail-heading .quiet-button { flex-shrink: 0; }
 .copy-status { margin: .3rem 0; color: var(--good); font-size: .8rem; }
