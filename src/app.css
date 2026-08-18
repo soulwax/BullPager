@@ -1754,3 +1754,53 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
 .side-panel-archive li span { color: var(--muted); font-size: .7rem; }
 .side-panel-archive-actions { display: flex; gap: .3rem; flex-shrink: 0; }
 .side-panel-archive-actions .danger { color: #ff9b7a; }
+
+/* Classic Trello board colors: a flat colored board with opaque, near-white
+   lists and white cards — deliberately independent of the midnight/ocean/light
+   theme toggle, the same way choosing a color board in Trello looks the same
+   regardless of the rest of the app's appearance setting. */
+.project-workspace.has-color-background { position: relative; isolation: isolate; }
+.project-workspace.has-color-background::before { position: fixed; z-index: -2; inset: 0; content: ''; background: var(--project-bg-image); pointer-events: none; }
+.project-workspace.has-color-background::after { display: none; }
+
+.project-workspace.has-color-background .board-title-group,
+.project-workspace.has-color-background .board-title-group .eyebrow,
+.project-workspace.has-color-background .board-title-group h1,
+.project-workspace.has-color-background .board-card-count,
+.project-workspace.has-color-background .board-header-actions .quiet-button,
+.project-workspace.has-color-background .board-cloud-link { color: #fff; }
+.project-workspace.has-color-background .board-header-actions .quiet-button,
+.project-workspace.has-color-background .board-cloud-link,
+.project-workspace.has-color-background .board-switcher,
+.project-workspace.has-color-background .board-name-button { border-color: rgb(255 255 255 / .5); }
+.project-workspace.has-color-background .board-header-actions .quiet-button:hover,
+.project-workspace.has-color-background .board-name-button:hover { color: #fff; background: rgb(255 255 255 / .16); }
+.project-workspace.has-color-background .board-divider { background: rgb(255 255 255 / .4); }
+.project-workspace.has-color-background .source-lock-chip { border-color: rgb(255 255 255 / .55); color: #fff; }
+
+.project-workspace.has-color-background .project-toolbar { background: rgb(255 255 255 / .14); border-color: rgb(255 255 255 / .28); backdrop-filter: blur(6px); color: #fff; }
+.project-workspace.has-color-background .project-toolbar label,
+.project-workspace.has-color-background .project-stats,
+.project-workspace.has-color-background .find-work-menu small { color: rgb(255 255 255 / .8); }
+.project-workspace.has-color-background .project-toolbar input,
+.project-workspace.has-color-background .project-toolbar select { color: #172b4d; background: #fff; border-color: transparent; }
+.project-workspace.has-color-background .project-toolbar .quiet-button { color: #fff; border-color: rgb(255 255 255 / .5); }
+.project-workspace.has-color-background .project-stats strong { color: #fff; }
+
+/* The board's lists and cards are already forced to the same solid
+   white-on-light-gray Trello palette in every theme (see the `--agile-card`
+   / `--agile-list` / `--agile-ink` tokens above) — nothing to override here,
+   only the chrome that sits directly on the colored background needs it. */
+.project-workspace.has-color-background .add-card-button,
+.project-workspace.has-color-background .add-list-button { color: rgb(255 255 255 / .85); }
+.project-workspace.has-color-background .add-card-button:hover,
+.project-workspace.has-color-background .add-list-button:hover { color: #fff; background: rgb(255 255 255 / .14); }
+.project-workspace.has-color-background .project-column-add-list { background: rgb(255 255 255 / .1); border-color: rgb(255 255 255 / .3); }
+.project-workspace.has-color-background .collapse-button { background: rgb(9 30 66 / .08); color: #5e6c84; }
+
+/* Trello-style label pills everywhere on the board: a solid color fill with
+   readable text, not an outlined chip. This is the single most recognizable
+   piece of Trello's visual language, so it applies regardless of theme. */
+.project-workspace .tag-chip { --tag-color: var(--accent); padding: .18rem .5rem; border: none; border-radius: .25rem; color: color-mix(in srgb, var(--tag-color) 12%, black 80%); background: var(--tag-color); font-weight: 800; }
+.project-workspace .tag-chip:hover { filter: brightness(1.08); }
+.project-workspace.has-color-background .tag-chip { color: color-mix(in srgb, var(--tag-color) 14%, black 82%); }

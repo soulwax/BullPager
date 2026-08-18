@@ -11,7 +11,13 @@
   const setting = (name: string, fallback = '') => data.settings[`${data.prefix}${name}`] ?? fallback;
   const boardBackground = $derived(projectBackground(setting('background', 'none')));
   const glassIntensity = $derived(Math.max(0, Math.min(100, Number(setting('glass_intensity', '38')) || 0)));
-  const boardSurfaceStyle = $derived(boardBackground.src ? `--project-bg-image: url("${boardBackground.src}"); --project-glass-opacity: ${0.82 - glassIntensity * 0.003}; --project-glass-blur: ${Math.round(4 + glassIntensity * 0.18)}px;` : '');
+  const boardSurfaceStyle = $derived(
+    boardBackground.color
+      ? `--project-bg-image: ${boardBackground.color};`
+      : boardBackground.src
+        ? `--project-bg-image: url("${boardBackground.src}"); --project-glass-opacity: ${0.82 - glassIntensity * 0.003}; --project-glass-blur: ${Math.round(4 + glassIntensity * 0.18)}px;`
+        : ''
+  );
   const isDefaultTag = (id: string) => defaultProjectTags.some((tag) => tagId(data.project.slug, tag.slug) === id);
   let collapsed = $state<Record<string, boolean>>({});
   let density = $state<'comfortable' | 'compact'>('comfortable');
@@ -556,7 +562,7 @@
 
 <svelte:head><title>{data.project.name} · Project Agile Board</title></svelte:head>
 
-<main class={`project-workspace theme-${setting('theme', 'midnight')} project-lane-${setting('lane_style', 'scroll')}`} class:has-project-background={Boolean(boardBackground.src)} style={boardSurfaceStyle}>
+<main class={`project-workspace theme-${setting('theme', 'midnight')} project-lane-${setting('lane_style', 'scroll')}`} class:has-project-background={Boolean(boardBackground.src)} class:has-color-background={Boolean(boardBackground.color)} style={boardSurfaceStyle}>
   {#if data.members.length}<datalist id="project-members">{#each data.members as member}<option value={member.username}>{member.role}</option>{/each}</datalist>{/if}
   <header class="topbar project-board-header">
     <div class="board-title-group"><a class="board-switcher" href="/projects" aria-label="Open project boards"><span aria-hidden="true">▦</span><span>Board</span></a><span class="board-divider" aria-hidden="true"></span>{#if data.username}<button type="button" class="star-toggle board-star" class:active={starred} aria-pressed={starred} aria-label={starred ? 'Unstar this board' : 'Star this board'} onclick={toggleBoardStar}>{starred ? '★' : '☆'}</button>{/if}<div><p class="eyebrow">{data.project.visibility} workspace</p>{#if renamingBoard}<form class="board-rename-form" onsubmit={(event) => { event.preventDefault(); void submitRenameBoard(); }}><input bind:value={boardNameDraft} maxlength="120" aria-label="Board name" use:focusOnMount onblur={submitRenameBoard} onkeydown={(event) => { if (event.key === 'Escape') renamingBoard = false; }} /></form>{:else}<h1>{#if data.canEdit}<button type="button" class="board-name-button" onclick={() => { boardNameDraft = data.project.name; renamingBoard = true; }} title="Click to rename this board">{data.project.name}</button>{:else}{data.project.name}{/if}{#if data.sourceOwned}<span class="source-lock-chip" title="Title, description, checklist text, owner, priority, and cover are synced from UNITY_PLAN.md. Lane, dates, comments, attachments, and checklist ticks stay editable here.">🔒 synced from plan</span>{/if}</h1>{/if}</div><span class="board-card-count">{boardCards.length} {boardCards.length === 1 ? 'card' : 'cards'}</span></div>
