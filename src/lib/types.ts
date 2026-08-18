@@ -11,6 +11,8 @@ export type Packet = {
   tags?: string[];
   /** Ordered, milestone-prefixed implementation slices within a packet. */
   handles?: string[];
+  /** Concrete ordered instructions for taking the packet from preparation to proof. */
+  runbook?: string;
   dependsOn: string[];
   milestone: string;
   outcome: string;

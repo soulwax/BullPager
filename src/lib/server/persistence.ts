@@ -401,6 +401,7 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
     `Category: ${packet.category || 'Uncategorized'} · Subcategory: ${packet.subcategory || 'General'}`,
     packet.tags?.length ? `Tags: ${packet.tags.join(', ')}` : '',
     packet.handles?.length ? `Implementation handles: ${packet.handles.join(' → ')}` : '',
+    packet.runbook ? `Runbook:\n${packet.runbook}` : '',
     `Milestone: ${packet.milestone} · State: ${packet.state} · Owner: ${packet.owner || 'unassigned'}`,
     packet.outcome ? `Outcome: ${packet.outcome}` : '',
     packet.inputs ? `Inputs: ${packet.inputs}` : '',

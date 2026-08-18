@@ -20,6 +20,9 @@ Category: Foundation and project operations
 Subcategory: Project scaffold and CI
 Tags: greenfield, unity, ci
 Handles: u0-unity-project, u0-ci-build
+Runbook:
+1. Create the pinned Unity project in the approved folder.
+2. Run the smoke test and preserve its output.
 Depends on: None
 Outcome: A clean Unity project.
 Steps: 1. Create it.`);
@@ -28,7 +31,8 @@ Steps: 1. Create it.`);
       category: 'Foundation and project operations',
       subcategory: 'Project scaffold and CI',
       tags: ['greenfield', 'unity', 'ci'],
-      handles: ['u0-unity-project', 'u0-ci-build']
+      handles: ['u0-unity-project', 'u0-ci-build'],
+      runbook: '1. Create the pinned Unity project in the approved folder.\n2. Run the smoke test and preserve its output.'
     });
   });
 
@@ -81,6 +85,7 @@ Depends on: MIG-60`);
     expect(packets).toHaveLength(27);
     expect(packets.every((packet) => (packet.tags?.length ?? 0) > 0)).toBe(true);
     expect(packets.every((packet) => (packet.handles?.length ?? 0) > 0)).toBe(true);
+    expect(packets.every((packet) => packet.runbook?.trim())).toBe(true);
     expect(validatePackets(packets)).toEqual([]);
   });
 });
