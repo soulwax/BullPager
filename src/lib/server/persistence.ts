@@ -400,6 +400,7 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
     `Unity implementation packet ${packet.id}`,
     `Category: ${packet.category || 'Uncategorized'} · Subcategory: ${packet.subcategory || 'General'}`,
     packet.tags?.length ? `Tags: ${packet.tags.join(', ')}` : '',
+    packet.handles?.length ? `Implementation handles: ${packet.handles.join(' → ')}` : '',
     `Milestone: ${packet.milestone} · State: ${packet.state} · Owner: ${packet.owner || 'unassigned'}`,
     packet.outcome ? `Outcome: ${packet.outcome}` : '',
     packet.inputs ? `Inputs: ${packet.inputs}` : '',

@@ -9,6 +9,8 @@ export type Packet = {
   category?: string;
   subcategory?: string;
   tags?: string[];
+  /** Ordered, milestone-prefixed implementation slices within a packet. */
+  handles?: string[];
   dependsOn: string[];
   milestone: string;
   outcome: string;

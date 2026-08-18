@@ -19,6 +19,7 @@ Owner: unassigned
 Category: Foundation and project operations
 Subcategory: Project scaffold and CI
 Tags: greenfield, unity, ci
+Handles: u0-unity-project, u0-ci-build
 Depends on: None
 Outcome: A clean Unity project.
 Steps: 1. Create it.`);
@@ -26,7 +27,8 @@ Steps: 1. Create it.`);
       id: 'MIG-00',
       category: 'Foundation and project operations',
       subcategory: 'Project scaffold and CI',
-      tags: ['greenfield', 'unity', 'ci']
+      tags: ['greenfield', 'unity', 'ci'],
+      handles: ['u0-unity-project', 'u0-ci-build']
     });
   });
 
@@ -78,6 +80,7 @@ Depends on: MIG-60`);
     const packets = parsePackets(unitySnapshot);
     expect(packets).toHaveLength(27);
     expect(packets.every((packet) => (packet.tags?.length ?? 0) > 0)).toBe(true);
+    expect(packets.every((packet) => (packet.handles?.length ?? 0) > 0)).toBe(true);
     expect(validatePackets(packets)).toEqual([]);
   });
 });

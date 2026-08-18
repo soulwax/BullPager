@@ -66,6 +66,7 @@ Owner
 Category
 Subcategory
 Tags
+Handles
 Depends on
 Outcome
 Inputs
@@ -88,6 +89,20 @@ Remainder
 7. Capture a playable or inspectable result for human review.
 8. Update the packet and the matching database card, then stop at the packet
    boundary.
+
+### 0.5 Handle rules
+
+A **handle** is a small, independently reviewable slice inside a `MIG-*`
+packet. It is not a second ticket system: handles keep the implementation
+sequence visible while one packet remains the atomic Kanban card and closure
+unit. A handle is lowercase kebab-case and starts with its milestone prefix
+(`u0-` through `u6-`).
+
+Work one handle at a time in listed order. Record handle-level proof in the
+packet Evidence field using `handle-name: command or capture path`. Do not mark
+the parent packet `CLOSED` until every handle has proof and the packet-level
+check passes. The planner mirrors handles to the card detail text; they are
+deliberately not separate planner tags, so board filtering stays useful.
 
 ## 1. Greenfield product objective
 
@@ -420,6 +435,31 @@ shorter:
 5. **Verify and hand off:** attach command output, digest, capture, and known
    remainder; update the packet/card only after the named check passes.
 
+### 7.3 Free-asset intake direction
+
+Use free assets as measurable production inputs, never as anonymous filler.
+Every imported file needs a source URL, licence, download date, upstream file
+name, SHA-256, intended room/usage, processing notes, and approver in
+`unity/Docs/Rights/ASSET_LEDGER.csv`. Keep a copy of the licence text beside
+the source file. A source page is not enough evidence; each downloaded asset
+must be reviewed before it enters an import batch.
+
+| Need | Preferred source | Use in this project | Intake rule |
+|---|---|---|---|
+| PBR surfaces, small domestic scans, neutral HDRIs | [Poly Haven](https://polyhaven.com/license) | temporary material look-dev, prop texture reference, lighting calibration | CC0 only; make Unity material variants locally and never redistribute the website's branding or preview renders. |
+| Prototype UI glyphs, input prompts, temporary blocker props | [Kenney](https://kenney.nl/support) | development-only controls, debug signage, greybox placeholder silhouettes | CC0; never ship its logo or use its visual language as the game identity. Replace any visible placeholder before production-house approval. |
+| Environmental one-shots and room-tone candidates | [Freesound](https://freesound.org/help/faq/#licenses) | rain, room tone, doors, paper, distant mechanical cues | Accept individual CC0 files by default. CC-BY needs an exact credit entry; reject CC-BY-NC, Sampling+, unverified uploads, and all voice recordings. |
+| Discovery only: small CC0 prop candidates | [OpenGameArt CC0 collections](https://opengameart.org/content/3d-assets-cc0) | a specific missing domestic prop after in-house/Poly Haven search | Verify the individual asset licence and creator page; do not trust collection-level labelling alone. Prefer rebuilding simple props in Blender. |
+
+**Acquisition order:** first make the greybox from primitives; then collect only
+the asset named by a handle; quarantine it under
+`unity/Assets/Quarantine/Art/ThirdParty/_Intake/<source>/<asset-id>`; capture
+the ledger record; import with normal maps/material settings disabled until a
+visual check; finally promote it to the approved batch. No free asset may enter
+the release manifest without a ledger row and a human visual review. Voice,
+faces, logos, copyrighted brands, and story-specific imagery are never sourced
+from open libraries for this project.
+
 ## 8. Ordered implementation packets
 
 ### MIG-00 — Choose the greenfield contract
@@ -430,6 +470,7 @@ Owner: unassigned
 Category: Foundation and project operations
 Subcategory: Scope and decisions
 Tags: greenfield, unity, decisions
+Handles: u0-contract, u0-authority-map, u0-day1-slice, u0-non-goals
 Depends on: none
 Outcome: A reviewed greenfield charter names the Unity target, source roots, first playable, and non-goals.
 Inputs: `external/docs/MASTERPLAN.md`, this plan, Dart reference map.
@@ -453,6 +494,7 @@ Owner: unassigned
 Category: Foundation and project operations
 Subcategory: Project scaffold and CI
 Tags: greenfield, unity, ci, tooling
+Handles: u0-unity-project, u0-assemblies, u0-bootstrap, u0-ci-build
 Depends on: MIG-00
 Outcome: A clean checkout opens the empty Unity project, runs a smoke test, and builds Windows x64.
 Inputs: approved Unity patch, package list, Windows build environment.
@@ -476,6 +518,7 @@ Owner: unassigned
 Category: Authored content and import
 Subcategory: Schemas and IDs
 Tags: content, schemas, validation, ids
+Handles: u1-schema-contracts, u1-id-registry, u1-fixtures, u1-validation-report
 Depends on: MIG-01
 Outcome: C# content records validate house, story, inventory, material, sound, and schedule sources without Unity scene access.
 Inputs: `assets/house/*.json`, validated scenario export/corpus, Dart parsers as behaviour references.
@@ -499,6 +542,7 @@ Owner: unassigned
 Category: Authored content and import
 Subcategory: Import and generated assets
 Tags: content, import, determinism, assets
+Handles: u1-import-manifest, u1-scenario-import, u1-house-import, u1-atomic-output
 Depends on: MIG-02
 Outcome: Valid source produces typed generated assets; invalid source produces no partial output.
 Inputs: validated schemas and canonical text/JSON.
@@ -522,6 +566,7 @@ Owner: unassigned
 Category: Persistence and database synchronization
 Subcategory: Planner cards and activity
 Tags: database, sync, planner, audit
+Handles: u0-plan-projection, u0-db-upsert, u0-sync-audit, u0-conflict-tests
 Depends on: MIG-00
 Outcome: Every valid implementation packet has an idempotent `unity-mig-##` card with source-owned details.
 Inputs: `syncUnityPlannerCards`, `DATABASE_URL`, packet parser.
@@ -546,6 +591,7 @@ Owner: unassigned
 Category: Foundation and project operations
 Subcategory: Code quality and review
 Tags: unity, csharp, testing, guardrails
+Handles: u0-domain-boundary, u0-static-analysis, u0-review-template
 Depends on: MIG-01
 Outcome: Unity code has analyzers, test commands, ownership boundaries, and a review checklist.
 Inputs: section 0 rules.
@@ -567,6 +613,7 @@ Owner: unassigned
 Category: Domain simulation
 Subcategory: Day loop and resource commands
 Tags: domain, clock, resources, determinism
+Handles: u1-clock-commands, u1-resource-rules, u1-seed-policy, u1-replay-fixtures
 Depends on: MIG-02, MIG-05
 Outcome: A pure session advances time and atomically spends hours, heat, and rations.
 Inputs: `lib/game/session.dart` (`advance`, `sleep`, `spendHoursAndGas`), product pacing decision.
@@ -590,6 +637,7 @@ Owner: unassigned
 Category: Journal and evidence
 Subcategory: Entries, corrections, and night drift
 Tags: journal, evidence, consequences, save
+Handles: u1-journal-model, u1-citation-rules, u1-night-drift
 Depends on: MIG-10
 Outcome: Entries can be written, cited, corrected, verified, and locked; night drift is deterministic and visible.
 Inputs: `lib/game/session.dart` journal methods, canonical journal rules.
@@ -611,6 +659,7 @@ Owner: unassigned
 Category: Story delivery and people
 Subcategory: Schedule, choices, and callbacks
 Tags: story, schedule, choices, callbacks
+Handles: u1-schedule-resolver, u1-choice-commit, u1-residue-events
 Depends on: MIG-03, MIG-10, MIG-11
 Outcome: The validated scenario schedule delivers one canonical encounter and records its callback flags.
 Inputs: scenario/corpus import, `NarrativeEncounterDirector.resolveEncounter`, `commitChoice`.
@@ -632,6 +681,7 @@ Owner: unassigned
 Category: Domain simulation
 Subcategory: Composition root and event queue
 Tags: domain, session, events, integration
+Handles: u1-session-compose, u1-event-drain, u1-bootstrap-probe
 Depends on: MIG-10, MIG-11, MIG-12
 Outcome: Bootstrap creates one session whose snapshot drives all current systems.
 Inputs: domain packets and Dart session event-queue behaviour.
@@ -653,6 +703,7 @@ Owner: unassigned
 Category: Persistence and database synchronization
 Subcategory: Save slots and recovery
 Tags: save, recovery, checksums, persistence
+Handles: u2-save-envelope, u2-atomic-write, u2-recovery-drill, u2-schema-upgrades
 Depends on: MIG-13
 Outcome: New run, save, load, corrupted active slot, and recovery slot all behave safely.
 Inputs: `lib/game/save_store.dart` (`write`, `read`), save contract section 5.3.
@@ -676,6 +727,7 @@ Owner: unassigned
 Category: House and spatial world
 Subcategory: Room graph, scale, and binding
 Tags: world, rooms, portals, greybox
+Handles: u2-room-graph, u2-greybox-binder, u2-portal-map, u2-traversal-route
 Depends on: MIG-03, MIG-13
 Outcome: Imported room/portal data creates a navigable greybox with stable bindings.
 Inputs: house JSON, inventory JSON, `HouseInventory.validateAgainst`.
@@ -699,6 +751,7 @@ Owner: unassigned
 Category: Movement and tactile interaction
 Subcategory: Capsule, stairs, and room transitions
 Tags: movement, collision, stairs, portals
+Handles: u2-capsule-move, u2-stairs, u2-portal-cross, u2-movement-tests
 Depends on: MIG-20
 Outcome: The player can walk, step stairs, collide, and cross only passable portals.
 Inputs: `lib/house/collision.dart` (`Capsule.move`, `_tryAxis`, `_moveOnStair`, `portalCross`).
@@ -722,6 +775,7 @@ Owner: unassigned
 Category: Movement and tactile interaction
 Subcategory: Focus, doors, letterbox, and objects
 Tags: interaction, focus, doors, inventory
+Handles: u2-focus-query, u2-door-chain, u2-inventory-use, u2-interaction-feedback
 Depends on: MIG-21, MIG-20
 Outcome: Focused objects expose typed actions with clear success/rejection feedback.
 Inputs: inventory/focus data, interaction contract, `InventoryPhysics` bounds.
@@ -743,6 +797,7 @@ Owner: unassigned
 Category: Audio, voice, and acoustics
 Subcategory: Portal transmission and cues
 Tags: audio, acoustics, cues, captions
+Handles: u2-cue-catalogue, u2-portal-routing, u2-day1-mix, u2-audio-fallback
 Depends on: MIG-20, MIG-21, MIG-22
 Outcome: A visitor and broadcast are spatially audible with closed-door muffle and captions.
 Inputs: `lib/engine/audio_planner.dart` (`AudioPlanner._route`, `transmission`, `muffleToGainDb`).
@@ -764,6 +819,7 @@ Owner: unassigned
 Category: UI, input, and accessibility
 Subcategory: Pause, settings, and input actions
 Tags: ui, input, settings, accessibility
+Handles: u3-ui-shell, u3-input-actions, u3-settings-model, u3-save-feedback
 Depends on: MIG-13, MIG-21
 Outcome: Pause, settings, input remapping, and return-to-game work without losing the session.
 Inputs: input/accessibility product rules.
@@ -785,6 +841,7 @@ Owner: unassigned
 Category: Story delivery and people
 Subcategory: Dialogue, choices, and fallback
 Tags: story, dialogue, captions, fallback
+Handles: u3-dialogue-presenter, u3-choice-navigation, u3-caption-fallback, u3-line-id-check
 Depends on: MIG-12, MIG-23, MIG-30
 Outcome: A visitor conversation presents authored lines, choices, captions, and callbacks without audio.
 Inputs: imported corpus, validated schedule, caption rules.
@@ -806,6 +863,7 @@ Owner: unassigned
 Category: Journal and evidence
 Subcategory: Entry editing and citations
 Tags: journal, ui, citations, evidence
+Handles: u3-journal-view, u3-citation-display, u3-correction-flow, u3-lock-feedback
 Depends on: MIG-11, MIG-30
 Outcome: The player can inspect, write, cite, correct, verify, and lock a journal entry in-game.
 Inputs: journal domain snapshot and commands.
@@ -827,6 +885,7 @@ Owner: unassigned
 Category: UI, input, and accessibility
 Subcategory: Keyboard, captions, contrast, and reduced motion
 Tags: accessibility, keyboard, captions, reduced-motion
+Handles: u3-keyboard-route, u3-text-scale, u3-motion-reduction, u3-route-capture
 Depends on: MIG-22, MIG-23, MIG-30, MIG-31, MIG-32
 Outcome: Day 1 is completable with keyboard-only input, captions, scalable text, and reduced motion.
 Inputs: real human usability reviewer and accessibility checklist.
@@ -848,6 +907,7 @@ Owner: unassigned
 Category: Verification, telemetry, and release
 Subcategory: Day 1 integration gate
 Tags: vertical-slice, qa, telemetry, human-test
+Handles: u3-playable-route, u3-regression-suite, u3-human-test, u3-issue-triage
 Depends on: MIG-14, MIG-20, MIG-21, MIG-22, MIG-23, MIG-31, MIG-32, MIG-33
 Outcome: A fresh player can complete Day 1, reload a consequence, and explain what happened.
 Inputs: canonical Day 1 content and human review.
@@ -871,6 +931,7 @@ Owner: unassigned
 Category: House and spatial world
 Subcategory: Production meshes and dressing
 Tags: world, art, meshes, dressing
+Handles: u5-rights-ledger, u5-asset-intake, u5-domestic-prop-batch, u5-hero-prop-brief
 Depends on: MIG-40
 Outcome: The first approved room batch replaces proxies without changing IDs, scale, or routes.
 Inputs: rights-cleared house sources, modeling plan, greybox bindings.
@@ -892,6 +953,7 @@ Owner: unassigned
 Category: Rendering and presentation
 Subcategory: URP baseline, practicals, and weather
 Tags: rendering, urp, lighting, weather
+Handles: u5-material-library, u5-lighting-profile, u5-wetness-variants, u5-visual-budget
 Depends on: MIG-50
 Outcome: A readable period lighting baseline supports domestic care, procedure, memory, and place.
 Inputs: materials JSON, lighting references, accessibility profile.
@@ -913,6 +975,7 @@ Owner: unassigned
 Category: House and spatial world
 Subcategory: Room pairs, physical consequences, and sound
 Tags: world, residues, acoustics, production
+Handles: u5-room-batches, u5-residue-variants, u5-sound-batches, u5-batch-review
 Depends on: MIG-51
 Outcome: Production room batches preserve the route while adding authored physical and acoustic evidence.
 Inputs: canonical consequences, inventory, soundscape, approved baseline.
@@ -934,6 +997,7 @@ Owner: unassigned
 Category: Story delivery and people
 Subcategory: Campaign progression
 Tags: story, campaign, schedule, consequences
+Handles: u4-act-schedule, u4-event-integration, u4-consequence-audit, u4-campaign-fixtures
 Depends on: MIG-40, MIG-52
 Outcome: The full campaign runs from the validated scenario schedule, corpus, journal, resources, and consequences.
 Inputs: closed story batches, approved room/audio batches.
@@ -957,6 +1021,7 @@ Owner: unassigned
 Category: Domain simulation
 Subcategory: Endings and final record
 Tags: domain, endings, journal, consequences
+Handles: u4-day21-resolver, u4-ending-derivation, u4-ending-replay
 Depends on: MIG-60
 Outcome: The Day 21 rupture and three endings derive from recorded choices, journal state, and residues.
 Inputs: ending acceptance rules, session snapshot, canonical final content.
@@ -978,6 +1043,7 @@ Owner: unassigned
 Category: Audio, voice, and acoustics
 Subcategory: Voice coverage and licensing
 Tags: audio, voice, licensing, captions
+Handles: u5-voice-rights, u5-voice-import, u5-caption-review, u5-fallback-drill
 Depends on: MIG-31, MIG-60
 Outcome: Approved voice coverage is imported with caption timing and a safe text fallback.
 Inputs: locked script, rights records, approved performances.
@@ -999,6 +1065,7 @@ Owner: unassigned
 Category: Verification, telemetry, and release
 Subcategory: Performance, recovery, and packaging
 Tags: release, windows, performance, recovery
+Handles: u6-release-manifest, u6-clean-install, u6-performance-capture, u6-rollback-note
 Depends on: MIG-14, MIG-33, MIG-61, MIG-62
 Outcome: A clean Windows x64 candidate installs, runs, saves, recovers, and passes the release checklist.
 Inputs: all closed packets, target hardware, release profile.

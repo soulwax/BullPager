@@ -34,6 +34,7 @@ export function parsePackets(markdown: string): Packet[] {
       category: field(block, 'Category') || 'Uncategorized',
       subcategory: field(block, 'Subcategory') || 'General',
       tags: [...new Set(field(block, 'Tags').split(',').map((tag) => tag.trim().toLowerCase()).filter((tag) => tag && tag !== 'none'))].slice(0, 12),
+      handles: [...new Set(field(block, 'Handles').split(',').map((handle) => handle.trim().toLowerCase()).filter(Boolean))].slice(0, 12),
       dependsOn: depends && depends.toLowerCase() !== 'none'
         ? [...depends.matchAll(/MIG-\d+/g)].map((match) => match[0])
         : [],
@@ -62,6 +63,10 @@ export function validatePackets(packets: Packet[]): string[] {
     if (!packet.category?.trim()) errors.push(`${packet.id} has no category.`);
     if (!packet.subcategory?.trim()) errors.push(`${packet.id} has no subcategory.`);
     if (!packet.tags?.length) errors.push(`${packet.id} has no tags; use at least one capability label.`);
+    if (!packet.handles?.length) errors.push(`${packet.id} has no handles; add one or more milestone-prefixed implementation slices.`);
+    for (const handle of packet.handles ?? []) {
+      if (!/^u[0-6]-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(handle)) errors.push(`${packet.id} has invalid handle ${handle}.`);
+    }
   }
   for (const packet of packets) {
     for (const dependency of packet.dependsOn) {
