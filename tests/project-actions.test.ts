@@ -187,6 +187,20 @@ describe('project card actions', () => {
     expect(watched).toEqual({ message: 'Card is now being watched.' });
     expect(persistence.setProjectCardWatching).toHaveBeenCalledWith('demo', 'card-1', 'sam', true);
   });
+
+  it('assigns and unassigns a card without touching its other fields', async () => {
+    persistence.listProjectCards.mockResolvedValue([{ id: 'card-1', projectSlug: 'demo', title: 'Keep as-is', details: 'unchanged', lane: 'Ready', owner: '', priority: 'high', dueDate: '2026-09-01', archived: false, checklist: [{ id: 'c1', text: 'step', done: true }], coverColor: '#5E9CFF', tags: [{ id: 'demo-tag-design', projectSlug: 'demo', name: 'Design', color: '#F08FC0', createdAt: '' }], position: 0, createdAt: '', updatedAt: '' }]);
+    const assigned = await actions.assignCard(context({ id: 'card-1', owner: 'ada' }, 'editor', 'ada'));
+    expect(assigned).toEqual({ message: 'Card assigned.' });
+    expect(persistence.updateProjectCard).toHaveBeenCalledWith(expect.objectContaining({ id: 'card-1', owner: 'ada', title: 'Keep as-is', details: 'unchanged', priority: 'high', coverColor: '#5E9CFF', checklist: [{ id: 'c1', text: 'step', done: true }], tagIds: ['demo-tag-design'] }));
+  });
+
+  it('rejects assigning a card on a source-owned board', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]', 'project_demo_source': 'plan' });
+    const result = await actions.assignCard(context({ id: 'unity-mig-21', owner: 'ada' }, 'editor', 'ada'));
+    expect(result).toMatchObject({ status: 403 });
+    expect(persistence.updateProjectCard).not.toHaveBeenCalled();
+  });
 });
 
 describe('source-owned lock (Unity plan mirror)', () => {

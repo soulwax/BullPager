@@ -188,6 +188,9 @@ export type ProjectCard = {
   dueDate: string | null;
   dueComplete: boolean;
   startDate: string | null;
+  /** Permanent, sequential per-project number assigned at creation — never
+   * reused or renumbered, matching Trello's card numbers. */
+  cardNumber: number;
   attachmentCount: number;
   tags: ProjectTag[];
   createdAt: string;
@@ -217,6 +220,17 @@ export type ProjectActivity = {
   cardId: string;
   summary: string;
   createdAt: string;
+};
+
+export type SearchCardResult = {
+  cardId: string;
+  cardNumber: number;
+  title: string;
+  lane: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  archived: boolean;
+  projectSlug: string;
+  projectName: string;
 };
 
 export type TransitionPreview = {

@@ -1,9 +1,28 @@
 <script lang="ts">
   import type { BoardProject } from '$lib/types';
   import { projectBackgrounds } from '$lib/projectBackgrounds';
+  import { invalidateAll } from '$app/navigation';
 
   let { data, form }: { data: { slug: string; prefix: string; project: BoardProject; settings: Record<string, string>; created?: boolean }; form?: { message?: string; error?: string } } = $props();
   const setting = (name: string, fallback = '') => data.settings[`${data.prefix}${name}`] ?? fallback;
+  let backgroundUploadStatus = $state('');
+  let customBackgroundUrl = $derived(setting('background_custom_path') ? `/projects/${data.slug}/files/raw?path=${encodeURIComponent(setting('background_custom_path'))}` : '');
+
+  async function uploadBackground(file: File) {
+    const body = new FormData();
+    body.set('file', file);
+    backgroundUploadStatus = 'Uploading…';
+    try {
+      const response = await fetch('?/uploadBackground', { method: 'POST', body, headers: { accept: 'application/json' } });
+      if (!response.ok) throw new Error('Upload failed.');
+      backgroundUploadStatus = 'Uploaded';
+      await invalidateAll();
+    } catch {
+      backgroundUploadStatus = 'Upload failed. Try a smaller image.';
+    } finally {
+      setTimeout(() => { backgroundUploadStatus = ''; }, 2400);
+    }
+  }
   let lanes = $state<{ original: string; name: string }[]>((() => {
     try {
       const saved = JSON.parse(setting('lanes', '[]')) as unknown;
@@ -40,12 +59,35 @@
   <section class="settings-card">
     <p class="eyebrow">WORKFLOW</p><h2>Project defaults</h2>
     <p class="subtitle">These values are intentionally small and reversible. Column changes apply to this project’s single board.</p>
-    <form method="POST" class="policy-form">
+    <form method="POST" action="?/saveSettings" class="policy-form">
       <label>Workflow key <input name="workflowKey" value={setting('workflow_key')} maxlength="120" placeholder="Optional team reference" /></label>
       <label>Review cadence <select name="cadence"><option value="weekly" selected={setting('cadence', 'weekly') === 'weekly'}>Weekly</option><option value="biweekly" selected={setting('cadence') === 'biweekly'}>Every two weeks</option><option value="monthly" selected={setting('cadence') === 'monthly'}>Monthly</option></select></label>
       <label>Project visibility <select name="visibility"><option value="private" selected={setting('visibility', 'private') === 'private'}>Private</option><option value="shared" selected={setting('visibility') === 'shared'}>Shared</option></select></label>
       <label>Board theme <select name="boardTheme"><option value="midnight" selected={setting('theme', 'midnight') === 'midnight'}>Midnight</option><option value="ocean" selected={setting('theme') === 'ocean'}>Ocean</option><option value="light" selected={setting('theme') === 'light'}>Light</option></select></label>
-      <label>Board background <select name="background"><option value="none" selected={setting('background', 'none') === 'none'}>Plain midnight</option><optgroup label="Classic colors">{#each projectBackgrounds.filter((background) => background.color) as background}<option value={background.id} selected={setting('background') === background.id}>{background.label}</option>{/each}</optgroup><optgroup label="Photos">{#each projectBackgrounds.filter((background) => background.src) as background}<option value={background.id} selected={setting('background') === background.id}>{background.label}</option>{/each}</optgroup></select></label>
+      <fieldset class="background-picker wide-field">
+        <legend>Board background</legend>
+        <p class="field-help">Choose a color, gradient, or photo for this board. Cards stay opaque and readable on every option.</p>
+        <div class="background-swatch-grid">
+          <label class="background-swatch none-swatch" title="Plain midnight"><input type="radio" name="background" value="none" checked={setting('background', 'none') === 'none'} /><span class="swatch-check" aria-hidden="true">✓</span></label>
+          {#each projectBackgrounds.filter((background) => background.kind !== 'none') as background}
+            <label class="background-swatch" class:photo-swatch={Boolean(background.src)} style={background.src ? `--swatch-image: url("${background.src}")` : `--swatch: ${background.color}`} title={background.label}>
+              <input type="radio" name="background" value={background.id} checked={setting('background') === background.id} />
+              <span class="swatch-check" aria-hidden="true">✓</span>
+            </label>
+          {/each}
+          {#if customBackgroundUrl}
+            <label class="background-swatch photo-swatch" style={`--swatch-image: url("${customBackgroundUrl}")`} title="Your uploaded image">
+              <input type="radio" name="background" value="custom" checked={setting('background') === 'custom'} />
+              <span class="swatch-check" aria-hidden="true">✓</span>
+            </label>
+          {/if}
+          <label class="background-swatch upload-swatch" title="Upload your own image">
+            <input type="file" accept="image/*" onchange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void uploadBackground(file); event.currentTarget.value = ''; }} />
+            <span class="upload-swatch-label">{customBackgroundUrl ? '+ Replace' : '+ Upload'}{#if backgroundUploadStatus}<small>{backgroundUploadStatus}</small>{/if}</span>
+          </label>
+        </div>
+        <p class="field-help">Custom uploads are stored with this project's files and shown just like a photo background.</p>
+      </fieldset>
       <label>Milk-glass intensity <output class="range-output">{glassIntensity}%</output><input name="glassIntensity" type="range" min="0" max="100" step="1" bind:value={glassIntensity} /><small>Higher values blur and soften the background behind board surfaces. Classic color backgrounds use opaque lists instead and ignore this.</small></label>
       <label>Card density <select name="cardDensity"><option value="comfortable" selected={setting('density', 'comfortable') === 'comfortable'}>Comfortable</option><option value="compact" selected={setting('density') === 'compact'}>Compact</option></select></label>
       <label>Lane layout <select name="laneStyle"><option value="scroll" selected={setting('lane_style', 'scroll') === 'scroll'}>Horizontal scroll</option><option value="wrap" selected={setting('lane_style') === 'wrap'}>Wrap lanes</option></select></label>

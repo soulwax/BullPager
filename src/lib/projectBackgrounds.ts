@@ -2,23 +2,40 @@ export type ProjectBackground = {
   id: string;
   label: string;
   src: string;
-  /** A flat CSS gradient/color for a Trello-classic solid board background.
+  /** A flat CSS gradient/color for a Trello-classic board background.
    * Mutually exclusive with `src` — a background has a photo or a color, not both. */
   color?: string;
+  /** Groups the option in the settings picker. */
+  kind: 'none' | 'color' | 'gradient' | 'photo';
   credit: string;
 };
 
 export const projectBackgrounds: ProjectBackground[] = [
-  { id: 'none', label: 'Plain midnight', src: '', credit: 'Built-in' },
-  { id: 'trello-blue', label: 'Classic blue', src: '', color: 'linear-gradient(160deg, #1976d2, #0c66e4 55%, #0a4faf)', credit: 'Built-in' },
-  { id: 'trello-green', label: 'Classic green', src: '', color: 'linear-gradient(160deg, #4f9e5b, #388e3c 55%, #2c6e30)', credit: 'Built-in' },
-  { id: 'trello-orange', label: 'Classic orange', src: '', color: 'linear-gradient(160deg, #e8912d, #d9822b 55%, #b3661d)', credit: 'Built-in' },
-  { id: 'trello-purple', label: 'Classic purple', src: '', color: 'linear-gradient(160deg, #8b6fd6, #6e5dc6 55%, #55469e)', credit: 'Built-in' },
-  { id: 'trello-red', label: 'Classic red', src: '', color: 'linear-gradient(160deg, #e0594f, #cf513f 55%, #a83f31)', credit: 'Built-in' },
-  { id: 'mountain-night', label: 'Mountain night', src: '/assets/backgrounds/mountain-night.jpg', credit: 'Unsplash' },
-  { id: 'forest-mist', label: 'Forest mist', src: '/assets/backgrounds/forest-mist.jpg', credit: 'Unsplash' },
-  { id: 'studio-light', label: 'Studio light', src: '/assets/backgrounds/studio-light.jpg', credit: 'Unsplash' },
-  { id: 'coastal-haze', label: 'Coastal haze', src: '/assets/backgrounds/coastal-haze.jpg', credit: 'Unsplash' }
+  { id: 'none', label: 'Plain midnight', src: '', kind: 'none', credit: 'Built-in' },
+
+  // Trello's classic flat board colors.
+  { id: 'trello-blue', label: 'Blue', src: '', color: '#0c66e4', kind: 'color', credit: 'Built-in' },
+  { id: 'trello-orange', label: 'Orange', src: '', color: '#d9822b', kind: 'color', credit: 'Built-in' },
+  { id: 'trello-green', label: 'Green', src: '', color: '#388e3c', kind: 'color', credit: 'Built-in' },
+  { id: 'trello-red', label: 'Red', src: '', color: '#cf513f', kind: 'color', credit: 'Built-in' },
+  { id: 'trello-purple', label: 'Purple', src: '', color: '#6e5dc6', kind: 'color', credit: 'Built-in' },
+  { id: 'trello-pink', label: 'Pink', src: '', color: '#d84a91', kind: 'color', credit: 'Built-in' },
+  { id: 'trello-lime', label: 'Lime', src: '', color: '#7bb61b', kind: 'color', credit: 'Built-in' },
+  { id: 'trello-sky', label: 'Sky', src: '', color: '#29a3cc', kind: 'color', credit: 'Built-in' },
+  { id: 'trello-grey', label: 'Grey', src: '', color: '#5e6c84', kind: 'color', credit: 'Built-in' },
+
+  // Two-tone diagonal gradients — a step up from flat color, still self-contained CSS.
+  { id: 'gradient-dusk', label: 'Dusk', src: '', color: 'linear-gradient(160deg, #6e5dc6, #cf513f 65%, #d9822b)', kind: 'gradient', credit: 'Built-in' },
+  { id: 'gradient-ocean', label: 'Ocean', src: '', color: 'linear-gradient(160deg, #0c66e4, #29a3cc 60%, #1fb6a0)', kind: 'gradient', credit: 'Built-in' },
+  { id: 'gradient-meadow', label: 'Meadow', src: '', color: 'linear-gradient(160deg, #7bb61b, #388e3c 60%, #1fb6a0)', kind: 'gradient', credit: 'Built-in' },
+  { id: 'gradient-berry', label: 'Berry', src: '', color: 'linear-gradient(160deg, #d84a91, #6e5dc6 60%, #3d3597)', kind: 'gradient', credit: 'Built-in' },
+  { id: 'gradient-ember', label: 'Ember', src: '', color: 'linear-gradient(160deg, #e8912d, #cf513f 55%, #a83f31)', kind: 'gradient', credit: 'Built-in' },
+  { id: 'gradient-midnight', label: 'Midnight glow', src: '', color: 'linear-gradient(160deg, #29a3cc, #6e5dc6 55%, #0a4faf)', kind: 'gradient', credit: 'Built-in' },
+
+  { id: 'mountain-night', label: 'Mountain night', src: '/assets/backgrounds/mountain-night.jpg', kind: 'photo', credit: 'Unsplash' },
+  { id: 'forest-mist', label: 'Forest mist', src: '/assets/backgrounds/forest-mist.jpg', kind: 'photo', credit: 'Unsplash' },
+  { id: 'studio-light', label: 'Studio light', src: '/assets/backgrounds/studio-light.jpg', kind: 'photo', credit: 'Unsplash' },
+  { id: 'coastal-haze', label: 'Coastal haze', src: '/assets/backgrounds/coastal-haze.jpg', kind: 'photo', credit: 'Unsplash' }
 ];
 
 export function projectBackground(id: string) {

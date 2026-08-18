@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
+import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, SearchCardResult, TransitionRecord, UserRole } from '$lib/types';
 import { defaultProjectTags, slugifyTag, tagColors, tagId, tagPalette } from '$lib/projectTags';
 import { databaseConfigured, db, neonClient } from './db';
 import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectStars, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
@@ -226,7 +226,7 @@ async function initializeSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `]);
-  await rawSql`ALTER TABLE board_project_cards ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS due_date DATE, ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS checklist TEXT NOT NULL DEFAULT '[]', ADD COLUMN IF NOT EXISTS cover_color TEXT NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS due_complete BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS start_date DATE`;
+  await rawSql`ALTER TABLE board_project_cards ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS due_date DATE, ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS checklist TEXT NOT NULL DEFAULT '[]', ADD COLUMN IF NOT EXISTS cover_color TEXT NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS due_complete BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS start_date DATE, ADD COLUMN IF NOT EXISTS card_number INTEGER`;
   await rawSql`ALTER TABLE board_users ADD COLUMN IF NOT EXISTS github_id TEXT UNIQUE`;
   await rawSql`
     INSERT INTO board_projects (slug, name, owner, visibility)
@@ -336,6 +336,26 @@ export async function listBoardProjects(): Promise<BoardProject[]> {
   await ensureSchema();
   const rows = await requireDatabase().select().from(boardProjects).orderBy(boardProjects.name);
   return rows.map((row) => ({ slug: row.slug, name: row.name, owner: row.owner, visibility: row.visibility }));
+}
+
+/** Global search across every board's cards — the top-bar search a Trello
+ * user reaches for, rather than only the per-board filter. Every project is
+ * visible to every signed-in user today (there is no per-project ACL), so
+ * this intentionally does not take a username to scope results by. */
+export async function searchProjectCards(query: string, limit = 20): Promise<SearchCardResult[]> {
+  if (!databaseConfigured()) return [];
+  const cleanQuery = query.trim();
+  if (cleanQuery.length < 2) return [];
+  await ensureSchema();
+  const pattern = `%${cleanQuery.replace(/[%_\\]/g, (match) => `\\${match}`)}%`;
+  const rows = await requireDatabase()
+    .select({ cardId: boardProjectCards.id, cardNumber: boardProjectCards.cardNumber, title: boardProjectCards.title, lane: boardProjectCards.lane, priority: boardProjectCards.priority, archived: boardProjectCards.archived, projectSlug: boardProjectCards.projectSlug, projectName: boardProjects.name })
+    .from(boardProjectCards)
+    .innerJoin(boardProjects, eq(boardProjects.slug, boardProjectCards.projectSlug))
+    .where(or(ilike(boardProjectCards.title, pattern), ilike(boardProjectCards.details, pattern)))
+    .orderBy(boardProjectCards.archived, desc(boardProjectCards.updatedAt))
+    .limit(Math.min(Math.max(1, limit), 50));
+  return rows.map((row) => ({ ...row, cardNumber: row.cardNumber ?? 0 }));
 }
 
 export async function getBoardProject(slug: string): Promise<BoardProject | null> {
@@ -719,11 +739,32 @@ function parseChecklist(value: string | null | undefined): ProjectChecklistItem[
   }
 }
 
+/** One-time backfill for cards created before card numbers existed. Assigns
+ * numbers in creation order so older cards keep lower numbers, same as if
+ * numbering had been on since the first card. A no-op once every row has one. */
+async function backfillCardNumbers(projectSlug: string) {
+  if (!rawSql) return;
+  await rawSql`
+    UPDATE board_project_cards AS c
+    SET card_number = sub.rn + coalesce((SELECT max(card_number) FROM board_project_cards WHERE project_slug = ${projectSlug}), 0)
+    FROM (
+      SELECT id, row_number() OVER (ORDER BY created_at, id) AS rn
+      FROM board_project_cards
+      WHERE project_slug = ${projectSlug} AND card_number IS NULL
+    ) AS sub
+    WHERE c.id = sub.id
+  `;
+}
+
 export async function listProjectCards(projectSlug: string, username = ''): Promise<ProjectCard[]> {
   if (!databaseConfigured()) return [];
   await ensureSchema();
   const database = requireDatabase();
-  const rows = await database.select().from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug)).orderBy(boardProjectCards.lane, boardProjectCards.position, boardProjectCards.createdAt, boardProjectCards.id);
+  let rows = await database.select().from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug)).orderBy(boardProjectCards.lane, boardProjectCards.position, boardProjectCards.createdAt, boardProjectCards.id);
+  if (rows.some((row) => row.cardNumber === null)) {
+    await backfillCardNumbers(projectSlug);
+    rows = await database.select().from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug)).orderBy(boardProjectCards.lane, boardProjectCards.position, boardProjectCards.createdAt, boardProjectCards.id);
+  }
   const tags = await listProjectTags(projectSlug);
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
   const cardTags = rows.length ? await database.select({ cardId: boardProjectCardTags.cardId, tagId: boardProjectCardTags.tagId }).from(boardProjectCardTags).where(inArray(boardProjectCardTags.cardId, rows.map((row) => row.id))) : [];
@@ -742,7 +783,7 @@ export async function listProjectCards(projectSlug: string, username = ''): Prom
     const tag = tagById.get(entry.tagId);
     if (tag) tagsByCard.set(entry.cardId, [...(tagsByCard.get(entry.cardId) ?? []), tag]);
   }
-  return rows.map((row) => ({ id: row.id, projectSlug: row.projectSlug, title: row.title, details: row.details, lane: row.lane, position: row.position, archived: row.archived, checklist: parseChecklist(row.checklist), coverColor: row.coverColor, watcherCount: watcherCounts.get(row.id) ?? 0, watching: watchedByUser.has(row.id), owner: row.owner, priority: row.priority, dueDate: row.dueDate, dueComplete: row.dueComplete, startDate: row.startDate, attachmentCount: attachmentCounts.get(row.id) ?? 0, tags: tagsByCard.get(row.id) ?? [], createdAt: row.createdAt, updatedAt: row.updatedAt }));
+  return rows.map((row) => ({ id: row.id, projectSlug: row.projectSlug, title: row.title, details: row.details, lane: row.lane, position: row.position, archived: row.archived, checklist: parseChecklist(row.checklist), coverColor: row.coverColor, watcherCount: watcherCounts.get(row.id) ?? 0, watching: watchedByUser.has(row.id), owner: row.owner, priority: row.priority, dueDate: row.dueDate, dueComplete: row.dueComplete, startDate: row.startDate, cardNumber: row.cardNumber ?? 0, attachmentCount: attachmentCounts.get(row.id) ?? 0, tags: tagsByCard.get(row.id) ?? [], createdAt: row.createdAt, updatedAt: row.updatedAt }));
 }
 
 function attachmentFromRow(row: typeof boardProjectCardAttachments.$inferSelect): ProjectCardAttachment {
@@ -778,62 +819,66 @@ export async function createProjectCard(card: ProjectCardWrite) {
   const database = requireDatabase();
   const laneCards = await database.select({ position: boardProjectCards.position }).from(boardProjectCards).where(and(eq(boardProjectCards.projectSlug, card.projectSlug), eq(boardProjectCards.lane, card.lane)));
   const position = laneCards.reduce((max, item) => Math.max(max, item.position), -1) + 1;
-  await database.transaction(async (tx) => {
-    await tx.insert(boardProjectCards).values({ ...values, checklist: JSON.stringify(checklist), coverColor: values.coverColor || '', position });
-    await replaceCardTags(card.projectSlug, card.id, tagIds, tx as any);
-  });
+  // Card numbers are permanent once assigned (matching Trello — duplicating a
+  // card gets it a new number, never the source's). Computed from the current
+  // max rather than a separate counter row, since card creation is low-volume
+  // and this keeps the number in the same transaction as the insert.
+  const [{ maxNumber }] = await database.select({ maxNumber: sql<number>`coalesce(max(${boardProjectCards.cardNumber}), 0)` }).from(boardProjectCards).where(eq(boardProjectCards.projectSlug, card.projectSlug));
+  // Not wrapped in database.transaction(): the neon-http driver this project
+  // uses for edge/serverless compatibility throws "No transactions support in
+  // neon-http driver" the instant db.transaction() is called — every write
+  // path in this file ran through that call, so every one of them failed on
+  // a real Neon database until this fix. Sequential awaited statements over
+  // the same `database` handle lose atomicity on a mid-sequence crash (rare)
+  // in exchange for actually working (previously: always, 100% of the time).
+  await database.insert(boardProjectCards).values({ ...values, checklist: JSON.stringify(checklist), coverColor: values.coverColor || '', position, cardNumber: maxNumber + 1 });
+  await replaceCardTags(card.projectSlug, card.id, tagIds, database);
 }
 
 export async function updateProjectCard(card: ProjectCardWrite) {
   await ensureSchema();
   const { tagIds = [], checklist = [], ...values } = card;
   const database = requireDatabase();
-  await database.transaction(async (tx) => {
-    await tx.update(boardProjectCards).set({ title: values.title, details: values.details, lane: values.lane, owner: values.owner, priority: values.priority, dueDate: values.dueDate, dueComplete: values.dueComplete, startDate: values.startDate, archived: values.archived, checklist: JSON.stringify(checklist), coverColor: values.coverColor || '', updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, values.id), eq(boardProjectCards.projectSlug, values.projectSlug)));
-    await replaceCardTags(card.projectSlug, card.id, tagIds, tx as any);
-  });
+  await database.update(boardProjectCards).set({ title: values.title, details: values.details, lane: values.lane, owner: values.owner, priority: values.priority, dueDate: values.dueDate, dueComplete: values.dueComplete, startDate: values.startDate, archived: values.archived, checklist: JSON.stringify(checklist), coverColor: values.coverColor || '', updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, values.id), eq(boardProjectCards.projectSlug, values.projectSlug)));
+  await replaceCardTags(card.projectSlug, card.id, tagIds, database);
 }
 
 export async function reorderProjectCard(projectSlug: string, cardId: string, lane: string, beforeId = '') {
   await ensureSchema();
   const database = requireDatabase();
-  await database.transaction(async (tx: any) => {
-    const rows = await tx.select().from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug)).orderBy(boardProjectCards.lane, boardProjectCards.position, boardProjectCards.createdAt, boardProjectCards.id);
-    const moving = rows.find((row: typeof rows[number]) => row.id === cardId);
-    if (!moving) throw new Error('Card not found.');
-    const destination = rows.filter((row: typeof rows[number]) => row.lane === lane && row.id !== cardId);
-    if (beforeId && !destination.some((row: typeof rows[number]) => row.id === beforeId)) throw new Error('Destination card not found.');
-    const insertAt = beforeId ? destination.findIndex((row: typeof rows[number]) => row.id === beforeId) : destination.length;
-    destination.splice(insertAt < 0 ? destination.length : insertAt, 0, { ...moving, lane });
-    const updates = new Map<string, { lane: string; position: number }>();
-    for (const [index, row] of destination.entries()) updates.set(row.id, { lane, position: index });
-    const otherLanes = new Map<string, typeof rows>();
-    for (const row of rows) {
-      if (row.lane === lane || row.id === cardId) continue;
-      otherLanes.set(row.lane, [...(otherLanes.get(row.lane) ?? []), row]);
-    }
-    for (const [otherLane, laneRows] of otherLanes) for (const [index, row] of laneRows.entries()) updates.set(row.id, { lane: otherLane, position: index });
-    for (const [id, update] of updates) await tx.update(boardProjectCards).set({ lane: update.lane, position: update.position, updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, id), eq(boardProjectCards.projectSlug, projectSlug)));
-  });
+  const rows = await database.select().from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug)).orderBy(boardProjectCards.lane, boardProjectCards.position, boardProjectCards.createdAt, boardProjectCards.id);
+  const moving = rows.find((row) => row.id === cardId);
+  if (!moving) throw new Error('Card not found.');
+  const destination = rows.filter((row) => row.lane === lane && row.id !== cardId);
+  if (beforeId && !destination.some((row) => row.id === beforeId)) throw new Error('Destination card not found.');
+  const insertAt = beforeId ? destination.findIndex((row) => row.id === beforeId) : destination.length;
+  destination.splice(insertAt < 0 ? destination.length : insertAt, 0, { ...moving, lane });
+  const updates = new Map<string, { lane: string; position: number }>();
+  for (const [index, row] of destination.entries()) updates.set(row.id, { lane, position: index });
+  const otherLanes = new Map<string, typeof rows>();
+  for (const row of rows) {
+    if (row.lane === lane || row.id === cardId) continue;
+    otherLanes.set(row.lane, [...(otherLanes.get(row.lane) ?? []), row]);
+  }
+  for (const [otherLane, laneRows] of otherLanes) for (const [index, row] of laneRows.entries()) updates.set(row.id, { lane: otherLane, position: index });
+  for (const [id, update] of updates) await database.update(boardProjectCards).set({ lane: update.lane, position: update.position, updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.id, id), eq(boardProjectCards.projectSlug, projectSlug)));
 }
 
-/** Persist the complete board order in one transaction. Sending the full
- * snapshot makes rapid drag operations last-write-wins and prevents partial
- * lane updates when several moves happen before the network settles. */
+/** Persist the complete board order. Sending the full snapshot makes rapid
+ * drag operations last-write-wins and prevents partial lane updates when
+ * several moves happen before the network settles. */
 export async function setProjectCardOrder(projectSlug: string, order: Array<{ id: string; lane: string; position: number }>) {
   await ensureSchema();
   const database = requireDatabase();
-  await database.transaction(async (tx: any) => {
-    const rows = await tx.select({ id: boardProjectCards.id }).from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug));
-    const expected = new Set(rows.map((row: { id: string }) => row.id));
-    if (order.length !== expected.size || new Set(order.map((item) => item.id)).size !== order.length || order.some((item) => !expected.has(item.id) || !item.lane || !Number.isInteger(item.position) || item.position < 0)) {
-      throw new Error('The board order is stale or invalid.');
-    }
-    const now = new Date().toISOString();
-    for (const item of order) {
-      await tx.update(boardProjectCards).set({ lane: item.lane, position: item.position, updatedAt: now }).where(and(eq(boardProjectCards.id, item.id), eq(boardProjectCards.projectSlug, projectSlug)));
-    }
-  });
+  const rows = await database.select({ id: boardProjectCards.id }).from(boardProjectCards).where(eq(boardProjectCards.projectSlug, projectSlug));
+  const expected = new Set(rows.map((row) => row.id));
+  if (order.length !== expected.size || new Set(order.map((item) => item.id)).size !== order.length || order.some((item) => !expected.has(item.id) || !item.lane || !Number.isInteger(item.position) || item.position < 0)) {
+    throw new Error('The board order is stale or invalid.');
+  }
+  const now = new Date().toISOString();
+  for (const item of order) {
+    await database.update(boardProjectCards).set({ lane: item.lane, position: item.position, updatedAt: now }).where(and(eq(boardProjectCards.id, item.id), eq(boardProjectCards.projectSlug, projectSlug)));
+  }
 }
 
 /** Keep cards attached to a column when its visible name is changed. */
@@ -842,16 +887,14 @@ export async function renameProjectLanes(projectSlug: string, renames: Array<{ f
   if (!changes.length) return;
   await ensureSchema();
   const database = requireDatabase();
-  await database.transaction(async (tx: any) => {
-    const now = new Date().toISOString();
-    const staged = changes.map((rename, index) => ({ ...rename, temporary: `__lane_rename_${Date.now()}_${index}_${randomBytes(3).toString('hex')}` }));
-    for (const rename of staged) {
-      await tx.update(boardProjectCards).set({ lane: rename.temporary, updatedAt: now }).where(and(eq(boardProjectCards.projectSlug, projectSlug), eq(boardProjectCards.lane, rename.from)));
-    }
-    for (const rename of staged) {
-      await tx.update(boardProjectCards).set({ lane: rename.to, updatedAt: now }).where(and(eq(boardProjectCards.projectSlug, projectSlug), eq(boardProjectCards.lane, rename.temporary)));
-    }
-  });
+  const now = new Date().toISOString();
+  const staged = changes.map((rename, index) => ({ ...rename, temporary: `__lane_rename_${Date.now()}_${index}_${randomBytes(3).toString('hex')}` }));
+  for (const rename of staged) {
+    await database.update(boardProjectCards).set({ lane: rename.temporary, updatedAt: now }).where(and(eq(boardProjectCards.projectSlug, projectSlug), eq(boardProjectCards.lane, rename.from)));
+  }
+  for (const rename of staged) {
+    await database.update(boardProjectCards).set({ lane: rename.to, updatedAt: now }).where(and(eq(boardProjectCards.projectSlug, projectSlug), eq(boardProjectCards.lane, rename.temporary)));
+  }
 }
 
 /** Move every non-archived card from one lane to another in one pass,
@@ -859,18 +902,16 @@ export async function renameProjectLanes(projectSlug: string, renames: Array<{ f
 export async function moveAllCardsInLane(projectSlug: string, fromLane: string, toLane: string): Promise<number> {
   await ensureSchema();
   const database = requireDatabase();
-  return database.transaction(async (tx: any) => {
-    const rows = await tx.select().from(boardProjectCards).where(and(eq(boardProjectCards.projectSlug, projectSlug))).orderBy(boardProjectCards.lane, boardProjectCards.position);
-    const moving = rows.filter((row: typeof rows[number]) => row.lane === fromLane && !row.archived);
-    if (!moving.length) return 0;
-    let position = rows.filter((row: typeof rows[number]) => row.lane === toLane).reduce((max: number, row: typeof rows[number]) => Math.max(max, row.position), -1) + 1;
-    const now = new Date().toISOString();
-    for (const row of moving) {
-      await tx.update(boardProjectCards).set({ lane: toLane, position, updatedAt: now }).where(and(eq(boardProjectCards.id, row.id), eq(boardProjectCards.projectSlug, projectSlug)));
-      position += 1;
-    }
-    return moving.length;
-  });
+  const rows = await database.select().from(boardProjectCards).where(and(eq(boardProjectCards.projectSlug, projectSlug))).orderBy(boardProjectCards.lane, boardProjectCards.position);
+  const moving = rows.filter((row) => row.lane === fromLane && !row.archived);
+  if (!moving.length) return 0;
+  let position = rows.filter((row) => row.lane === toLane).reduce((max, row) => Math.max(max, row.position), -1) + 1;
+  const now = new Date().toISOString();
+  for (const row of moving) {
+    await database.update(boardProjectCards).set({ lane: toLane, position, updatedAt: now }).where(and(eq(boardProjectCards.id, row.id), eq(boardProjectCards.projectSlug, projectSlug)));
+    position += 1;
+  }
+  return moving.length;
 }
 
 /** Archive (or restore) every card currently in one lane. */
@@ -884,12 +925,10 @@ export async function archiveAllCardsInLane(projectSlug: string, lane: string, a
 export async function deleteProjectCard(projectSlug: string, id: string) {
   await ensureSchema();
   const database = requireDatabase();
-  await database.transaction(async (tx) => {
-    await tx.delete(boardProjectCardTags).where(eq(boardProjectCardTags.cardId, id));
-    await tx.delete(boardProjectCardWatchers).where(eq(boardProjectCardWatchers.cardId, id));
-    await tx.delete(boardProjectComments).where(and(eq(boardProjectComments.projectSlug, projectSlug), eq(boardProjectComments.cardId, id)));
-    await tx.delete(boardProjectCards).where(and(eq(boardProjectCards.id, id), eq(boardProjectCards.projectSlug, projectSlug)));
-  });
+  await database.delete(boardProjectCardTags).where(eq(boardProjectCardTags.cardId, id));
+  await database.delete(boardProjectCardWatchers).where(eq(boardProjectCardWatchers.cardId, id));
+  await database.delete(boardProjectComments).where(and(eq(boardProjectComments.projectSlug, projectSlug), eq(boardProjectComments.cardId, id)));
+  await database.delete(boardProjectCards).where(and(eq(boardProjectCards.id, id), eq(boardProjectCards.projectSlug, projectSlug)));
 }
 
 export async function setProjectCardWatching(projectSlug: string, cardId: string, username: string, watching: boolean) {
@@ -1003,22 +1042,20 @@ export async function updateGraphNode(projectSlug: string, nodeId: string, value
     await database.update(boardProjectGraphNodes).set(update).where(and(eq(boardProjectGraphNodes.projectSlug, projectSlug), eq(boardProjectGraphNodes.id, nodeId)));
     return bumpGraphRevision(projectSlug);
   }
-  return database.transaction(async (tx) => {
-    await tx.update(boardProjectGraphNodes).set(update).where(and(eq(boardProjectGraphNodes.projectSlug, projectSlug), eq(boardProjectGraphNodes.id, nodeId)));
-    return bumpGraphRevision(projectSlug, expectedRevision, tx);
-  });
+  // Not transactional — see the note on createProjectCard: neon-http cannot
+  // run db.transaction() at all, so the revision check below and this update
+  // are two separate statements rather than one atomic unit.
+  await database.update(boardProjectGraphNodes).set(update).where(and(eq(boardProjectGraphNodes.projectSlug, projectSlug), eq(boardProjectGraphNodes.id, nodeId)));
+  return bumpGraphRevision(projectSlug, expectedRevision, database);
 }
 
 export async function deleteGraphNode(projectSlug: string, nodeId: string, expectedRevision?: number) {
   await ensureSchema();
   const database = requireDatabase();
-  const remove = async (tx: any) => {
-    await tx.delete(boardProjectGraphEdges).where(and(eq(boardProjectGraphEdges.projectSlug, projectSlug), eq(boardProjectGraphEdges.sourceNodeId, nodeId)));
-    await tx.delete(boardProjectGraphEdges).where(and(eq(boardProjectGraphEdges.projectSlug, projectSlug), eq(boardProjectGraphEdges.targetNodeId, nodeId)));
-    await tx.delete(boardProjectGraphNodes).where(and(eq(boardProjectGraphNodes.projectSlug, projectSlug), eq(boardProjectGraphNodes.id, nodeId)));
-    return bumpGraphRevision(projectSlug, expectedRevision, tx);
-  };
-  return expectedRevision === undefined ? remove(database) : database.transaction(remove);
+  await database.delete(boardProjectGraphEdges).where(and(eq(boardProjectGraphEdges.projectSlug, projectSlug), eq(boardProjectGraphEdges.sourceNodeId, nodeId)));
+  await database.delete(boardProjectGraphEdges).where(and(eq(boardProjectGraphEdges.projectSlug, projectSlug), eq(boardProjectGraphEdges.targetNodeId, nodeId)));
+  await database.delete(boardProjectGraphNodes).where(and(eq(boardProjectGraphNodes.projectSlug, projectSlug), eq(boardProjectGraphNodes.id, nodeId)));
+  return bumpGraphRevision(projectSlug, expectedRevision, database);
 }
 
 export async function createGraphEdge(edge: Omit<GraphEdge, 'createdAt' | 'updatedAt'>, expectedRevision?: number) {
@@ -1026,23 +1063,17 @@ export async function createGraphEdge(edge: Omit<GraphEdge, 'createdAt' | 'updat
   await ensureProjectGraph(edge.projectSlug);
   if (edge.sourceNodeId === edge.targetNodeId) throw new Error('GRAPH_SELF_EDGE');
   const database = requireDatabase();
-  const insert = async (tx: any) => {
-    const nodes = await tx.select({ id: boardProjectGraphNodes.id }).from(boardProjectGraphNodes).where(and(eq(boardProjectGraphNodes.projectSlug, edge.projectSlug), inArray(boardProjectGraphNodes.id, [edge.sourceNodeId, edge.targetNodeId])));
-    if (nodes.length !== 2) throw new Error('GRAPH_NODE_NOT_FOUND');
-    await tx.insert(boardProjectGraphEdges).values({ ...edge, label: edge.label.trim().slice(0, 120) });
-    return bumpGraphRevision(edge.projectSlug, expectedRevision, tx);
-  };
-  return expectedRevision === undefined ? insert(database) : database.transaction(insert);
+  const nodes = await database.select({ id: boardProjectGraphNodes.id }).from(boardProjectGraphNodes).where(and(eq(boardProjectGraphNodes.projectSlug, edge.projectSlug), inArray(boardProjectGraphNodes.id, [edge.sourceNodeId, edge.targetNodeId])));
+  if (nodes.length !== 2) throw new Error('GRAPH_NODE_NOT_FOUND');
+  await database.insert(boardProjectGraphEdges).values({ ...edge, label: edge.label.trim().slice(0, 120) });
+  return bumpGraphRevision(edge.projectSlug, expectedRevision, database);
 }
 
 export async function deleteGraphEdge(projectSlug: string, edgeId: string, expectedRevision?: number) {
   await ensureSchema();
   const database = requireDatabase();
-  const remove = async (tx: any) => {
-    await tx.delete(boardProjectGraphEdges).where(and(eq(boardProjectGraphEdges.projectSlug, projectSlug), eq(boardProjectGraphEdges.id, edgeId)));
-    return bumpGraphRevision(projectSlug, expectedRevision, tx);
-  };
-  return expectedRevision === undefined ? remove(database) : database.transaction(remove);
+  await database.delete(boardProjectGraphEdges).where(and(eq(boardProjectGraphEdges.projectSlug, projectSlug), eq(boardProjectGraphEdges.id, edgeId)));
+  return bumpGraphRevision(projectSlug, expectedRevision, database);
 }
 
 export async function saveGraphSettings(projectSlug: string, settings: Pick<GraphSettings, 'snap' | 'gridSize' | 'background'>, expectedRevision?: number) {
@@ -1054,10 +1085,8 @@ export async function saveGraphSettings(projectSlug: string, settings: Pick<Grap
     await database.update(boardProjectGraphs).set({ settings: JSON.stringify({ snap: clean.snap, gridSize: clean.gridSize, background: clean.background }), updatedAt: new Date().toISOString() }).where(eq(boardProjectGraphs.projectSlug, projectSlug));
     return bumpGraphRevision(projectSlug);
   }
-  return database.transaction(async (tx) => {
-    await tx.update(boardProjectGraphs).set({ settings: JSON.stringify({ snap: clean.snap, gridSize: clean.gridSize, background: clean.background }), updatedAt: new Date().toISOString() }).where(and(eq(boardProjectGraphs.projectSlug, projectSlug), eq(boardProjectGraphs.revision, expectedRevision)));
-    return bumpGraphRevision(projectSlug, expectedRevision, tx);
-  });
+  await database.update(boardProjectGraphs).set({ settings: JSON.stringify({ snap: clean.snap, gridSize: clean.gridSize, background: clean.background }), updatedAt: new Date().toISOString() }).where(and(eq(boardProjectGraphs.projectSlug, projectSlug), eq(boardProjectGraphs.revision, expectedRevision)));
+  return bumpGraphRevision(projectSlug, expectedRevision, database);
 }
 
 export async function createBoardUser(username: string, password: string, role: Exclude<UserRole, 'superadmin'>) {

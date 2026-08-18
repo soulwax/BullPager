@@ -116,6 +116,22 @@ export const actions = {
     }
     return { message: 'Card updated.' };
   },
+  assignCard: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to assign project cards.' });
+    if (await projectIsSourceOwned(params.slug)) return sourceLockedError();
+    const form = await request.formData();
+    const id = String(form.get('id') ?? '').trim();
+    const owner = String(form.get('owner') ?? '').trim().slice(0, 120);
+    const card = (await listProjectCards(params.slug)).find((item) => item.id === id);
+    if (!card) return fail(400, { error: 'Choose a valid card.' });
+    try {
+      await updateProjectCard({ ...card, owner, tagIds: (card.tags ?? []).map((tag) => tag.id) });
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId: card.id, summary: owner ? `Assigned “${card.title}” to ${owner}.` : `Unassigned “${card.title}”.` });
+    } catch (error) {
+      return persistenceFailure('assign card failed', error);
+    }
+    return { message: owner ? 'Card assigned.' : 'Card unassigned.' };
+  },
   moveCard: async ({ request, locals, params }) => {
     if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to move project cards.' });
     const form = await request.formData();

@@ -59,6 +59,7 @@ export const boardProjectCards = pgTable('board_project_cards', {
   dueDate: date('due_date'),
   dueComplete: boolean('due_complete').notNull().default(false),
   startDate: date('start_date'),
+  cardNumber: integer('card_number'),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow()
 }, (table) => ({ projectLaneIndex: index('board_project_cards_project_lane_idx').on(table.projectSlug, table.lane) }));

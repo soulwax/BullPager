@@ -1711,6 +1711,7 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .shortcut-list > div { display: flex; align-items: baseline; gap: .7rem; }
 .shortcut-list dt { min-width: 3rem; padding: .1rem .4rem; border: 1px solid var(--line); border-radius: .35rem; color: var(--accent); font-family: ui-monospace, monospace; font-size: .78rem; text-align: center; }
 .shortcut-list dd { margin: 0; color: var(--muted); font-size: .82rem; }
+.shortcut-hover-heading { margin: .2rem 0 0; color: var(--accent); font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 
 .card-composer textarea[name="title"] { min-height: 2.4rem; resize: vertical; }
 
@@ -1804,3 +1805,43 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
 .project-workspace .tag-chip { --tag-color: var(--accent); padding: .18rem .5rem; border: none; border-radius: .25rem; color: color-mix(in srgb, var(--tag-color) 12%, black 80%); background: var(--tag-color); font-weight: 800; }
 .project-workspace .tag-chip:hover { filter: brightness(1.08); }
 .project-workspace.has-color-background .tag-chip { color: color-mix(in srgb, var(--tag-color) 14%, black 82%); }
+
+/* A grid of clickable swatches, like Trello's own background picker, rather
+   than a plain dropdown of label text nobody can preview before choosing. */
+.background-picker { display: grid; gap: .5rem; padding: 0; border: none; }
+.background-picker legend { padding-inline: 0; color: var(--accent); font-size: .76rem; font-weight: 800; }
+.background-swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.2rem, 1fr)); gap: .55rem; }
+.background-swatch { position: relative; display: block; aspect-ratio: 16 / 10; overflow: hidden; border: 2px solid transparent; border-radius: .5rem; cursor: pointer; background: var(--swatch, var(--panel)) center / cover; }
+.background-swatch.photo-swatch { background: var(--swatch-image) center / cover; }
+.background-swatch input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.background-swatch .swatch-check { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; color: #fff; font-size: 1.1rem; font-weight: 900; text-shadow: 0 1px 3px rgb(0 0 0 / .6); background: rgb(0 0 0 / .28); transition: opacity .15s ease; }
+.background-swatch:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.background-swatch:has(:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.background-swatch:has(:checked) .swatch-check { opacity: 1; }
+.background-swatch:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.none-swatch { background: repeating-linear-gradient(135deg, var(--surface-1) 0 8px, var(--surface-2) 8px 16px); }
+.upload-swatch { display: grid; place-items: center; border: 2px dashed var(--line); background: color-mix(in srgb, var(--panel) 70%, transparent); }
+.upload-swatch:hover { border-color: var(--accent); }
+.upload-swatch input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.upload-swatch-label { display: grid; justify-items: center; gap: .1rem; color: var(--muted); font-size: .68rem; font-weight: 700; text-align: center; }
+.upload-swatch-label small { color: var(--accent); font-weight: 500; }
+
+.project-card-meta .card-number { color: var(--muted); font-variant-numeric: tabular-nums; }
+.card-editor-title .card-number, #card-editor-title .card-number { color: var(--muted); font-size: .8em; font-weight: 500; }
+.project-workspace.has-color-background .project-card-meta .card-number { color: #5e6c84; }
+
+/* Global top-bar search, styled after Trello's own — always reachable, not
+   contextual to the current board. */
+.nav-search { position: relative; flex: 1 1 22rem; max-width: 26rem; }
+.nav-search-icon { position: absolute; top: 50%; left: .65rem; color: var(--muted); font-size: .85rem; transform: translateY(-50%); pointer-events: none; }
+.nav-search input { width: 100%; min-height: 2.35rem; padding: .4rem .6rem .4rem 1.9rem; border-radius: .5rem; font-size: .78rem; }
+.nav-search-results { position: absolute; top: calc(100% + .4rem); left: 0; z-index: 60; width: min(28rem, 90vw); max-height: 60vh; overflow-y: auto; padding: .4rem; border: 1px solid var(--line); border-radius: .6rem; background: var(--panel); box-shadow: var(--shadow-lg, 0 20px 50px rgb(0 0 0 / .35)); }
+.nav-search-results ol { display: grid; gap: .15rem; padding: 0; margin: 0; list-style: none; }
+.nav-search-results a { display: grid; gap: .1rem; padding: .5rem .6rem; border-radius: .45rem; color: inherit; text-decoration: none; }
+.nav-search-results a:hover, .nav-search-results a.active { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.nav-search-card-number { color: var(--muted); font-size: .68rem; font-variant-numeric: tabular-nums; }
+.nav-search-card-title { font-size: .84rem; font-weight: 700; }
+.nav-search-archived { margin-left: .4rem; padding: .05rem .35rem; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: .6rem; font-weight: 700; text-transform: uppercase; }
+.nav-search-card-meta { color: var(--muted); font-size: .68rem; }
+.nav-search-status { margin: 0; padding: .6rem; color: var(--muted); font-size: .78rem; text-align: center; }
+@media (max-width: 900px) { .nav-search { display: none; } }
