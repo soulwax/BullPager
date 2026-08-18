@@ -1,8 +1,22 @@
 <script lang="ts">
   import type { BoardProject, UserRole } from '$lib/types';
+  import { invalidateAll } from '$app/navigation';
 
-  let { data }: { data: { projects: BoardProject[]; username: string; role: UserRole | '' } } = $props();
+  let { data }: { data: { projects: BoardProject[]; starred: string[]; username: string; role: UserRole | '' } } = $props();
   const canCreate = $derived(['superadmin', 'admin', 'editor'].includes(data.role));
+  let starred = $state<Set<string>>(new Set());
+  $effect(() => { starred = new Set(data.starred); });
+
+  async function toggleStar(slug: string) {
+    const next = !starred.has(slug);
+    starred = new Set(starred);
+    if (next) starred.add(slug); else starred.delete(slug);
+    const body = new FormData();
+    body.set('slug', slug);
+    body.set('starred', String(next));
+    try { await fetch('?/toggleStar', { method: 'POST', body, headers: { accept: 'application/json' } }); }
+    finally { await invalidateAll(); }
+  }
 </script>
 
 <svelte:head>
@@ -34,8 +48,8 @@
       <div class="project-hub-section-heading"><div><p class="eyebrow">YOUR WORKSPACES</p><h2 id="your-projects-title">Projects</h2></div><span class="health valid">{data.projects.length} {data.projects.length === 1 ? 'project' : 'projects'}</span></div>
       <div class="project-hub-grid">
         {#each data.projects as project}
-          <article class="project-hub-card">
-            <div class="project-hub-card-heading"><span class="project-mark" aria-hidden="true">{project.name.slice(0, 2).toUpperCase()}</span><div><h3>{project.name}</h3><p>{project.visibility === 'private' ? 'Private workspace' : 'Shared workspace'} · owned by {project.owner}</p></div></div>
+          <article class="project-hub-card" class:starred={starred.has(project.slug)}>
+            <div class="project-hub-card-heading"><span class="project-mark" aria-hidden="true">{project.name.slice(0, 2).toUpperCase()}</span><div><h3>{project.name}</h3><p>{project.visibility === 'private' ? 'Private workspace' : 'Shared workspace'} · owned by {project.owner}</p></div>{#if data.username}<button type="button" class="star-toggle" class:active={starred.has(project.slug)} aria-pressed={starred.has(project.slug)} aria-label={starred.has(project.slug) ? `Unstar ${project.name}` : `Star ${project.name}`} onclick={() => toggleStar(project.slug)}>{starred.has(project.slug) ? '★' : '☆'}</button>{/if}</div>
             <p class="project-hub-card-copy">One board for the active queue, with project files and optional graph context kept close by.</p>
             <div class="project-hub-card-actions"><a class="primary-button" href={`/projects/${project.slug}`}>Open board</a><a class="quiet-button" href={`/projects/${project.slug}/backlog`}>Backlog</a><a class="project-cloud-link" href={`/projects/${project.slug}/files`}><span aria-hidden="true">☁</span> Cloud</a><a class="quiet-button" href={`/projects/${project.slug}/graph`}>Graph</a></div>
             <small class="project-hub-slug">/{project.slug}</small>

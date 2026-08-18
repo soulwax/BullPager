@@ -7,7 +7,7 @@
   import { invalidateAll } from '$app/navigation';
   import { marked } from 'marked';
 
-  let { data, form }: { data: { project: BoardProject; prefix: string; settings: Record<string, string>; sourceOwned: boolean; lanes: string[]; cards: ProjectCard[]; tags: ProjectTag[]; members: BoardUser[]; activity: ProjectActivity[]; comments: ProjectComment[]; attachments: ProjectCardAttachment[]; viewState: ProjectViewState; canEdit: boolean; username: string; role: string; openCard?: string | null; created: boolean }; form?: { message?: string; error?: string } } = $props();
+  let { data, form }: { data: { project: BoardProject; prefix: string; settings: Record<string, string>; sourceOwned: boolean; wipLimits: Record<string, number>; starred: boolean; lanes: string[]; cards: ProjectCard[]; tags: ProjectTag[]; members: BoardUser[]; activity: ProjectActivity[]; comments: ProjectComment[]; attachments: ProjectCardAttachment[]; viewState: ProjectViewState; canEdit: boolean; username: string; role: string; openCard?: string | null; created: boolean }; form?: { message?: string; error?: string } } = $props();
   const setting = (name: string, fallback = '') => data.settings[`${data.prefix}${name}`] ?? fallback;
   const boardBackground = $derived(projectBackground(setting('background', 'none')));
   const glassIntensity = $derived(Math.max(0, Math.min(100, Number(setting('glass_intensity', '38')) || 0)));
@@ -43,6 +43,20 @@
   let sanitizeHtml: ((html: string) => string) | undefined = $state(undefined);
   let searchInput: HTMLInputElement | undefined = $state(undefined);
   let showShortcutHelp = $state(false);
+  let renamingLane = $state<string | null>(null);
+  let renameDraft = $state('');
+  let copyingLane = $state<string | null>(null);
+  let copyDraft = $state('');
+  let wipEditingLane = $state<string | null>(null);
+  let wipDraft = $state('');
+  let addingListAfter = $state<string | null>(null);
+  let addListDraft = $state('');
+  let showArchiveBrowser = $state(false);
+  let showActivityPanel = $state(false);
+  let renamingBoard = $state(false);
+  let boardNameDraft = $state('');
+  let starred = $state(false);
+  $effect(() => { starred = data.starred; });
 
   onMount(() => {
     void import('dompurify').then((module) => { sanitizeHtml = module.default(window).sanitize; });
@@ -181,6 +195,120 @@
     body.set('lanes', JSON.stringify(order));
     const result = await postAction('?/reorderLanes', body);
     if (!result.ok) { showToast('Could not reorder lists.'); return; }
+    await invalidateAll();
+  }
+
+  async function sortLane(lane: string, key: 'name' | 'due' | 'priority' | 'created') {
+    if (!data.canEdit) return;
+    const priorityRank: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+    const grouped = new Map<string, ProjectCard[]>();
+    for (const card of boardCards) grouped.set(card.lane, [...(grouped.get(card.lane) ?? []), card]);
+    const target = [...(grouped.get(lane) ?? [])].sort((a, b) => {
+      if (key === 'name') return a.title.localeCompare(b.title);
+      if (key === 'due') return (a.dueDate ?? '9999-12-31').localeCompare(b.dueDate ?? '9999-12-31');
+      if (key === 'priority') return (priorityRank[a.priority] ?? 9) - (priorityRank[b.priority] ?? 9);
+      return a.createdAt.localeCompare(b.createdAt);
+    });
+    grouped.set(lane, target);
+    const order: Array<{ id: string; lane: string; position: number }> = [];
+    for (const [laneName, cards] of grouped) cards.forEach((card, index) => order.push({ id: card.id, lane: laneName, position: index }));
+    const body = new FormData();
+    body.set('order', JSON.stringify(order));
+    const result = await postAction('?/saveOrder', body);
+    if (!result.ok) { showToast('Could not sort the list.'); return; }
+    await invalidateAll();
+  }
+
+  async function submitMoveAll(fromLane: string, toLane: string) {
+    if (!toLane || toLane === fromLane) return;
+    if (!confirm(`Move every card in "${fromLane}" to "${toLane}"?`)) return;
+    const body = new FormData();
+    body.set('fromLane', fromLane);
+    body.set('toLane', toLane);
+    const result = await postAction('?/moveAllInLane', body);
+    if (!result.ok) { showToast('Could not move the cards.'); return; }
+    await invalidateAll();
+  }
+
+  async function submitArchiveAll(lane: string) {
+    if (!confirm(`Archive every card in "${lane}"?`)) return;
+    const body = new FormData();
+    body.set('lane', lane);
+    const result = await postAction('?/archiveAllInLane', body);
+    if (!result.ok) { showToast('Could not archive the list.'); return; }
+    await invalidateAll();
+  }
+
+  async function submitCopyLane() {
+    const lane = copyingLane;
+    const name = copyDraft.trim();
+    if (!lane || !name) { copyingLane = null; return; }
+    const body = new FormData();
+    body.set('sourceLane', lane);
+    body.set('name', name);
+    copyingLane = null;
+    const result = await postAction('?/copyLane', body);
+    if (!result.ok) { showToast('Could not copy the list.'); return; }
+    await invalidateAll();
+  }
+
+  async function submitRenameLane() {
+    const from = renamingLane;
+    const to = renameDraft.trim();
+    renamingLane = null;
+    if (!from || !to || to === from) return;
+    const body = new FormData();
+    body.set('from', from);
+    body.set('to', to);
+    const result = await postAction('?/renameLane', body);
+    if (!result.ok) { showToast('Could not rename the list.'); return; }
+    await invalidateAll();
+  }
+
+  async function submitAddLane() {
+    const after = addingListAfter ?? '__end__';
+    const name = addListDraft.trim();
+    addingListAfter = null;
+    if (!name) return;
+    const body = new FormData();
+    body.set('name', name);
+    body.set('after', after);
+    const result = await postAction('?/addLane', body);
+    if (!result.ok) { showToast('Could not add the list.'); return; }
+    await invalidateAll();
+  }
+
+  async function submitWipLimit() {
+    const lane = wipEditingLane;
+    const limit = wipDraft.trim();
+    wipEditingLane = null;
+    if (!lane) return;
+    const body = new FormData();
+    body.set('lane', lane);
+    body.set('limit', limit);
+    const result = await postAction('?/setWipLimit', body);
+    if (!result.ok) { showToast('Could not set the limit.'); return; }
+    await invalidateAll();
+  }
+
+  async function submitRenameBoard() {
+    const name = boardNameDraft.trim();
+    renamingBoard = false;
+    if (!name || name === data.project.name) return;
+    const body = new FormData();
+    body.set('name', name);
+    const result = await postAction('?/renameBoard', body);
+    if (!result.ok) { showToast('Could not rename the board.'); return; }
+    await invalidateAll();
+  }
+
+  async function toggleBoardStar() {
+    const next = !starred;
+    starred = next;
+    const body = new FormData();
+    body.set('starred', String(next));
+    const result = await postAction('?/toggleStar', body);
+    if (!result.ok) { starred = !next; showToast('Could not update the star.'); return; }
     await invalidateAll();
   }
 
@@ -431,8 +559,8 @@
 <main class={`project-workspace theme-${setting('theme', 'midnight')} project-lane-${setting('lane_style', 'scroll')}`} class:has-project-background={Boolean(boardBackground.src)} style={boardSurfaceStyle}>
   {#if data.members.length}<datalist id="project-members">{#each data.members as member}<option value={member.username}>{member.role}</option>{/each}</datalist>{/if}
   <header class="topbar project-board-header">
-    <div class="board-title-group"><a class="board-switcher" href="/projects" aria-label="Open project boards"><span aria-hidden="true">▦</span><span>Board</span></a><span class="board-divider" aria-hidden="true"></span><div><p class="eyebrow">{data.project.visibility} workspace</p><h1>{data.project.name}{#if data.sourceOwned}<span class="source-lock-chip" title="Title, description, checklist text, owner, priority, and cover are synced from UNITY_PLAN.md. Lane, dates, comments, attachments, and checklist ticks stay editable here.">🔒 synced from plan</span>{/if}</h1></div><span class="board-card-count">{boardCards.length} {boardCards.length === 1 ? 'card' : 'cards'}</span></div>
-    <div class="top-links board-header-actions"><a class="quiet-button" href={`/projects/${data.project.slug}/backlog`}><span aria-hidden="true">☷</span> Backlog</a><a class="board-cloud-link" href={`/projects/${data.project.slug}/files`}><span aria-hidden="true">☁</span> Cloud</a><a class="quiet-button" href={`/projects/${data.project.slug}/graph`}><span aria-hidden="true">⌘</span> Graph</a><a class="quiet-button" href={`/projects/${data.project.slug}/settings`} aria-label="Project settings">⚙</a></div>
+    <div class="board-title-group"><a class="board-switcher" href="/projects" aria-label="Open project boards"><span aria-hidden="true">▦</span><span>Board</span></a><span class="board-divider" aria-hidden="true"></span>{#if data.username}<button type="button" class="star-toggle board-star" class:active={starred} aria-pressed={starred} aria-label={starred ? 'Unstar this board' : 'Star this board'} onclick={toggleBoardStar}>{starred ? '★' : '☆'}</button>{/if}<div><p class="eyebrow">{data.project.visibility} workspace</p>{#if renamingBoard}<form class="board-rename-form" onsubmit={(event) => { event.preventDefault(); void submitRenameBoard(); }}><input bind:value={boardNameDraft} maxlength="120" aria-label="Board name" use:focusOnMount onblur={submitRenameBoard} onkeydown={(event) => { if (event.key === 'Escape') renamingBoard = false; }} /></form>{:else}<h1>{#if data.canEdit}<button type="button" class="board-name-button" onclick={() => { boardNameDraft = data.project.name; renamingBoard = true; }} title="Click to rename this board">{data.project.name}</button>{:else}{data.project.name}{/if}{#if data.sourceOwned}<span class="source-lock-chip" title="Title, description, checklist text, owner, priority, and cover are synced from UNITY_PLAN.md. Lane, dates, comments, attachments, and checklist ticks stay editable here.">🔒 synced from plan</span>{/if}</h1>{/if}</div><span class="board-card-count">{boardCards.length} {boardCards.length === 1 ? 'card' : 'cards'}</span></div>
+    <div class="top-links board-header-actions"><button type="button" class="quiet-button" class:active={showActivityPanel} onclick={() => { showActivityPanel = !showActivityPanel; showArchiveBrowser = false; }}><span aria-hidden="true">◷</span> Activity</button><button type="button" class="quiet-button" class:active={showArchiveBrowser} onclick={() => { showArchiveBrowser = !showArchiveBrowser; showActivityPanel = false; }}><span aria-hidden="true">🗄</span> Archive</button><a class="quiet-button" href={`/projects/${data.project.slug}/backlog`}><span aria-hidden="true">☷</span> Backlog</a><a class="board-cloud-link" href={`/projects/${data.project.slug}/files`}><span aria-hidden="true">☁</span> Cloud</a><a class="quiet-button" href={`/projects/${data.project.slug}/graph`}><span aria-hidden="true">⌘</span> Graph</a><a class="quiet-button" href={`/projects/${data.project.slug}/settings`} aria-label="Project settings">⚙</a></div>
   </header>
 
   {#if data.created}<section class="project-welcome" role="status"><div><p class="eyebrow">PROJECT CREATED</p><h2>Your workspace is ready.</h2><p>Start with one concrete outcome, then invite collaborators when the workflow feels right.</p></div><a class="quiet-button" href={`/projects/${data.project.slug}/settings`}>Tune workflow</a></section>{/if}
@@ -450,8 +578,20 @@
   {#if boardCards.length === 0 || visibleCards.length > 0}<section class:project-board-compact={density === 'compact'} class="project-board" aria-label={`${data.project.name} workflow`}>
     {#each data.lanes as lane, index}
       {@const laneCards = cardsFor(lane)}
+      {@const wipLimit = data.wipLimits[lane]}
+      {@const overWip = Boolean(wipLimit && laneCards.filter((card) => !card.archived).length > wipLimit)}
       <section id={laneId(lane)} role="list" aria-label={`${lane} lane`} class:collapsed={collapsed[lane]} class:drop-target={dropTargetLane === lane && !dropTargetCardId} class:lane-drop-target={dropTargetLaneHeader === lane} class:project-column-backlog={index === 0} class="project-column" ondragenter={() => { dropTargetLane = lane; dropTargetCardId = ''; }} ondragover={(event) => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'; }} ondrop={(event) => dropCard(lane, '', event)}>
-        <h2 draggable={data.canEdit} ondragstart={(event) => startLaneDrag(lane, event)} ondragend={() => { draggedLane = ''; dropTargetLaneHeader = ''; }} ondragenter={(event) => { if (draggedLane) { event.stopPropagation(); dropTargetLaneHeader = lane; } }} ondragover={(event) => { if (draggedLane) { event.preventDefault(); event.stopPropagation(); } }} ondrop={(event) => { if (draggedLane) { event.preventDefault(); event.stopPropagation(); void dropLane(lane); } }} title={data.canEdit ? 'Drag to reorder lists' : undefined}><span>{lane}<small>{laneCards.length} {laneCards.length === 1 ? 'card' : 'cards'}</small></span><span class="lane-header-actions"><details class="lane-menu"><summary aria-label={`More actions for ${lane}`}>•••</summary><div class="lane-menu-body">{#if data.canEdit && !data.sourceOwned}<button type="button" onclick={() => { composerLane = lane; }}>+ Add card</button>{/if}<button type="button" onclick={() => toggleLane(lane)}>{collapsed[lane] ? 'Expand list' : 'Collapse list'}</button></div></details><button class="collapse-button" type="button" aria-expanded={!collapsed[lane]} aria-label={`${collapsed[lane] ? 'Expand' : 'Collapse'} ${lane}`} onclick={() => toggleLane(lane)}>{collapsed[lane] ? '+' : '−'}</button></span></h2>
+        <h2 draggable={data.canEdit && renamingLane !== lane} ondragstart={(event) => startLaneDrag(lane, event)} ondragend={() => { draggedLane = ''; dropTargetLaneHeader = ''; }} ondragenter={(event) => { if (draggedLane) { event.stopPropagation(); dropTargetLaneHeader = lane; } }} ondragover={(event) => { if (draggedLane) { event.preventDefault(); event.stopPropagation(); } }} ondrop={(event) => { if (draggedLane) { event.preventDefault(); event.stopPropagation(); void dropLane(lane); } }} title={data.canEdit ? 'Drag to reorder lists' : undefined}>
+          {#if renamingLane === lane}
+            <input class="lane-rename-input" bind:value={renameDraft} maxlength="48" aria-label={`Rename ${lane}`} use:focusOnMount onblur={submitRenameLane} onkeydown={(event) => { if (event.key === 'Enter') { event.preventDefault(); submitRenameLane(); } if (event.key === 'Escape') renamingLane = null; }} />
+          {:else}
+            <span>{lane}<small class:over-wip={overWip}>{laneCards.length}{#if wipLimit} / {wipLimit}{/if} {laneCards.length === 1 ? 'card' : 'cards'}{#if overWip} · over limit{/if}</small></span>
+          {/if}
+          <span class="lane-header-actions"><details class="lane-menu"><summary aria-label={`More actions for ${lane}`}>•••</summary><div class="lane-menu-body">{#if data.canEdit && !data.sourceOwned}<button type="button" onclick={() => { composerLane = lane; }}>+ Add card</button>{/if}<button type="button" onclick={() => toggleLane(lane)}>{collapsed[lane] ? 'Expand list' : 'Collapse list'}</button>{#if data.canEdit}<hr /><span class="lane-menu-label">Sort by</span><button type="button" onclick={() => sortLane(lane, 'name')}>Name</button><button type="button" onclick={() => sortLane(lane, 'due')}>Due date</button><button type="button" onclick={() => sortLane(lane, 'priority')}>Priority</button><button type="button" onclick={() => sortLane(lane, 'created')}>Date created</button><hr /><label class="lane-menu-select">Move all to <select value="" onchange={(event) => { void submitMoveAll(lane, event.currentTarget.value); event.currentTarget.value = ''; }}><option value="" disabled>Choose a list…</option>{#each data.lanes.filter((option) => option !== lane) as option}<option value={option}>{option}</option>{/each}</select></label><button type="button" onclick={() => submitArchiveAll(lane)}>Archive all cards</button>{#if !data.sourceOwned}<button type="button" onclick={() => { copyingLane = lane; copyDraft = `${lane} copy`; }}>Copy list</button>{/if}<button type="button" onclick={() => { renamingLane = lane; renameDraft = lane; }}>Rename list</button><button type="button" onclick={() => { wipEditingLane = lane; wipDraft = wipLimit ? String(wipLimit) : ''; }}>Set WIP limit</button><hr /><button type="button" onclick={() => { addingListAfter = lane; addListDraft = ''; }}>+ Add list after this one</button>{/if}</div></details><button class="collapse-button" type="button" aria-expanded={!collapsed[lane]} aria-label={`${collapsed[lane] ? 'Expand' : 'Collapse'} ${lane}`} onclick={() => toggleLane(lane)}>{collapsed[lane] ? '+' : '−'}</button></span>
+        </h2>
+        {#if copyingLane === lane}<form class="lane-inline-form" onsubmit={(event) => { event.preventDefault(); void submitCopyLane(); }}><input bind:value={copyDraft} maxlength="48" aria-label="New list name" use:focusOnMount /><button type="submit">Copy</button><button type="button" class="quiet-button" onclick={() => { copyingLane = null; }}>Cancel</button></form>{/if}
+        {#if wipEditingLane === lane}<form class="lane-inline-form" onsubmit={(event) => { event.preventDefault(); void submitWipLimit(); }}><input type="number" min="1" max="999" bind:value={wipDraft} placeholder="No limit" aria-label={`WIP limit for ${lane}`} use:focusOnMount /><button type="submit">Save</button><button type="button" class="quiet-button" onclick={() => { wipEditingLane = null; }}>Cancel</button></form>{/if}
+        {#if addingListAfter === lane}<form class="lane-inline-form" onsubmit={(event) => { event.preventDefault(); void submitAddLane(); }}><input bind:value={addListDraft} maxlength="48" placeholder="List name" aria-label="New list name" use:focusOnMount /><button type="submit">Add</button><button type="button" class="quiet-button" onclick={() => { addingListAfter = null; }}>Cancel</button></form>{/if}
         {#if !collapsed[lane]}
           {#if data.canEdit && !data.sourceOwned && laneCards.length > 0}<button type="button" class="add-card-button add-card-top" onclick={() => { composerLane = lane; }}>+ Add a card</button>{/if}
           <div class="project-column-cards">
@@ -465,6 +605,11 @@
         {/if}
       </section>
     {/each}
+    {#if data.canEdit && data.lanes.length < 8}
+      <section class="project-column project-column-add-list">
+        {#if addingListAfter === '__end__'}<form class="lane-inline-form" onsubmit={(event) => { event.preventDefault(); void submitAddLane(); }}><input bind:value={addListDraft} maxlength="48" placeholder="List name" aria-label="New list name" use:focusOnMount /><button type="submit">Add list</button><button type="button" class="quiet-button" onclick={() => { addingListAfter = null; }}>Cancel</button></form>{:else}<button type="button" class="add-list-button" onclick={() => { addingListAfter = '__end__'; addListDraft = ''; }}>+ Add another list</button>{/if}
+      </section>
+    {/if}
   </section>{/if}
 
   {#if editingCard}
@@ -518,7 +663,30 @@
     </dialog>
   {/if}
 
-  {#if data.activity.length}<section class="project-activity"><details><summary>Recent activity <span>{data.activity.length}</span></summary><ol>{#each data.activity.slice(0, 8) as entry}<li><div><strong>{entry.action}</strong><span>{entry.actor} · {new Date(entry.createdAt).toLocaleString()}</span></div><p>{entry.summary}</p></li>{/each}</ol></details></section>{/if}
-
   {#if boardCards.length}<section class="project-next-steps"><div><strong>Keep the board honest</strong><p>Give each card an outcome and owner, then move it only when the evidence is ready.</p></div><a class="quiet-button" href={`/projects/${data.project.slug}/settings`}>Edit lanes and appearance</a></section>{/if}
+
+  {#if showActivityPanel || showArchiveBrowser}<div class="side-panel-backdrop" role="presentation" onclick={() => { showActivityPanel = false; showArchiveBrowser = false; }}></div>{/if}
+
+  {#if showActivityPanel}
+    <aside class="side-panel" aria-label="Board activity">
+      <div class="side-panel-heading"><h2>Activity</h2><button type="button" class="quiet-button" aria-label="Close activity panel" onclick={() => { showActivityPanel = false; }}>×</button></div>
+      {#if data.activity.length}<ol class="side-panel-activity">{#each data.activity as entry}<li><span class="activity-dot" aria-hidden="true"></span><div><strong>{entry.action}</strong><p>{entry.summary}</p><time datetime={entry.createdAt}>{entry.actor || 'System'} · {new Date(entry.createdAt).toLocaleString()}</time></div></li>{/each}</ol>{:else}<p class="comment-empty">Nothing has happened on this board yet.</p>{/if}
+    </aside>
+  {/if}
+
+  {#if showArchiveBrowser}
+    {@const archivedCards = boardCards.filter((card) => card.archived)}
+    <aside class="side-panel" aria-label="Archived cards">
+      <div class="side-panel-heading"><h2>Archive <span>{archivedCards.length}</span></h2><button type="button" class="quiet-button" aria-label="Close archive browser" onclick={() => { showArchiveBrowser = false; }}>×</button></div>
+      {#if archivedCards.length}
+        <ul class="side-panel-archive">
+          {#each archivedCards as card (card.id)}
+            <li><div><strong>{card.title}</strong><span>{card.lane}</span></div><div class="side-panel-archive-actions"><a class="quiet-button" href={`?card=${encodeURIComponent(card.id)}`} onclick={() => { showArchiveBrowser = false; }}>Open</a>{#if data.canEdit}<button type="button" class="quiet-button" onclick={() => quickArchive(card, false)}>Restore</button>{#if !data.sourceOwned}<form method="POST" action="?/deleteCard"><input type="hidden" name="id" value={card.id} /><button type="submit" class="quiet-button danger" onclick={(event) => { if (!confirm('Delete this card permanently?')) event.preventDefault(); }}>Delete</button></form>{/if}{/if}</div></li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="comment-empty">No archived cards. Archive a card from its ••• menu and it will show up here for easy restore.</p>
+      {/if}
+    </aside>
+  {/if}
 </main>

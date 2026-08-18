@@ -117,6 +117,12 @@ export const boardProjectGraphs = pgTable('board_project_graphs', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow()
 });
 
+export const boardProjectStars = pgTable('board_project_stars', {
+  username: text('username').notNull(),
+  projectSlug: text('project_slug').notNull(),
+  createdAt: createdAt()
+}, (table) => ({ starPrimaryKey: primaryKey({ columns: [table.username, table.projectSlug] }) }));
+
 export const boardProjectCardAttachments = pgTable('board_project_card_attachments', {
   id: text('id').primaryKey(),
   projectSlug: text('project_slug').notNull(),
@@ -181,4 +187,4 @@ export const boardProjectGraphEdges = pgTable('board_project_graph_edges', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow()
 }, (table) => ({ projectIndex: index('board_project_graph_edges_project_idx').on(table.projectSlug) }));
 
-export const schema = { packetTransitions, packetNotes, boardUsers, boardProjects, boardSettings, boardProjectCards, boardProjectTags, boardProjectCardTags, boardProjectCardWatchers, boardProjectViews, boardProjectActivity, boardProjectComments, boardProjectCardAttachments, boardProjectFiles, boardProjectGraphs, boardProjectGraphNodes, boardProjectGraphEdges };
+export const schema = { packetTransitions, packetNotes, boardUsers, boardProjects, boardSettings, boardProjectCards, boardProjectTags, boardProjectCardTags, boardProjectCardWatchers, boardProjectViews, boardProjectActivity, boardProjectComments, boardProjectStars, boardProjectCardAttachments, boardProjectFiles, boardProjectGraphs, boardProjectGraphNodes, boardProjectGraphEdges };

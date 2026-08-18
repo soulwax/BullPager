@@ -1,24 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const persistence = vi.hoisted(() => ({
+  archiveAllCardsInLane: vi.fn(),
+  createCardAttachment: vi.fn(),
   createProjectCard: vi.fn(),
   createProjectComment: vi.fn(),
   createProjectTag: vi.fn(),
+  deleteCardAttachment: vi.fn(),
   deleteProjectCard: vi.fn(),
   deleteProjectComment: vi.fn(),
   deleteProjectTag: vi.fn(),
   getBoardProject: vi.fn(),
+  listCardAttachments: vi.fn(),
   listProjectActivity: vi.fn(),
   listProjectCards: vi.fn(),
   listProjectComments: vi.fn(),
+  listStarredProjectSlugs: vi.fn(),
   loadBoardSettings: vi.fn(),
   loadProjectViewState: vi.fn(),
+  moveAllCardsInLane: vi.fn(),
   recordProjectActivity: vi.fn(),
+  renameProjectLanes: vi.fn(),
   reorderProjectCard: vi.fn(),
+  saveBoardSettings: vi.fn(),
   saveProjectViewState: vi.fn(),
   setProjectCardOrder: vi.fn(),
   setProjectCardWatching: vi.fn(),
-  updateProjectCard: vi.fn()
+  setProjectStar: vi.fn(),
+  syncUnityPlannerCards: vi.fn(),
+  updateProjectCard: vi.fn(),
+  updateProjectName: vi.fn()
 }));
 
 vi.mock('../src/lib/server/persistence', () => persistence);
@@ -52,6 +63,12 @@ describe('project card actions', () => {
     persistence.reorderProjectCard.mockResolvedValue(undefined);
     persistence.setProjectCardOrder.mockResolvedValue(undefined);
     persistence.recordProjectActivity.mockResolvedValue(undefined);
+    persistence.saveBoardSettings.mockResolvedValue(undefined);
+    persistence.renameProjectLanes.mockResolvedValue(undefined);
+    persistence.moveAllCardsInLane.mockResolvedValue(0);
+    persistence.archiveAllCardsInLane.mockResolvedValue(0);
+    persistence.updateProjectName.mockResolvedValue(undefined);
+    persistence.setProjectStar.mockResolvedValue(undefined);
   });
 
   it('blocks viewers before touching persistence', async () => {
@@ -169,5 +186,171 @@ describe('project card actions', () => {
     const watched = await actions.toggleWatch({ request: request({ id: 'card-1', watching: 'true' }), locals: { role: 'viewer', username: 'sam' }, params: { slug: 'demo' } } as never);
     expect(watched).toEqual({ message: 'Card is now being watched.' });
     expect(persistence.setProjectCardWatching).toHaveBeenCalledWith('demo', 'card-1', 'sam', true);
+  });
+});
+
+describe('source-owned lock (Unity plan mirror)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]', 'project_demo_source': 'plan' });
+    persistence.updateProjectCard.mockResolvedValue(undefined);
+    persistence.recordProjectActivity.mockResolvedValue(undefined);
+    persistence.reorderProjectCard.mockResolvedValue(undefined);
+  });
+
+  it('rejects creating a new card on a source-owned board', async () => {
+    const result = await actions.createCard(context({ title: 'Ad hoc', lane: 'Ready' }, 'editor'));
+    expect(result).toMatchObject({ status: 403 });
+    expect(persistence.createProjectCard).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicating and deleting a card on a source-owned board', async () => {
+    const duplicated = await actions.duplicateCard({ request: request({ id: 'unity-mig-21' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+    expect(duplicated).toMatchObject({ status: 403 });
+    const deleted = await actions.deleteCard({ request: request({ id: 'unity-mig-21' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+    expect(deleted).toMatchObject({ status: 403 });
+    expect(persistence.createProjectCard).not.toHaveBeenCalled();
+    expect(persistence.deleteProjectCard).not.toHaveBeenCalled();
+  });
+
+  it('keeps title/details/owner/priority/cover from the source but takes the submitted checklist ticks, lane, and due date', async () => {
+    persistence.listProjectCards.mockResolvedValue([{
+      id: 'unity-mig-21', projectSlug: 'demo', title: 'MIG-21 · Implement movement', details: 'Synced from the plan.', lane: 'Backlog', owner: 'unassigned', priority: 'high', coverColor: '#5E9CFF', dueDate: null, dueComplete: false, startDate: null, archived: false, position: 0, createdAt: '', updatedAt: '',
+      checklist: [{ id: 'mig-21-handle-1', text: 'u2-move-capsule-rule', done: false }, { id: 'mig-21-handle-2', text: 'u2-move-stairs-rule', done: false }],
+      tags: []
+    }]);
+    const result = await actions.updateCard({
+      request: requestEntries([
+        ['id', 'unity-mig-21'], ['title', 'A forged title'], ['details', 'forged details'], ['lane', 'Ready'], ['owner', 'sneaky'], ['priority', 'low'], ['coverColor', '#F17878'], ['dueDate', '2026-09-01'],
+        ['checkItemId', 'mig-21-handle-1'], ['checkItemText', 'renamed handle text'], ['checkItemDone', 'mig-21-handle-1'],
+        ['checkItemId', 'mig-21-handle-2'], ['checkItemText', 'u2-move-stairs-rule']
+      ]),
+      locals: { role: 'editor', username: 'ada' },
+      params: { slug: 'demo' }
+    } as never);
+    expect(result).toEqual({ message: 'Card updated.' });
+    expect(persistence.updateProjectCard).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'MIG-21 · Implement movement',
+      details: 'Synced from the plan.',
+      owner: 'unassigned',
+      priority: 'high',
+      coverColor: '#5E9CFF',
+      lane: 'Ready',
+      dueDate: '2026-09-01',
+      checklist: [
+        { id: 'mig-21-handle-1', text: 'u2-move-capsule-rule', done: true },
+        { id: 'mig-21-handle-2', text: 'u2-move-stairs-rule', done: false }
+      ]
+    }));
+  });
+
+  it('archiving, moving, and commenting stay allowed on a source-owned board', async () => {
+    persistence.listProjectCards.mockResolvedValue([{ id: 'unity-mig-21', projectSlug: 'demo', title: 'MIG-21', details: '', lane: 'Ready', owner: 'unassigned', priority: 'high', dueDate: null, archived: false, checklist: [], tags: [], position: 0, createdAt: '', updatedAt: '' }]);
+    const archived = await actions.archiveCard(context({ id: 'unity-mig-21', archived: 'true' }, 'editor'));
+    expect(archived).toEqual({ message: 'Card archived.' });
+    const moved = await actions.moveCard(context({ id: 'unity-mig-21', lane: 'Done' }, 'editor'));
+    expect(moved).toEqual({ message: 'Card moved.' });
+  });
+});
+
+describe('WEB-T3 list and board actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]' });
+    persistence.listProjectCards.mockResolvedValue([]);
+    persistence.saveBoardSettings.mockResolvedValue(undefined);
+    persistence.renameProjectLanes.mockResolvedValue(undefined);
+    persistence.moveAllCardsInLane.mockResolvedValue(0);
+    persistence.archiveAllCardsInLane.mockResolvedValue(0);
+    persistence.recordProjectActivity.mockResolvedValue(undefined);
+    persistence.updateProjectName.mockResolvedValue(undefined);
+    persistence.setProjectStar.mockResolvedValue(undefined);
+  });
+
+  it('renames the board for editors and blocks viewers', async () => {
+    const renamed = await actions.renameBoard(context({ name: 'Renamed board' }, 'editor'));
+    expect(renamed).toEqual({ message: 'Board renamed.' });
+    expect(persistence.updateProjectName).toHaveBeenCalledWith('demo', 'Renamed board');
+    const blocked = await actions.renameBoard(context({ name: 'Nope' }, 'viewer'));
+    expect(blocked).toMatchObject({ status: 403 });
+  });
+
+  it('lets a signed-in user star and unstar a board', async () => {
+    const result = await actions.toggleStar({ request: request({ starred: 'true' }), locals: { role: 'viewer', username: 'sam' }, params: { slug: 'demo' } } as never);
+    expect(result).toEqual({ message: 'Board starred.' });
+    expect(persistence.setProjectStar).toHaveBeenCalledWith('sam', 'demo', true);
+    const anon = await actions.toggleStar({ request: request({ starred: 'true' }), locals: { role: '', username: '' }, params: { slug: 'demo' } } as never);
+    expect(anon).toMatchObject({ status: 401 });
+  });
+
+  it('adds a list at a chosen position and rejects a duplicate name', async () => {
+    const result = await actions.addLane(context({ name: 'Review', after: 'Backlog' }, 'editor'));
+    expect(result).toEqual({ message: 'List added.' });
+    expect(persistence.saveBoardSettings).toHaveBeenCalledWith({ 'project_demo_lanes': JSON.stringify(['Backlog', 'Review', 'Ready', 'Done']) });
+    const dup = await actions.addLane(context({ name: 'Ready', after: 'Backlog' }, 'editor'));
+    expect(dup).toMatchObject({ status: 409 });
+  });
+
+  it('renames a list, updating both the card rows and the lane order', async () => {
+    const result = await actions.renameLane(context({ from: 'Ready', to: 'In review' }, 'editor'));
+    expect(result).toEqual({ message: 'List renamed.' });
+    expect(persistence.renameProjectLanes).toHaveBeenCalledWith('demo', [{ from: 'Ready', to: 'In review' }]);
+    expect(persistence.saveBoardSettings).toHaveBeenCalledWith({ 'project_demo_lanes': JSON.stringify(['Backlog', 'In review', 'Done']) });
+  });
+
+  it('rejects renaming a list to a name that already exists', async () => {
+    const result = await actions.renameLane(context({ from: 'Ready', to: 'Done' }, 'editor'));
+    expect(result).toMatchObject({ status: 409 });
+    expect(persistence.renameProjectLanes).not.toHaveBeenCalled();
+  });
+
+  it('moves every card from one list to another', async () => {
+    persistence.moveAllCardsInLane.mockResolvedValue(3);
+    const result = await actions.moveAllInLane(context({ fromLane: 'Backlog', toLane: 'Ready' }, 'editor'));
+    expect(result).toEqual({ message: 'Cards moved.' });
+    expect(persistence.moveAllCardsInLane).toHaveBeenCalledWith('demo', 'Backlog', 'Ready');
+    expect(persistence.recordProjectActivity).toHaveBeenCalledWith(expect.objectContaining({ summary: expect.stringContaining('3 cards') }));
+  });
+
+  it('archives every card in a list', async () => {
+    persistence.archiveAllCardsInLane.mockResolvedValue(2);
+    const result = await actions.archiveAllInLane(context({ lane: 'Done' }, 'editor'));
+    expect(result).toEqual({ message: 'List archived.' });
+    expect(persistence.archiveAllCardsInLane).toHaveBeenCalledWith('demo', 'Done', true);
+  });
+
+  it('copies a list with its cards', async () => {
+    persistence.listProjectCards.mockResolvedValue([
+      { id: 'card-1', projectSlug: 'demo', title: 'Keep moving', details: 'd', lane: 'Backlog', owner: 'ada', priority: 'normal', dueDate: null, startDate: null, archived: false, checklist: [{ id: 'c1', text: 'step', done: true }], tags: [], coverColor: '', position: 0, createdAt: '', updatedAt: '' },
+      { id: 'card-2', projectSlug: 'demo', title: 'Archived, skipped', details: '', lane: 'Backlog', owner: 'ada', priority: 'normal', dueDate: null, startDate: null, archived: true, checklist: [], tags: [], coverColor: '', position: 1, createdAt: '', updatedAt: '' }
+    ]);
+    const result = await actions.copyLane(context({ sourceLane: 'Backlog', name: 'Backlog copy' }, 'editor'));
+    expect(result).toEqual({ message: 'List copied.' });
+    expect(persistence.saveBoardSettings).toHaveBeenCalledWith({ 'project_demo_lanes': JSON.stringify(['Backlog', 'Backlog copy', 'Ready', 'Done']) });
+    expect(persistence.createProjectCard).toHaveBeenCalledTimes(1);
+    expect(persistence.createProjectCard).toHaveBeenCalledWith(expect.objectContaining({ title: 'Keep moving', lane: 'Backlog copy', checklist: [expect.objectContaining({ text: 'step', done: false })] }));
+  });
+
+  it('rejects copying a list on a source-owned board', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]', 'project_demo_source': 'plan' });
+    const result = await actions.copyLane(context({ sourceLane: 'Backlog', name: 'Backlog copy' }, 'editor'));
+    expect(result).toMatchObject({ status: 403 });
+    expect(persistence.createProjectCard).not.toHaveBeenCalled();
+  });
+
+  it('sets and clears a work-in-progress limit', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]', 'project_demo_wip_limits': JSON.stringify({ Backlog: 5 }) });
+    const set = await actions.setWipLimit(context({ lane: 'Ready', limit: '3' }, 'editor'));
+    expect(set).toEqual({ message: 'Limit set.' });
+    expect(persistence.saveBoardSettings).toHaveBeenCalledWith({ 'project_demo_wip_limits': JSON.stringify({ Backlog: 5, Ready: 3 }) });
+    const cleared = await actions.setWipLimit(context({ lane: 'Backlog', limit: '' }, 'editor'));
+    expect(cleared).toEqual({ message: 'Limit cleared.' });
+    expect(persistence.saveBoardSettings).toHaveBeenCalledWith({ 'project_demo_wip_limits': JSON.stringify({}) });
+  });
+
+  it('rejects a non-numeric work-in-progress limit', async () => {
+    const result = await actions.setWipLimit(context({ lane: 'Ready', limit: '0' }, 'editor'));
+    expect(result).toMatchObject({ status: 400 });
+    expect(persistence.saveBoardSettings).not.toHaveBeenCalled();
   });
 });

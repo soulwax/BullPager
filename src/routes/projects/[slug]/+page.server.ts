@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { createCardAttachment, createProjectCard, createProjectComment, createProjectTag, deleteCardAttachment, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listCardAttachments, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, loadBoardSettings, loadProjectViewState, persistenceEnabled, recordProjectActivity, reorderProjectCard, saveBoardSettings, saveProjectViewState, setProjectCardOrder, setProjectCardWatching, syncUnityPlannerCards, updateProjectCard } from '$lib/server/persistence';
+import { archiveAllCardsInLane, createCardAttachment, createProjectCard, createProjectComment, createProjectTag, deleteCardAttachment, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listCardAttachments, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, listStarredProjectSlugs, loadBoardSettings, loadProjectViewState, moveAllCardsInLane, persistenceEnabled, recordProjectActivity, renameProjectLanes, reorderProjectCard, saveBoardSettings, saveProjectViewState, setProjectCardOrder, setProjectCardWatching, setProjectStar, syncUnityPlannerCards, updateProjectCard, updateProjectName } from '$lib/server/persistence';
 import { isSourceOwnedProject, lanesFromSettings, mergeProjectLanes, projectPrefix, sanitizeProjectViewState, validProjectCardInput } from '$lib/projectState';
 import { loadPlan } from '$lib/server/plan';
 import type { ProjectCard } from '$lib/types';
@@ -35,7 +35,10 @@ export async function load({ params, url, locals }) {
   const tags = await listProjectTags(params.slug);
   const configuredLanes = lanesFromSettings(settings, prefix);
   const openCard = url.searchParams.get('card');
-  return { project, prefix, settings, sourceOwned: isSourceOwnedProject(settings, prefix), lanes: mergeProjectLanes(configuredLanes, cards), cards, tags, members: await listBoardUsers(), activity: await listProjectActivity(params.slug), comments: await listProjectComments(params.slug), attachments: await listCardAttachments(params.slug), viewState: await loadProjectViewState(params.slug, username), canEdit: canEdit(locals.role), username, role: locals.role ?? '', openCard, created: url.searchParams.get('created') === '1' };
+  const starred = await listStarredProjectSlugs(locals.username ?? '');
+  let wipLimits: Record<string, number> = {};
+  try { wipLimits = JSON.parse(settings[`${prefix}wip_limits`] ?? '{}'); } catch { /* ignore malformed limits */ }
+  return { project, prefix, settings, sourceOwned: isSourceOwnedProject(settings, prefix), wipLimits, starred: starred.has(params.slug), lanes: mergeProjectLanes(configuredLanes, cards), cards, tags, members: await listBoardUsers(), activity: await listProjectActivity(params.slug), comments: await listProjectComments(params.slug), attachments: await listCardAttachments(params.slug), viewState: await loadProjectViewState(params.slug, username), canEdit: canEdit(locals.role), username, role: locals.role ?? '', openCard, created: url.searchParams.get('created') === '1' };
 }
 
 function readCard(form: FormData, projectSlug: string, fallbackId?: string) {
@@ -350,5 +353,140 @@ export const actions = {
       return persistenceFailure('reorder lanes failed', error);
     }
     return { message: 'List order saved.' };
+  },
+  renameBoard: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to rename this board.' });
+    const name = String((await request.formData()).get('name') ?? '').trim();
+    if (!name || name.length > 120) return fail(400, { error: 'Choose a board name up to 120 characters.' });
+    try {
+      await updateProjectName(params.slug, name);
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId: '', summary: `Renamed the board to “${name}”.` });
+    } catch (error) {
+      return persistenceFailure('rename board failed', error);
+    }
+    return { message: 'Board renamed.' };
+  },
+  toggleStar: async ({ request, locals, params }) => {
+    if (!locals.username) return fail(401, { error: 'Sign in to star a board.' });
+    const starred = String((await request.formData()).get('starred') ?? 'true') === 'true';
+    try {
+      await setProjectStar(locals.username, params.slug, starred);
+    } catch (error) {
+      return persistenceFailure('toggle board star failed', error);
+    }
+    return { message: starred ? 'Board starred.' : 'Board unstarred.' };
+  },
+  addLane: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to add a list.' });
+    const form = await request.formData();
+    const name = String(form.get('name') ?? '').trim().slice(0, 48);
+    const after = String(form.get('after') ?? '').trim();
+    if (!name) return fail(400, { error: 'Name the new list.' });
+    const current = await validLanes(params.slug);
+    if (current.includes(name)) return fail(409, { error: 'A list with that name already exists.' });
+    if (current.length >= 8) return fail(400, { error: 'A board supports at most 8 lists.' });
+    const insertAt = after === '' ? 0 : after === '__end__' ? current.length : current.indexOf(after) + 1;
+    const lanes = [...current];
+    lanes.splice(insertAt < 0 ? current.length : insertAt, 0, name);
+    try {
+      await saveBoardSettings({ [`${projectPrefix(params.slug)}lanes`]: JSON.stringify(lanes) });
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'created', cardId: '', summary: `Added the list “${name}”.` });
+    } catch (error) {
+      return persistenceFailure('add list failed', error);
+    }
+    return { message: 'List added.' };
+  },
+  renameLane: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to rename a list.' });
+    const form = await request.formData();
+    const from = String(form.get('from') ?? '').trim();
+    const to = String(form.get('to') ?? '').trim().slice(0, 48);
+    if (!to) return fail(400, { error: 'Name the list.' });
+    const current = await validLanes(params.slug);
+    if (!current.includes(from)) return fail(400, { error: 'Choose a valid list.' });
+    if (to !== from && current.includes(to)) return fail(409, { error: 'A list with that name already exists.' });
+    if (to === from) return { message: 'List name unchanged.' };
+    try {
+      await renameProjectLanes(params.slug, [{ from, to }]);
+      await saveBoardSettings({ [`${projectPrefix(params.slug)}lanes`]: JSON.stringify(current.map((lane) => (lane === from ? to : lane))) });
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId: '', summary: `Renamed the list “${from}” to “${to}”.` });
+    } catch (error) {
+      return persistenceFailure('rename list failed', error);
+    }
+    return { message: 'List renamed.' };
+  },
+  moveAllInLane: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to move cards.' });
+    const form = await request.formData();
+    const fromLane = String(form.get('fromLane') ?? '').trim();
+    const toLane = String(form.get('toLane') ?? '').trim();
+    const lanes = await validLanes(params.slug);
+    if (!lanes.includes(fromLane) || !lanes.includes(toLane) || fromLane === toLane) return fail(400, { error: 'Choose two different, valid lists.' });
+    try {
+      const moved = await moveAllCardsInLane(params.slug, fromLane, toLane);
+      if (moved > 0) await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId: '', summary: `Moved ${moved} card${moved === 1 ? '' : 's'} from “${fromLane}” to “${toLane}”.` });
+    } catch (error) {
+      return persistenceFailure('move all cards failed', error);
+    }
+    return { message: 'Cards moved.' };
+  },
+  archiveAllInLane: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to archive cards.' });
+    const form = await request.formData();
+    const lane = String(form.get('lane') ?? '').trim();
+    const lanes = await validLanes(params.slug);
+    if (!lanes.includes(lane)) return fail(400, { error: 'Choose a valid list.' });
+    try {
+      const archived = await archiveAllCardsInLane(params.slug, lane, true);
+      if (archived > 0) await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId: '', summary: `Archived ${archived} card${archived === 1 ? '' : 's'} in “${lane}”.` });
+    } catch (error) {
+      return persistenceFailure('archive all cards failed', error);
+    }
+    return { message: 'List archived.' };
+  },
+  copyLane: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to copy a list.' });
+    if (await projectIsSourceOwned(params.slug)) return sourceLockedError();
+    const form = await request.formData();
+    const sourceLane = String(form.get('sourceLane') ?? '').trim();
+    const name = String(form.get('name') ?? '').trim().slice(0, 48);
+    const current = await validLanes(params.slug);
+    if (!current.includes(sourceLane) || !name) return fail(400, { error: 'Choose a valid source list and a name for the copy.' });
+    if (current.includes(name)) return fail(409, { error: 'A list with that name already exists.' });
+    if (current.length >= 8) return fail(400, { error: 'A board supports at most 8 lists.' });
+    const lanes = [...current];
+    lanes.splice(current.indexOf(sourceLane) + 1, 0, name);
+    const sourceCards = (await listProjectCards(params.slug)).filter((card) => card.lane === sourceLane && !card.archived);
+    try {
+      await saveBoardSettings({ [`${projectPrefix(params.slug)}lanes`]: JSON.stringify(lanes) });
+      for (const card of sourceCards) {
+        await createProjectCard({ id: `card-${Date.now()}-${randomBytes(6).toString('hex')}`, projectSlug: params.slug, title: card.title, details: card.details, lane: name, owner: card.owner, priority: card.priority, dueDate: card.dueDate, dueComplete: false, startDate: card.startDate, archived: false, checklist: card.checklist.map((item, index) => ({ ...item, id: `check-${Date.now()}-${index}-${randomBytes(3).toString('hex')}`, done: false })), coverColor: card.coverColor, tagIds: card.tags.map((tag) => tag.id) });
+      }
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'created', cardId: '', summary: `Copied “${sourceLane}” to “${name}” (${sourceCards.length} card${sourceCards.length === 1 ? '' : 's'}).` });
+    } catch (error) {
+      return persistenceFailure('copy list failed', error);
+    }
+    return { message: 'List copied.' };
+  },
+  setWipLimit: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to set a work-in-progress limit.' });
+    const form = await request.formData();
+    const lane = String(form.get('lane') ?? '').trim();
+    const limitRaw = String(form.get('limit') ?? '').trim();
+    const lanes = await validLanes(params.slug);
+    if (!lanes.includes(lane)) return fail(400, { error: 'Choose a valid list.' });
+    const limit = limitRaw === '' ? null : Number(limitRaw);
+    if (limit !== null && (!Number.isInteger(limit) || limit < 1 || limit > 999)) return fail(400, { error: 'Choose a whole number between 1 and 999, or clear the limit.' });
+    const allSettings = await loadBoardSettings();
+    const key = `${projectPrefix(params.slug)}wip_limits`;
+    let limits: Record<string, number> = {};
+    try { limits = JSON.parse(allSettings[key] ?? '{}'); } catch { /* start fresh on malformed state */ }
+    if (limit === null) delete limits[lane]; else limits[lane] = limit;
+    try {
+      await saveBoardSettings({ [key]: JSON.stringify(limits) });
+    } catch (error) {
+      return persistenceFailure('set WIP limit failed', error);
+    }
+    return { message: limit === null ? 'Limit cleared.' : 'Limit set.' };
   }
 };

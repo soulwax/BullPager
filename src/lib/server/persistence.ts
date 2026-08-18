@@ -4,7 +4,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, TransitionRecord, UserRole } from '$lib/types';
 import { defaultProjectTags, slugifyTag, tagColors, tagId, tagPalette } from '$lib/projectTags';
 import { databaseConfigured, db, neonClient } from './db';
-import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
+import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectStars, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
 
 /** Card description/detail length before the sync appends a truncation marker
  * instead of silently cutting the text mid-sentence. */
@@ -143,6 +143,13 @@ async function initializeSchema() {
       author TEXT NOT NULL,
       body TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_project_stars (
+      username TEXT NOT NULL,
+      project_slug TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (username, project_slug)
     )
   `, rawSql`
     CREATE TABLE IF NOT EXISTS board_project_card_attachments (
@@ -343,6 +350,27 @@ export async function createBoardProject(project: BoardProject) {
   await ensureSchema();
   await requireDatabase().insert(boardProjects).values(project);
   await ensureDefaultProjectTags(project.slug);
+}
+
+export async function updateProjectName(slug: string, name: string) {
+  await ensureSchema();
+  const cleanName = name.trim().slice(0, 120);
+  if (!cleanName) throw new Error('Choose a board name.');
+  await requireDatabase().update(boardProjects).set({ name: cleanName }).where(eq(boardProjects.slug, slug));
+}
+
+export async function listStarredProjectSlugs(username: string): Promise<Set<string>> {
+  if (!databaseConfigured() || !username) return new Set();
+  await ensureSchema();
+  const rows = await requireDatabase().select({ projectSlug: boardProjectStars.projectSlug }).from(boardProjectStars).where(eq(boardProjectStars.username, username));
+  return new Set(rows.map((row) => row.projectSlug));
+}
+
+export async function setProjectStar(username: string, projectSlug: string, starred: boolean) {
+  await ensureSchema();
+  const database = requireDatabase();
+  if (starred) await database.insert(boardProjectStars).values({ username, projectSlug }).onConflictDoNothing();
+  else await database.delete(boardProjectStars).where(and(eq(boardProjectStars.username, username), eq(boardProjectStars.projectSlug, projectSlug)));
 }
 
 export async function loadBoardSettings(): Promise<Record<string, string>> {
@@ -824,6 +852,33 @@ export async function renameProjectLanes(projectSlug: string, renames: Array<{ f
       await tx.update(boardProjectCards).set({ lane: rename.to, updatedAt: now }).where(and(eq(boardProjectCards.projectSlug, projectSlug), eq(boardProjectCards.lane, rename.temporary)));
     }
   });
+}
+
+/** Move every non-archived card from one lane to another in one pass,
+ * appended after whatever is already in the destination lane. */
+export async function moveAllCardsInLane(projectSlug: string, fromLane: string, toLane: string): Promise<number> {
+  await ensureSchema();
+  const database = requireDatabase();
+  return database.transaction(async (tx: any) => {
+    const rows = await tx.select().from(boardProjectCards).where(and(eq(boardProjectCards.projectSlug, projectSlug))).orderBy(boardProjectCards.lane, boardProjectCards.position);
+    const moving = rows.filter((row: typeof rows[number]) => row.lane === fromLane && !row.archived);
+    if (!moving.length) return 0;
+    let position = rows.filter((row: typeof rows[number]) => row.lane === toLane).reduce((max: number, row: typeof rows[number]) => Math.max(max, row.position), -1) + 1;
+    const now = new Date().toISOString();
+    for (const row of moving) {
+      await tx.update(boardProjectCards).set({ lane: toLane, position, updatedAt: now }).where(and(eq(boardProjectCards.id, row.id), eq(boardProjectCards.projectSlug, projectSlug)));
+      position += 1;
+    }
+    return moving.length;
+  });
+}
+
+/** Archive (or restore) every card currently in one lane. */
+export async function archiveAllCardsInLane(projectSlug: string, lane: string, archived: boolean): Promise<number> {
+  await ensureSchema();
+  const database = requireDatabase();
+  const result = await database.update(boardProjectCards).set({ archived, updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.projectSlug, projectSlug), eq(boardProjectCards.lane, lane), eq(boardProjectCards.archived, !archived))).returning({ id: boardProjectCards.id });
+  return result.length;
 }
 
 export async function deleteProjectCard(projectSlug: string, id: string) {
