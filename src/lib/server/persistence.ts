@@ -1,10 +1,10 @@
-import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, ilike, inArray, lt, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, SearchCardResult, TransitionRecord, UserRole } from '$lib/types';
 import { defaultProjectTags, slugifyTag, tagColors, tagId, tagPalette } from '$lib/projectTags';
 import { databaseConfigured, db, neonClient } from './db';
-import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectStars, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, packetNotes, packetTransitions } from './db/schema';
+import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectStars, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, loginAttempts, packetNotes, packetTransitions } from './db/schema';
 
 /** Card description/detail length before the sync appends a truncation marker
  * instead of silently cutting the text mid-sentence. */
@@ -26,6 +26,19 @@ const rawSql = neonClient;
 let schemaReady: Promise<void> | undefined;
 
 export function persistenceEnabled() { return databaseConfigured(); }
+
+/** A real round-trip, not just "is DATABASE_URL set" — for the `/health`
+ * endpoint, where the whole point is catching a configured-but-unreachable
+ * database (wrong credentials, network policy, a paused Neon branch). */
+export async function databaseHealthy(): Promise<boolean> {
+  if (!databaseConfigured() || !rawSql) return false;
+  try {
+    await rawSql`SELECT 1`;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function requireDatabase() {
   if (!db || !rawSql) throw new Error('Persistence is not configured. Set DATABASE_URL in the Vercel project.');
@@ -225,7 +238,18 @@ async function initializeSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `, rawSql`
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id BIGSERIAL PRIMARY KEY,
+      attempt_key TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
   `]);
+  // Each rawSql call above is its own HTTP round-trip with no ordering
+  // guarantee between them, so an index on a table created in that same
+  // Promise.all can race ahead of the CREATE TABLE and fail — this one runs
+  // sequentially after, once the table is guaranteed to exist.
+  await rawSql`CREATE INDEX IF NOT EXISTS login_attempts_key_created_idx ON login_attempts (attempt_key, created_at)`;
   await rawSql`ALTER TABLE board_project_cards ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS due_date DATE, ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS checklist TEXT NOT NULL DEFAULT '[]', ADD COLUMN IF NOT EXISTS cover_color TEXT NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS due_complete BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS start_date DATE, ADD COLUMN IF NOT EXISTS card_number INTEGER`;
   await rawSql`ALTER TABLE board_users ADD COLUMN IF NOT EXISTS github_id TEXT UNIQUE`;
   await rawSql`
@@ -308,6 +332,37 @@ export async function authenticateUser(username: string, password: string): Prom
   await ensureSchema();
   const rows = await requireDatabase().select({ role: boardUsers.role, passwordHash: boardUsers.passwordHash }).from(boardUsers).where(eq(boardUsers.username, username)).limit(1);
   return rows[0] && verifyPassword(password, rows[0].passwordHash) ? rows[0].role : null;
+}
+
+export const LOGIN_ATTEMPT_LIMIT = 5;
+export const LOGIN_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+
+/** Counts recent failed logins for one client-address+username pair — not a
+ * global cap, so a brute-force script against one account from one address
+ * is throttled without penalizing unrelated logins sharing an office IP. */
+export async function recentLoginFailures(attemptKey: string): Promise<number> {
+  if (!databaseConfigured()) return 0;
+  await ensureSchema();
+  const cutoff = new Date(Date.now() - LOGIN_ATTEMPT_WINDOW_MS).toISOString();
+  const rows = await requireDatabase().select({ id: loginAttempts.id }).from(loginAttempts).where(and(eq(loginAttempts.attemptKey, attemptKey), gte(loginAttempts.createdAt, cutoff)));
+  return rows.length;
+}
+
+/** Also prunes attempt rows past the window on the same call, so the table
+ * self-cleans without a cron job — cheap given the window is only 15 minutes. */
+export async function recordLoginFailure(attemptKey: string): Promise<void> {
+  if (!databaseConfigured()) return;
+  await ensureSchema();
+  const database = requireDatabase();
+  const cutoff = new Date(Date.now() - LOGIN_ATTEMPT_WINDOW_MS).toISOString();
+  await database.insert(loginAttempts).values({ attemptKey });
+  await database.delete(loginAttempts).where(lt(loginAttempts.createdAt, cutoff));
+}
+
+export async function clearLoginFailures(attemptKey: string): Promise<void> {
+  if (!databaseConfigured()) return;
+  await ensureSchema();
+  await requireDatabase().delete(loginAttempts).where(eq(loginAttempts.attemptKey, attemptKey));
 }
 
 export async function authenticateGithubUser(githubId: string, username: string, defaultRole: Exclude<UserRole, 'superadmin'> = 'viewer'): Promise<UserRole> {

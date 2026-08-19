@@ -22,6 +22,15 @@ export const packetNotes = pgTable('packet_notes', {
   createdAt: createdAt()
 });
 
+/** A failed-login timestamp keyed by client address + attempted username, so
+ * a brute-force script from one address against one account can be throttled
+ * without touching unrelated logins from the same shared office IP. */
+export const loginAttempts = pgTable('login_attempts', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  attemptKey: text('attempt_key').notNull(),
+  createdAt: createdAt()
+}, (table) => ({ keyCreatedIndex: index('login_attempts_key_created_idx').on(table.attemptKey, table.createdAt) }));
+
 export const boardUsers = pgTable('board_users', {
   username: text('username').primaryKey(),
   passwordHash: text('password_hash').notNull(),

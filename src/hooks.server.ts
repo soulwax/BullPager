@@ -7,7 +7,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.authenticated = Boolean(session);
   event.locals.username = session?.username;
   event.locals.role = session?.role;
-  const publicPath = ['/login', '/register'].includes(event.url.pathname) || event.url.pathname.startsWith('/auth/github');
+  const publicPath = ['/login', '/register', '/health'].includes(event.url.pathname) || event.url.pathname.startsWith('/auth/github');
   if (!publicPath && !event.locals.authenticated) {
     const next = encodeURIComponent(`${event.url.pathname}${event.url.search}`);
     throw redirect(303, `/login?next=${next}`);
