@@ -286,3 +286,55 @@ export function appearanceAttributes(appearance: BoardAppearance, canvas: BoardC
     'data-contrast': appearance.highContrast ? 'high' : 'normal'
   } satisfies Record<string, string>;
 }
+
+/* ============================================================================
+   Person color.
+
+
+   A member's avatar color is deterministic from their name — the same person
+   is always the same hue, everywhere on the board, with no color picker and
+   nothing to store. It uses the same contrast math as the card/canvas pairing
+   above (`relativeLuminance`) rather than a fixed ink, because a hash can land
+   on any hue at any lightness — including ones white text fails against — and
+   the whole point of computing a color instead of assigning one from a fixed
+   palette is that it still has to promise a readable pair.
+   ========================================================================= */
+
+function hslToHex(hue: number, saturation: number, lightness: number): string {
+  const s = saturation / 100;
+  const l = lightness / 100;
+  const k = (n: number) => (n + hue / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const toHex = (value: number) => Math.round(value * 255).toString(16).padStart(2, '0');
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
+
+/** A stable 0–359 hue for a name, so the same person always lands on the same
+ * color without anyone choosing or storing one. */
+export function personHue(seed: string): number {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  return hash % 360;
+}
+
+export type PersonColor = { background: string; ink: SurfaceTone; initials: string };
+
+/** One or two initials from a name or username — the first and last "word"
+ * (splitting on space, dot, underscore, or hyphen so `jane.doe` reads as two
+ * initials too), or the first two characters of a single word. */
+export function initialsFor(name: string): string {
+  const parts = name.trim().split(/[\s._-]+/).filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+/** A name's full avatar treatment: a hash-derived background at a fixed
+ * saturation/lightness, and the ink that background actually needs — computed,
+ * not assumed, so a hash landing on a pale yellow still gets dark text. */
+export function personColor(name: string): PersonColor {
+  const seed = name.trim() || '?';
+  const background = hslToHex(personHue(seed), 62, 46);
+  return { background, ink: relativeLuminance(background) > 0.45 ? 'dark' : 'light', initials: initialsFor(seed) };
+}

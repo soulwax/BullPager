@@ -2031,3 +2031,51 @@ small.over-wip { background: color-mix(in srgb, #ff9b7a 30%, transparent) !impor
 .theme-light .preview pre { color: var(--ink-soft); background: var(--well-sunken); }
 .theme-light .template-lanes { color: var(--good-text) !important; }
 .theme-light .shortcut, .theme-light .shortcut-hover-heading { color: var(--muted); }
+
+/* Person avatars: a hash-derived color per name (lib/boardAppearance.ts
+   `personColor`), so every place a person shows up — a card's owner, a
+   comment's author, the nav's signed-in user — reads as the same color for
+   the same person without a color picker or a stored field. */
+.avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--avatar-bg);
+  color: #fff;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  user-select: none;
+}
+.avatar-dark-ink { color: #14243d; }
+.avatar-sm { width: 1.25rem; height: 1.25rem; font-size: .52rem; }
+.avatar-md { width: 1.7rem; height: 1.7rem; font-size: .62rem; }
+.avatar-lg { width: 2.3rem; height: 2.3rem; font-size: .82rem; }
+.card-owner { display: inline-flex; align-items: center; gap: .3rem; }
+.card-editor-overview .card-owner { font-weight: 700; }
+.card-comment-list li > div { display: flex; align-items: center; gap: .4rem; }
+.workspace-account { align-items: center; }
+.workspace-account .avatar { margin-right: -.05rem; }
+
+/* The top bar harmonizes with the workspace accent (set on /settings, the
+   same `--accent` custom property the board-level "smart colour" system in
+   lib/boardAppearance.ts already uses) instead of a fixed blue, so choosing a
+   different accent recolors the one piece of chrome that sits outside any
+   board too. The mix percentages are capped low enough that even a
+   hypothetical pure-white accent keeps the existing white nav text at a
+   verified >=5:1 contrast ratio — computed against the worst case, not
+   assumed safe for the three accents this deployment currently offers. */
+.workspace-nav {
+  background: linear-gradient(102deg,
+    color-mix(in srgb, var(--accent) 22%, #041b3f) 0%,
+    color-mix(in srgb, var(--accent) 30%, #06255a) 50%,
+    color-mix(in srgb, var(--accent) 26%, #0b3f52) 100%);
+}
+
+/* A rounded pill search field, closer to Trello's own top-bar search than a
+   plain rectangular input. */
+.nav-search input { border-radius: 99px; padding-left: 2.1rem; }
+.nav-search-icon { left: .8rem; }

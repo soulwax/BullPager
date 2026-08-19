@@ -7,7 +7,10 @@ import {
   canvasTone,
   cardTone,
   defaultAppearance,
+  initialsFor,
   normalizeAppearance,
+  personColor,
+  personHue,
   relativeLuminance,
   resolveCardTheme,
   toneForColor,
@@ -147,5 +150,56 @@ describe('rendered output', () => {
     expect(attributes['data-canvas-tone']).toBe('dark');
     expect(attributes['data-density']).toBe('comfortable');
     expect(attributes['data-contrast']).toBe('normal');
+  });
+});
+
+describe('personHue / personColor (avatar color harmonization)', () => {
+  it('is deterministic — the same name always lands on the same hue', () => {
+    expect(personHue('ada')).toBe(personHue('ada'));
+    expect(personColor('ada')).toEqual(personColor('ada'));
+  });
+
+  it('spreads different names across different hues', () => {
+    const names = ['ada', 'grace', 'margaret', 'katherine', 'hedy'];
+    const hues = new Set(names.map(personHue));
+    expect(hues.size).toBeGreaterThan(1);
+  });
+
+  it('always produces a background whose computed ink is actually readable against it', () => {
+    // Sweep enough seeds to hit hues across the full wheel, including the
+    // pale end (yellow/lime) where a fixed light-text assumption would fail.
+    for (let seed = 0; seed < 60; seed += 1) {
+      const color = personColor(`person-${seed}`);
+      const luminance = relativeLuminance(color.background);
+      if (luminance > 0.45) expect(color.ink).toBe('dark');
+      else expect(color.ink).toBe('light');
+    }
+  });
+
+  it('falls back to a stable placeholder for an empty name', () => {
+    const color = personColor('');
+    expect(color.initials).toBe('?');
+    expect(color).toEqual(personColor('   '));
+  });
+});
+
+describe('initialsFor', () => {
+  it('takes the first and last word for a full name', () => {
+    expect(initialsFor('Ada Lovelace')).toBe('AL');
+  });
+
+  it('splits on dots, underscores, and hyphens like a username', () => {
+    expect(initialsFor('jane.doe')).toBe('JD');
+    expect(initialsFor('grace_hopper')).toBe('GH');
+    expect(initialsFor('margaret-hamilton')).toBe('MH');
+  });
+
+  it('takes the first two characters of a single word', () => {
+    expect(initialsFor('planner')).toBe('PL');
+  });
+
+  it('falls back to a placeholder for empty input', () => {
+    expect(initialsFor('')).toBe('?');
+    expect(initialsFor('   ')).toBe('?');
   });
 });
