@@ -35,6 +35,16 @@
   --muted: #9aa8b8;
   --text: #e9eff7;
   color-scheme: dark;
+  --surface-0: #0b1017;
+  --surface-1: #111923;
+  --surface-2: #16202c;
+  --surface-3: #20304a;
+  --overlay-bg: #16202c;
+  --overlay-ink: #e9eff7;
+  --overlay-ink-soft: #9aa8b8;
+  --overlay-line: #31414f;
+  --overlay-accent: var(--accent);
+  --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: radial-gradient(circle at 96% 0%, rgb(45 205 255 / .18), transparent 30rem), linear-gradient(135deg, #0c50bb 0%, #126de1 44%, #11b4d1 100%);
 }
 .project-workspace[data-board-theme='ocean'] {
@@ -43,6 +53,16 @@
   --muted: #9cb6c9;
   --text: #e6f1f8;
   color-scheme: dark;
+  --surface-0: #06131f;
+  --surface-1: #0b1d2c;
+  --surface-2: #0f2334;
+  --surface-3: #1a3a52;
+  --overlay-bg: #0f2334;
+  --overlay-ink: #e6f1f8;
+  --overlay-ink-soft: #9cb6c9;
+  --overlay-line: #2c4a60;
+  --overlay-accent: var(--accent);
+  --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: radial-gradient(circle at 90% 4%, rgb(64 196 226 / .16), transparent 28rem), linear-gradient(140deg, #06283d 0%, #0d4f6c 48%, #1b7ea3 100%);
 }
 .project-workspace[data-board-theme='slate'] {
@@ -51,6 +71,16 @@
   --muted: #a3adbb;
   --text: #e9edf3;
   color-scheme: dark;
+  --surface-0: #101318;
+  --surface-1: #171b22;
+  --surface-2: #1c212a;
+  --surface-3: #2a323e;
+  --overlay-bg: #1c212a;
+  --overlay-ink: #e9edf3;
+  --overlay-ink-soft: #a3adbb;
+  --overlay-line: #3a4453;
+  --overlay-accent: var(--accent);
+  --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: linear-gradient(150deg, #1b1f26 0%, #2c333d 52%, #414a57 100%);
 }
 .project-workspace[data-board-theme='forest'] {
@@ -59,6 +89,16 @@
   --muted: #9dbcac;
   --text: #e7f3ec;
   color-scheme: dark;
+  --surface-0: #08150f;
+  --surface-1: #0c1c15;
+  --surface-2: #10231b;
+  --surface-3: #1a3a2c;
+  --overlay-bg: #10231b;
+  --overlay-ink: #e7f3ec;
+  --overlay-ink-soft: #9dbcac;
+  --overlay-line: #2c4d3d;
+  --overlay-accent: var(--accent);
+  --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: radial-gradient(circle at 8% 100%, rgb(93 214 160 / .14), transparent 32rem), linear-gradient(145deg, #0d2a1e 0%, #1c5540 50%, #2f7d5b 100%);
 }
 .project-workspace[data-board-theme='nebula'] {
@@ -67,6 +107,16 @@
   --muted: #b0a3cc;
   --text: #efeaf9;
   color-scheme: dark;
+  --surface-0: #130d21;
+  --surface-1: #19122a;
+  --surface-2: #1e1733;
+  --surface-3: #2f2450;
+  --overlay-bg: #1e1733;
+  --overlay-ink: #efeaf9;
+  --overlay-ink-soft: #b0a3cc;
+  --overlay-line: #413461;
+  --overlay-accent: var(--accent);
+  --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: radial-gradient(circle at 92% 0%, rgb(190 140 255 / .2), transparent 30rem), linear-gradient(150deg, #241543 0%, #4b2a90 52%, #7a4bd0 100%);
 }
 .project-workspace[data-board-theme='light'] {
@@ -75,6 +125,16 @@
   --muted: #54637a;
   --text: #17202b;
   color-scheme: light;
+  --surface-0: #eef3f8;
+  --surface-1: #f8fafc;
+  --surface-2: #ffffff;
+  --surface-3: #ffffff;
+  --overlay-bg: #ffffff;
+  --overlay-ink: #17202b;
+  --overlay-ink-soft: #54637a;
+  --overlay-line: #c7d2df;
+  --overlay-accent: color-mix(in srgb, var(--accent) 74%, #0a1420);
+  --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: linear-gradient(150deg, #dde6f1 0%, #eef3f9 48%, #ffffff 100%);
 }
 .project-workspace[data-board-theme='paper'] {
@@ -83,6 +143,16 @@
   --muted: #5d5546;
   --text: #231e17;
   color-scheme: light;
+  --surface-0: #f3ece0;
+  --surface-1: #fbf7ef;
+  --surface-2: #fffdf8;
+  --surface-3: #ffffff;
+  --overlay-bg: #fffdf8;
+  --overlay-ink: #231e17;
+  --overlay-ink-soft: #5d5546;
+  --overlay-line: #d8cdb9;
+  --overlay-accent: color-mix(in srgb, var(--accent) 74%, #0a1420);
+  --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: linear-gradient(150deg, #e9e0d1 0%, #f6f0e6 50%, #fdfaf4 100%);
 }
 .project-workspace[data-board-theme='contrast'] {
@@ -91,6 +161,16 @@
   --muted: #e6e6e6;
   --text: #ffffff;
   color-scheme: dark;
+  --surface-0: #000000;
+  --surface-1: #0a0a0a;
+  --surface-2: #141414;
+  --surface-3: #1f1f1f;
+  --overlay-bg: #000000;
+  --overlay-ink: #ffffff;
+  --overlay-ink-soft: #e6e6e6;
+  --overlay-line: #ffffff;
+  --overlay-accent: var(--accent);
+  --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: #000;
 }
 
@@ -604,6 +684,95 @@
   border-radius: var(--control-radius);
 }
 
+/* --- Overlays -------------------------------------------------------------
+   The card drawer, side panels, toast, popovers and their form fields. Each
+   sets background and ink together from the theme's overlay pair, so none of
+   them depends on the board canvas they happen to float above. */
+
+.project-workspace[data-board-theme] .card-editor-modal,
+.project-workspace[data-board-theme] .side-panel,
+.project-workspace[data-board-theme] .board-toast,
+.project-workspace[data-board-theme] .shortcut-help-modal,
+.project-workspace[data-board-theme] .tag-manager-body,
+.project-workspace[data-board-theme] .lane-menu-body,
+.project-workspace[data-board-theme] .card-quick-menu-body,
+.project-workspace[data-board-theme] .find-work-body {
+  color: var(--overlay-ink);
+  border-color: var(--overlay-line);
+  background: var(--overlay-bg);
+}
+.project-workspace[data-board-theme] .card-editor-modal { border-color: color-mix(in srgb, var(--accent) 34%, var(--overlay-line)); }
+
+.project-workspace[data-board-theme] .card-editor-modal h2,
+.project-workspace[data-board-theme] .card-editor-modal h3,
+.project-workspace[data-board-theme] .side-panel h2,
+.project-workspace[data-board-theme] .shortcut-help-modal h2,
+.project-workspace[data-board-theme] .side-panel-archive li strong { color: var(--overlay-ink); }
+
+.project-workspace[data-board-theme] .card-editor-modal .subtitle,
+.project-workspace[data-board-theme] .card-editor-modal label,
+.project-workspace[data-board-theme] .card-editor-modal legend,
+.project-workspace[data-board-theme] .card-comment-list li p,
+.project-workspace[data-board-theme] .card-comment-list li > div,
+.project-workspace[data-board-theme] .card-comment-list li time,
+.project-workspace[data-board-theme] .comment-empty,
+.project-workspace[data-board-theme] .comment-paste-help,
+.project-workspace[data-board-theme] .card-activity li p,
+.project-workspace[data-board-theme] .card-activity li time,
+.project-workspace[data-board-theme] .side-panel h2 span,
+.project-workspace[data-board-theme] .side-panel-activity p,
+.project-workspace[data-board-theme] .side-panel-activity time,
+.project-workspace[data-board-theme] .side-panel-archive li span,
+.project-workspace[data-board-theme] .shortcut-help-modal .subtitle,
+.project-workspace[data-board-theme] .shortcut-list dd,
+.project-workspace[data-board-theme] .board-toast { color: var(--overlay-ink-soft); }
+.project-workspace[data-board-theme] .board-toast > span { color: var(--overlay-ink); }
+
+/* Accent-colored text inside an overlay follows the overlay's tone, not the
+   board's: #73b6ff on white is roughly 2:1 and unreadable. */
+.project-workspace[data-board-theme] .card-editor-modal .eyebrow,
+.project-workspace[data-board-theme] .card-comment-list li strong,
+.project-workspace[data-board-theme] .card-activity li strong,
+.project-workspace[data-board-theme] .card-editor-modal summary,
+.project-workspace[data-board-theme] .board-toast button,
+.project-workspace[data-board-theme] .shortcut-list dt,
+.project-workspace[data-board-theme] .shortcut-hover-heading,
+.project-workspace[data-board-theme] .side-panel .eyebrow { color: var(--overlay-accent); }
+
+.project-workspace[data-board-theme] .card-editor-modal input,
+.project-workspace[data-board-theme] .card-editor-modal select,
+.project-workspace[data-board-theme] .card-editor-modal textarea,
+.project-workspace[data-board-theme] .side-panel input,
+.project-workspace[data-board-theme] .side-panel textarea,
+.project-workspace[data-board-theme] .description-preview,
+.project-workspace[data-board-theme] .markdown-preview-block,
+.project-workspace[data-board-theme] .card-comment-list li,
+.project-workspace[data-board-theme] .card-attachment-list li,
+.project-workspace[data-board-theme] .side-panel-archive li {
+  color: var(--overlay-ink);
+  border-color: var(--overlay-line);
+  background: var(--overlay-field-bg);
+}
+.project-workspace[data-board-theme] .card-editor-modal input::placeholder,
+.project-workspace[data-board-theme] .card-editor-modal textarea::placeholder { color: var(--overlay-ink-soft); }
+.project-workspace[data-board-theme] .shortcut-list dt,
+.project-workspace[data-board-theme] .activity-dot { border-color: var(--overlay-line); background: var(--overlay-field-bg); }
+.project-workspace[data-board-theme] .card-editor-modal .quiet-button,
+.project-workspace[data-board-theme] .side-panel .quiet-button {
+  color: var(--overlay-ink-soft);
+  border-color: var(--overlay-line);
+  background: transparent;
+}
+.project-workspace[data-board-theme] .card-editor-modal .quiet-button:hover,
+.project-workspace[data-board-theme] .side-panel .quiet-button:hover {
+  color: var(--overlay-accent);
+  border-color: var(--overlay-accent);
+}
+.project-workspace[data-board-theme] .modal-heading,
+.project-workspace[data-board-theme] .modal-actions,
+.project-workspace[data-board-theme] .card-comments,
+.project-workspace[data-board-theme] .side-panel { border-color: var(--overlay-line); }
+
 /* ============================================================================
    Quick appearance panel.
 
@@ -628,18 +797,20 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: .7rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--overlay-line, var(--line));
   border-radius: .7rem;
-  color: var(--text, inherit);
-  background: var(--panel);
+  /* The panel is an overlay like the card drawer, so it takes the overlay
+     pair rather than the canvas ink it floats above. */
+  color: var(--overlay-ink, inherit);
+  background: var(--overlay-bg, var(--panel));
   box-shadow: 0 18px 44px rgb(0 0 0 / .34);
 }
 .appearance-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.appearance-panel-heading h2 { margin: 0; font-size: .85rem; letter-spacing: -.01em; }
+.appearance-panel-heading h2 { margin: 0; color: var(--overlay-ink, inherit); font-size: .85rem; letter-spacing: -.01em; }
 .appearance-panel-heading button { min-height: 1.7rem; padding: 0 .3rem; }
 .appearance-group { display: grid; gap: .3rem; }
 .appearance-group > span {
-  color: var(--muted);
+  color: var(--overlay-ink-soft, var(--muted));
   font-size: .61rem;
   font-weight: 800;
   letter-spacing: .06em;
@@ -651,18 +822,18 @@
 .appearance-options button {
   min-height: 1.85rem;
   padding: .2rem .48rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--overlay-line, var(--line));
   border-radius: .35rem;
-  color: var(--muted);
+  color: var(--overlay-ink-soft, var(--muted));
   background: transparent;
   box-shadow: none;
   font-size: .68rem;
   font-weight: 700;
 }
-.appearance-options button:hover { color: var(--accent-strong, var(--accent)); border-color: var(--accent); transform: none; }
+.appearance-options button:hover { color: var(--overlay-accent, var(--accent)); border-color: var(--overlay-accent, var(--accent)); transform: none; }
 .appearance-options button[aria-pressed='true'] {
-  color: var(--accent-strong, var(--accent));
-  border-color: var(--accent);
+  color: var(--overlay-accent, var(--accent));
+  border-color: var(--overlay-accent, var(--accent));
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 .appearance-themes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .3rem; }
@@ -679,14 +850,14 @@
 .appearance-theme span:first-child {
   display: block;
   height: 1.9rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--overlay-line, var(--line));
   border-radius: .35rem;
   background: var(--theme-swatch);
 }
-.appearance-theme small { color: var(--muted); font-size: .56rem; font-weight: 700; letter-spacing: 0; }
+.appearance-theme small { color: var(--overlay-ink-soft, var(--muted)); font-size: .56rem; font-weight: 700; letter-spacing: 0; }
 .appearance-theme:hover { transform: none; }
 .appearance-theme[aria-pressed='true'] { border-color: var(--accent); }
-.appearance-theme[aria-pressed='true'] small { color: var(--accent-strong, var(--accent)); }
+.appearance-theme[aria-pressed='true'] small { color: var(--overlay-accent, var(--accent)); }
 .appearance-swatches { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: .22rem; }
 .appearance-swatch {
   aspect-ratio: 1;
@@ -701,10 +872,10 @@
 .appearance-swatch[aria-pressed='true'] { border-color: var(--canvas-ink, #fff); box-shadow: 0 0 0 2px var(--accent); }
 .appearance-slider { display: grid; gap: .2rem; }
 .appearance-slider input[type='range'] { width: 100%; }
-.appearance-toggle { display: flex; align-items: center; gap: .4rem; min-height: 1.9rem; color: var(--muted); font-size: .68rem; font-weight: 700; }
+.appearance-toggle { display: flex; align-items: center; gap: .4rem; min-height: 1.9rem; color: var(--overlay-ink-soft, var(--muted)); font-size: .68rem; font-weight: 700; }
 .appearance-toggle input { min-height: auto; }
-.appearance-footer { display: flex; align-items: center; justify-content: space-between; gap: .4rem; padding-top: .5rem; border-top: 1px solid var(--line); }
-.appearance-footer .appearance-note { margin: 0; color: var(--muted); font-size: .62rem; line-height: 1.3; }
+.appearance-footer { display: flex; align-items: center; justify-content: space-between; gap: .4rem; padding-top: .5rem; border-top: 1px solid var(--overlay-line, var(--line)); }
+.appearance-footer .appearance-note { margin: 0; color: var(--overlay-ink-soft, var(--muted)); font-size: .62rem; line-height: 1.3; }
 .appearance-footer button { min-height: 1.95rem; padding-inline: .55rem; font-size: .69rem; }
 .appearance-actions { display: flex; gap: .3rem; }
 
