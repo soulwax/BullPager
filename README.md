@@ -1,4 +1,4 @@
-# BullPager Web
+# Cirrus Architecture Tool Web
 
 Local SvelteKit board for the migration plan. It reads the existing authority
 documents and presents packet state, filters, dependencies, and detail. Vercel
