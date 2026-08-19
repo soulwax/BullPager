@@ -1,5 +1,9 @@
 <script lang="ts">
   import '../app.css';
+  // Loaded after app.css on purpose: app.css accumulated several redesign
+  // passes that each appended their own board overrides, so the board's
+  // surface/ink pairing is settled last, in one place.
+  import '$lib/styles/board-theme.css';
   import { setLucideProps } from '@lucide/svelte';
   import WorkspaceNav from '$lib/components/WorkspaceNav.svelte';
   let { children, data }: { children: import('svelte').Snippet; data: { settings: Record<string, string>; username?: string; role?: import('$lib/types').UserRole } } = $props();

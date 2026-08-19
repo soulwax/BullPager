@@ -489,3 +489,55 @@ describe('image cover cleanup on attachment removal', () => {
     expect(persistence.deleteCardAttachment).toHaveBeenCalledWith('demo', 'attach-2');
   });
 });
+
+describe('saveAppearance action (board-level theme, cards, density, background)', () => {
+  const fullAppearance = { theme: 'forest', cardTheme: 'glass-dark', density: 'dense', radius: 'round', laneWidth: 'wide', textScale: 'large', shadow: 'lifted', glassIntensity: '62', accent: '#7bb61b', highContrast: 'true' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    persistence.saveBoardSettings.mockResolvedValue(undefined);
+    persistence.getBoardProject.mockResolvedValue({ slug: 'demo', name: 'Demo', owner: 'ada', visibility: 'private' });
+  });
+
+  it('rejects a viewer without editor access', async () => {
+    const result = await actions.saveAppearance(context({ ...fullAppearance, background: 'none' }, 'viewer'));
+    expect(result).toMatchObject({ status: 403 });
+    expect(persistence.saveBoardSettings).not.toHaveBeenCalled();
+  });
+
+  it('normalizes and persists every appearance field under the project prefix', async () => {
+    const result = await actions.saveAppearance(context({ ...fullAppearance, background: 'trello-green' }, 'editor'));
+    expect(result).toEqual({ message: 'Appearance saved.' });
+    expect(persistence.saveBoardSettings).toHaveBeenCalledWith({
+      'project_demo_theme': 'forest',
+      'project_demo_card_theme': 'glass-dark',
+      'project_demo_density': 'dense',
+      'project_demo_radius': 'round',
+      'project_demo_lane_width': 'wide',
+      'project_demo_text_scale': 'large',
+      'project_demo_shadow': 'lifted',
+      'project_demo_glass_intensity': '62',
+      'project_demo_accent': '#7bb61b',
+      'project_demo_high_contrast': 'true',
+      'project_demo_background': 'trello-green'
+    });
+  });
+
+  it('falls back to defaults for an unrecognized theme instead of failing outright', async () => {
+    const result = await actions.saveAppearance(context({ ...fullAppearance, theme: 'not-a-real-theme', background: 'none' }, 'editor'));
+    expect(result).toEqual({ message: 'Appearance saved.' });
+    expect(persistence.saveBoardSettings).toHaveBeenCalledWith(expect.objectContaining({ 'project_demo_theme': 'midnight' }));
+  });
+
+  it('accepts a custom background (the settings page owns the actual upload)', async () => {
+    const result = await actions.saveAppearance(context({ ...fullAppearance, background: 'custom' }, 'editor'));
+    expect(result).toEqual({ message: 'Appearance saved.' });
+    expect(persistence.saveBoardSettings).toHaveBeenCalledWith(expect.objectContaining({ 'project_demo_background': 'custom' }));
+  });
+
+  it('rejects a background id that does not exist', async () => {
+    const result = await actions.saveAppearance(context({ ...fullAppearance, background: 'not-a-real-background' }, 'editor'));
+    expect(result).toMatchObject({ status: 400 });
+    expect(persistence.saveBoardSettings).not.toHaveBeenCalled();
+  });
+});

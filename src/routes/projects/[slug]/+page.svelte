@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import type { BoardProject, BoardUser, CardTemplate, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectComment, ProjectTag, ProjectViewState } from '$lib/types';
   import { moveProjectCard, PROJECT_CARD_DETAILS_LIMIT } from '$lib/projectState';
   import { defaultProjectTags, tagId, tagPalette } from '$lib/projectTags';
   import { projectBackground } from '$lib/projectBackgrounds';
+  import { appearanceAttributes, appearanceFromSettings, appearanceStyle, resolveCardTheme, type BoardAppearance } from '$lib/boardAppearance';
+  import BoardAppearanceDialog from '$lib/components/BoardAppearanceDialog.svelte';
   import { invalidateAll } from '$app/navigation';
   import { marked } from 'marked';
   import Archive from '@lucide/svelte/icons/archive';
@@ -23,6 +25,7 @@
   import Paperclip from '@lucide/svelte/icons/paperclip';
   import Plus from '@lucide/svelte/icons/plus';
   import Rows3 from '@lucide/svelte/icons/rows-3';
+  import Palette from '@lucide/svelte/icons/palette';
   import Search from '@lucide/svelte/icons/search';
   import Settings from '@lucide/svelte/icons/settings';
   import Star from '@lucide/svelte/icons/star';
@@ -33,22 +36,68 @@
 
   let { data, form }: { data: { project: BoardProject; prefix: string; settings: Record<string, string>; sourceOwned: boolean; wipLimits: Record<string, number>; templates: Record<string, CardTemplate[]>; starred: boolean; lanes: string[]; cards: ProjectCard[]; tags: ProjectTag[]; members: BoardUser[]; activity: ProjectActivity[]; comments: ProjectComment[]; attachments: ProjectCardAttachment[]; viewState: ProjectViewState; canEdit: boolean; username: string; role: string; openCard?: string | null; created: boolean }; form?: { message?: string; error?: string } } = $props();
   const setting = (name: string, fallback = '') => data.settings[`${data.prefix}${name}`] ?? fallback;
+  // Appearance is board-level, mirroring `background`: everyone looking at the
+  // board sees the same thing. It is held as local state rather than read
+  // straight from `data` so the panel can preview a change against the live
+  // board before anyone commits it.
+  const savedAppearance = $derived(appearanceFromSettings(data.settings, data.prefix));
+  const savedBackgroundId = $derived(setting('background', 'none'));
+  let appearance = $state<BoardAppearance>(untrack(() => appearanceFromSettings(data.settings, data.prefix)));
+  let backgroundId = $state(untrack(() => data.settings[`${data.prefix}background`] ?? 'none'));
+  let appearanceSlug = untrack(() => data.project.slug);
+  let showAppearance = $state(false);
+  let savingAppearance = $state(false);
   const boardBackground = $derived(
-    setting('background') === 'custom' && setting('background_custom_path')
+    backgroundId === 'custom' && setting('background_custom_path')
       ? { id: 'custom', label: 'Custom', src: `/projects/${data.project.slug}/files/raw?path=${encodeURIComponent(setting('background_custom_path'))}`, kind: 'photo' as const, credit: 'Uploaded' }
-      : projectBackground(setting('background', 'none'))
+      : projectBackground(backgroundId)
   );
-  const glassIntensity = $derived(Math.max(0, Math.min(100, Number(setting('glass_intensity', '38')) || 0)));
-  const boardSurfaceStyle = $derived(
-    boardBackground.color
-      ? `--project-bg-image: ${boardBackground.color};`
-      : boardBackground.src
-        ? `--project-bg-image: url("${boardBackground.src}"); --project-glass-opacity: ${0.82 - glassIntensity * 0.003}; --project-glass-blur: ${Math.round(4 + glassIntensity * 0.18)}px;`
-        : ''
+  const boardCanvas = $derived({ src: boardBackground.src || undefined, color: boardBackground.color });
+  const boardSurfaceStyle = $derived(appearanceStyle(appearance, boardCanvas));
+  const boardAttributes = $derived(appearanceAttributes(appearance, boardCanvas));
+  const appearanceDirty = $derived(
+    backgroundId !== savedBackgroundId ||
+      (Object.keys(appearance) as (keyof BoardAppearance)[]).some((key) => appearance[key] !== savedAppearance[key])
   );
+  // The legacy two-step density class still drives a handful of cover-image
+  // sizes; the four-step scale collapses onto it rather than duplicating them.
+  const compactBoard = $derived(appearance.density === 'compact' || appearance.density === 'dense');
+
+  // Navigating to another board reuses this component, so the local preview
+  // copy has to be re-seeded from the board that is now on screen.
+  $effect(() => {
+    if (data.project.slug === appearanceSlug) return;
+    appearanceSlug = data.project.slug;
+    appearance = { ...savedAppearance };
+    backgroundId = savedBackgroundId;
+    showAppearance = false;
+  });
+
+  function resetAppearance() {
+    appearance = { ...savedAppearance };
+    backgroundId = savedBackgroundId;
+  }
+
+  async function saveAppearance() {
+    if (!data.canEdit || savingAppearance) return;
+    savingAppearance = true;
+    const body = new FormData();
+    for (const [key, value] of Object.entries(appearance)) body.set(key, String(value));
+    body.set('background', backgroundId);
+    try {
+      const response = await fetch('?/saveAppearance', { method: 'POST', body, headers: { accept: 'application/json' } });
+      if (!response.ok) throw new Error('save failed');
+      savedStatus = 'Appearance saved';
+      await invalidateAll();
+    } catch {
+      savedStatus = 'Could not save appearance';
+    } finally {
+      savingAppearance = false;
+      setTimeout(() => { if (savedStatus.startsWith('Appearance') || savedStatus.startsWith('Could not save appearance')) savedStatus = ''; }, 2400);
+    }
+  }
   const isDefaultTag = (id: string) => defaultProjectTags.some((tag) => tagId(data.project.slug, tag.slug) === id);
   let collapsed = $state<Record<string, boolean>>({});
-  let density = $state<'comfortable' | 'compact'>('comfortable');
   let labelText = $state(false);
   let query = $state('');
   let priorityFilter = $state<'all' | 'low' | 'normal' | 'high' | 'urgent'>('all');
@@ -431,6 +480,10 @@
   function handleShortcut(event: KeyboardEvent) {
     if (isEditable(event.target)) return;
     if (event.key === '?') { showShortcutHelp = !showShortcutHelp; return; }
+    // The appearance panel owns Escape while it is open (it closes itself), so
+    // it is checked before the editor/composer Escape handling below.
+    if (event.key === 'v' || event.key === 'V') { showAppearance = !showAppearance; return; }
+    if (showAppearance && event.key === 'Escape') { showAppearance = false; return; }
     if (showShortcutHelp) { if (event.key === 'Escape') showShortcutHelp = false; return; }
     if (event.key === 'Escape') { if (editingCardId) closeEditor(); else if (composerLane !== null) composerLane = null; return; }
     if (event.key === '/') { event.preventDefault(); searchInput?.focus(); return; }
@@ -459,7 +512,6 @@
 
   $effect(() => {
     collapsed = { ...(data.viewState.collapsed ?? {}) };
-    density = data.viewState.density === 'compact' ? 'compact' : 'comfortable';
     labelText = data.viewState.labelText === true;
     query = data.viewState.query ?? '';
     priorityFilter = data.viewState.priority ?? 'all';
@@ -553,7 +605,7 @@
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
       const body = new FormData();
-      body.set('density', density);
+      body.set('density', compactBoard ? 'compact' : 'comfortable');
       body.set('labelText', String(labelText));
       body.set('collapsed', JSON.stringify(collapsed));
       body.set('query', query);
@@ -665,18 +717,32 @@
 
 <svelte:head><title>{data.project.name} · BullPager Board</title></svelte:head>
 
-<main class={`project-workspace theme-${setting('theme', 'midnight')} project-lane-${setting('lane_style', 'scroll')}`} class:has-project-background={Boolean(boardBackground.src)} class:has-color-background={Boolean(boardBackground.color)} style={boardSurfaceStyle}>
+<main class={`project-workspace theme-${appearance.theme} project-lane-${setting('lane_style', 'scroll')}`} class:has-project-background={Boolean(boardBackground.src)} class:has-color-background={Boolean(boardBackground.color)} style={boardSurfaceStyle} {...boardAttributes}>
   {#if data.members.length}<datalist id="project-members">{#each data.members as member}<option value={member.username}>{member.role}</option>{/each}</datalist>{/if}
   <header class="topbar project-board-header">
     <div class="board-title-group"><a class="board-switcher" href="/projects" aria-label="Open project boards"><LayoutGrid /><span>Board</span></a><span class="board-divider" aria-hidden="true"></span>{#if data.username}<button type="button" class="star-toggle board-star" class:active={starred} aria-pressed={starred} aria-label={starred ? 'Unstar this board' : 'Star this board'} onclick={toggleBoardStar}><Star fill={starred ? 'currentColor' : 'none'} /></button>{/if}<div><p class="eyebrow">{data.project.visibility} workspace</p>{#if renamingBoard}<form class="board-rename-form" onsubmit={(event) => { event.preventDefault(); void submitRenameBoard(); }}><input bind:value={boardNameDraft} maxlength="120" aria-label="Board name" use:focusOnMount onblur={submitRenameBoard} onkeydown={(event) => { if (event.key === 'Escape') renamingBoard = false; }} /></form>{:else}<h1>{#if data.canEdit}<button type="button" class="board-name-button" onclick={() => { boardNameDraft = data.project.name; renamingBoard = true; }} title="Click to rename this board">{data.project.name}</button>{:else}{data.project.name}{/if}{#if data.sourceOwned}<span class="source-lock-chip" title="Title, description, checklist text, owner, priority, and cover are synced from UNITY_PLAN.md. Lane, dates, comments, attachments, and checklist ticks stay editable here."><Lock /> synced from plan</span>{/if}</h1>{/if}</div><span class="board-card-count">{boardCards.length} {boardCards.length === 1 ? 'card' : 'cards'}</span></div>
-    <div class="top-links board-header-actions"><button type="button" class="quiet-button" class:active={showActivityPanel} onclick={() => { showActivityPanel = !showActivityPanel; showArchiveBrowser = false; }}><History /> Activity</button><button type="button" class="quiet-button" class:active={showArchiveBrowser} onclick={() => { showArchiveBrowser = !showArchiveBrowser; showActivityPanel = false; }}><Archive /> Archive</button><a class="quiet-button" href={`/projects/${data.project.slug}/backlog`}><Rows3 /> Backlog</a><a class="board-cloud-link" href={`/projects/${data.project.slug}/files`}><Cloud /> Cloud</a><a class="quiet-button" href={`/projects/${data.project.slug}/graph`}><Waypoints /> Graph</a><a class="quiet-button icon-only" href={`/projects/${data.project.slug}/settings`} aria-label="Project settings"><Settings /></a></div>
+    <div class="top-links board-header-actions"><button type="button" class="quiet-button" class:active={showActivityPanel} onclick={() => { showActivityPanel = !showActivityPanel; showArchiveBrowser = false; }}><History /> Activity</button><button type="button" class="quiet-button" class:active={showArchiveBrowser} onclick={() => { showArchiveBrowser = !showArchiveBrowser; showActivityPanel = false; }}><Archive /> Archive</button><a class="quiet-button" href={`/projects/${data.project.slug}/backlog`}><Rows3 /> Backlog</a><a class="board-cloud-link" href={`/projects/${data.project.slug}/files`}><Cloud /> Cloud</a><a class="quiet-button" href={`/projects/${data.project.slug}/graph`}><Waypoints /> Graph</a><button type="button" class="quiet-button icon-only" class:active={showAppearance} aria-haspopup="dialog" aria-expanded={showAppearance} aria-label="Board appearance (V)" title="Board appearance — V" onclick={() => { showAppearance = !showAppearance; }}><Palette /></button><a class="quiet-button icon-only" href={`/projects/${data.project.slug}/settings`} aria-label="Project settings"><Settings /></a></div>
   </header>
+
+  {#if showAppearance}
+    <BoardAppearanceDialog
+      bind:appearance
+      bind:background={backgroundId}
+      canvas={boardCanvas}
+      canEdit={data.canEdit}
+      dirty={appearanceDirty}
+      saving={savingAppearance}
+      onclose={() => { showAppearance = false; }}
+      onsave={saveAppearance}
+      onreset={resetAppearance}
+    />
+  {/if}
 
   {#if data.created}<section class="project-welcome" role="status"><div><p class="eyebrow">PROJECT CREATED</p><h2>Your workspace is ready.</h2><p>Start with one concrete outcome, then invite collaborators when the workflow feels right.</p></div><a class="quiet-button" href={`/projects/${data.project.slug}/settings`}>Tune workflow</a></section>{/if}
   {#if form?.message}<p class="success" role="status">{form.message}</p>{/if}
   {#if form?.error}<p class="action-errors" role="alert">{form.error}</p>{/if}
 
-  <div class="project-toolbar"><div class="project-toolbar-copy"><details class="find-work-menu"><summary><span class="find-work-icon"><Search /></span><span><strong>Find work</strong><small>{visibleCards.length} visible · {activeCards.length} active</small></span><ChevronDown class="find-work-chevron" /></summary><div class="find-work-body"><p>Jump to the work that needs attention.</p><div class="find-work-actions"><button type="button" class:active={!filtered} class="quiet-button" onclick={clearFilters}>All cards</button><button type="button" class:active={assigneeFilter === data.username} class="quiet-button" onclick={() => { assigneeFilter = data.username; queueViewSave(); }}>My cards</button><button type="button" class:active={priorityFilter === 'urgent'} class="quiet-button" onclick={() => { priorityFilter = 'urgent'; queueViewSave(); }}>Urgent</button><button type="button" class="quiet-button" onclick={() => { query = ''; priorityFilter = 'all'; tagFilter = 'all'; assigneeFilter = 'unassigned'; showArchived = false; queueViewSave(); }}>Unassigned</button></div></div></details><a class="project-cloud-button" href={`/projects/${data.project.slug}/files`} aria-label="Open project cloud"><Cloud class="project-cloud-glyph" aria-hidden="true" /><span>Cloud</span></a>{#if savedStatus}<span class="save-status" role="status" aria-live="polite">{savedStatus}</span>{/if}</div><div class="toolbar-summary"><div class="project-stats" aria-label="Project summary"><span><strong>{activeCards.length}</strong> active</span><span><strong>{urgentCount}</strong> urgent</span><span><strong>{data.tags.length}</strong> tags</span><span><strong>{archivedCount}</strong> archived</span></div>{#if workflowPulseVisible}<div class="workflow-pulse" aria-label="Workflow state summary">{#each workflowPulse as entry}{#if entry.lanes.length}<span class={`workflow-state workflow-${entry.state}`}><strong>{entry.cards}</strong> {entry.state}</span>{/if}{/each}</div>{/if}</div><div class="project-controls"><label class="project-search" title="Search cards"><span class="sr-only">Search</span><Search class="project-search-icon" aria-hidden="true" /><input bind:this={searchInput} bind:value={query} oninput={queueViewSave} placeholder="Find cards by title, owner, or detail (press / to focus)" aria-label="Search project cards" /></label><label title="Filter by priority"><span class="sr-only">Priority</span><select bind:value={priorityFilter} onchange={queueViewSave}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label><label title="Filter by tag"><span class="sr-only">Tag</span><select bind:value={tagFilter} onchange={queueViewSave}><option value="all">All tags</option>{#each data.tags as tag}<option value={tag.id}>{tag.name}</option>{/each}</select></label><label title="Filter by assignee"><span class="sr-only">Assignee</span><select bind:value={assigneeFilter} onchange={queueViewSave}><option value="all">Everyone</option><option value="unassigned">Unassigned</option>{#each data.members as member}<option value={member.username}>{member.username}</option>{/each}</select></label><label title="Card density"><span class="sr-only">Density</span><select bind:value={density} onchange={queueViewSave}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>{#if data.tags.length}<button type="button" class:active={labelText} class="quiet-button label-text-toggle" title={labelText ? 'Show labels as color bars' : 'Show label names'} onclick={() => { labelText = !labelText; queueViewSave(); }}>{labelText ? 'Hide label text' : 'Show label text'}</button>{/if}{#if archivedCount}<button type="button" class:active={showArchived} class="quiet-button archive-toggle" onclick={() => { showArchived = !showArchived; queueViewSave(); }}>{showArchived ? "Hide archived" : "Show archived"}</button>{/if}{#if filtered}<button type="button" class="quiet-button clear-project-filters" onclick={clearFilters}>Clear</button>{/if}<details class="tag-manager"><summary>Manage tags</summary><div class="tag-manager-body"><div class="tag-cloud">{#each data.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}><span>{tag.name}</span>{#if data.canEdit && !isDefaultTag(tag.id)}<form method="POST" action="?/deleteTag"><input type="hidden" name="id" value={tag.id} /><button type="submit" aria-label={`Remove ${tag.name} tag`} title="Remove tag"><X /></button></form>{/if}</span>{/each}</div>{#if data.canEdit}<form method="POST" action="?/createTag" class="tag-create-form"><input name="name" maxlength="32" placeholder="New tag" aria-label="New tag name" required /><select name="color" aria-label="New tag color">{#each tagPalette as palette}<option value={palette.color}>{palette.name}</option>{/each}</select><button type="submit">Create tag</button></form>{/if}</div></details></div></div>
+  <div class="project-toolbar"><div class="project-toolbar-copy"><details class="find-work-menu"><summary><span class="find-work-icon"><Search /></span><span><strong>Find work</strong><small>{visibleCards.length} visible · {activeCards.length} active</small></span><ChevronDown class="find-work-chevron" /></summary><div class="find-work-body"><p>Jump to the work that needs attention.</p><div class="find-work-actions"><button type="button" class:active={!filtered} class="quiet-button" onclick={clearFilters}>All cards</button><button type="button" class:active={assigneeFilter === data.username} class="quiet-button" onclick={() => { assigneeFilter = data.username; queueViewSave(); }}>My cards</button><button type="button" class:active={priorityFilter === 'urgent'} class="quiet-button" onclick={() => { priorityFilter = 'urgent'; queueViewSave(); }}>Urgent</button><button type="button" class="quiet-button" onclick={() => { query = ''; priorityFilter = 'all'; tagFilter = 'all'; assigneeFilter = 'unassigned'; showArchived = false; queueViewSave(); }}>Unassigned</button></div></div></details><a class="project-cloud-button" href={`/projects/${data.project.slug}/files`} aria-label="Open project cloud"><Cloud class="project-cloud-glyph" aria-hidden="true" /><span>Cloud</span></a>{#if savedStatus}<span class="save-status" role="status" aria-live="polite">{savedStatus}</span>{/if}</div><div class="toolbar-summary"><div class="project-stats" aria-label="Project summary"><span><strong>{activeCards.length}</strong> active</span><span><strong>{urgentCount}</strong> urgent</span><span><strong>{data.tags.length}</strong> tags</span><span><strong>{archivedCount}</strong> archived</span></div>{#if workflowPulseVisible}<div class="workflow-pulse" aria-label="Workflow state summary">{#each workflowPulse as entry}{#if entry.lanes.length}<span class={`workflow-state workflow-${entry.state}`}><strong>{entry.cards}</strong> {entry.state}</span>{/if}{/each}</div>{/if}</div><div class="project-controls"><label class="project-search" title="Search cards"><span class="sr-only">Search</span><Search class="project-search-icon" aria-hidden="true" /><input bind:this={searchInput} bind:value={query} oninput={queueViewSave} placeholder="Find cards by title, owner, or detail (press / to focus)" aria-label="Search project cards" /></label><label title="Filter by priority"><span class="sr-only">Priority</span><select bind:value={priorityFilter} onchange={queueViewSave}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label><label title="Filter by tag"><span class="sr-only">Tag</span><select bind:value={tagFilter} onchange={queueViewSave}><option value="all">All tags</option>{#each data.tags as tag}<option value={tag.id}>{tag.name}</option>{/each}</select></label><label title="Filter by assignee"><span class="sr-only">Assignee</span><select bind:value={assigneeFilter} onchange={queueViewSave}><option value="all">Everyone</option><option value="unassigned">Unassigned</option>{#each data.members as member}<option value={member.username}>{member.username}</option>{/each}</select></label>{#if data.tags.length}<button type="button" class:active={labelText} class="quiet-button label-text-toggle" title={labelText ? 'Show labels as color bars' : 'Show label names'} onclick={() => { labelText = !labelText; queueViewSave(); }}>{labelText ? 'Hide label text' : 'Show label text'}</button>{/if}{#if archivedCount}<button type="button" class:active={showArchived} class="quiet-button archive-toggle" onclick={() => { showArchived = !showArchived; queueViewSave(); }}>{showArchived ? "Hide archived" : "Show archived"}</button>{/if}{#if filtered}<button type="button" class="quiet-button clear-project-filters" onclick={clearFilters}>Clear</button>{/if}<details class="tag-manager"><summary>Manage tags</summary><div class="tag-manager-body"><div class="tag-cloud">{#each data.tags as tag}<span class="tag-chip" style={`--tag-color: ${tag.color}`}><span>{tag.name}</span>{#if data.canEdit && !isDefaultTag(tag.id)}<form method="POST" action="?/deleteTag"><input type="hidden" name="id" value={tag.id} /><button type="submit" aria-label={`Remove ${tag.name} tag`} title="Remove tag"><X /></button></form>{/if}</span>{/each}</div>{#if data.canEdit}<form method="POST" action="?/createTag" class="tag-create-form"><input name="name" maxlength="32" placeholder="New tag" aria-label="New tag name" required /><select name="color" aria-label="New tag color">{#each tagPalette as palette}<option value={palette.color}>{palette.name}</option>{/each}</select><button type="submit">Create tag</button></form>{/if}</div></details></div></div>
 
   {#if boardCards.length === 0}
     <section class="project-empty-intro"><img src="/assets/illustrations/organizing-projects.svg" alt="" /><div><p class="eyebrow">EMPTY SLATE</p><h2>Nothing is stuck here yet.</h2><p class="subtitle">This board has {data.lanes.length} lanes from your template. Add one small, concrete card and the empty state will disappear.</p></div></section>
@@ -684,7 +750,7 @@
     <section class="project-filter-empty"><p class="eyebrow">NO MATCHES</p><h2>Nothing matches this view.</h2><p class="subtitle">Try a different search or priority, or clear the filters to see every saved card.</p><button type="button" class="quiet-button" onclick={clearFilters}>Clear filters</button></section>
   {/if}
 
-  {#if boardCards.length === 0 || visibleCards.length > 0}<section class:project-board-compact={density === 'compact'} class="project-board" aria-label={`${data.project.name} workflow`}>
+  {#if boardCards.length === 0 || visibleCards.length > 0}<section class:project-board-compact={compactBoard} class="project-board" aria-label={`${data.project.name} workflow`}>
     {#each data.lanes as lane, index}
       {@const laneCards = cardsFor(lane)}
       {@const wipLimit = data.wipLimits[lane]}
@@ -765,6 +831,7 @@
         <div><dt>n</dt><dd>Add a card in the first open list</dd></div>
         <div><dt>q</dt><dd>Toggle "my cards" filter</dd></div>
         <div><dt>x</dt><dd>Clear all filters</dd></div>
+        <div><dt>v</dt><dd>Board appearance (theme, cards, density)</dd></div>
         <div><dt>Esc</dt><dd>Close the open card or composer</dd></div>
         <div><dt>?</dt><dd>Show this help</dd></div>
       </dl>

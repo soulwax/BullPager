@@ -1202,10 +1202,21 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .project-workspace .project-column.drop-target .project-column-cards { outline: 2px dashed color-mix(in srgb, var(--accent) 52%, var(--line)); outline-offset: -.35rem; border-radius: .45rem; }
 .project-workspace .drag-hint { display: inline-flex; gap: .2rem; align-items: center; margin-left: auto; color: color-mix(in srgb, var(--accent) 72%, var(--muted)); font-size: .58rem; font-weight: 750; }
 .project-workspace .drag-hint svg { width: .85rem; height: .85rem; }
-.project-workspace.has-project-background { position: relative; isolation: isolate; }
-.project-workspace.has-project-background::before { position: fixed; z-index: -2; inset: 0; content: ''; background: linear-gradient(180deg, rgb(5 10 18 / .72), rgb(5 10 18 / .88)), var(--project-bg-image) center / cover no-repeat; pointer-events: none; }
-.project-workspace.has-project-background::after { position: fixed; z-index: -1; inset: 0; content: ''; background: rgb(5 10 18 / .16); pointer-events: none; }
-.project-workspace.has-project-background .project-toolbar, .project-workspace.has-project-background .project-column, .project-workspace.has-project-background .project-card, .project-workspace.has-project-background .project-welcome, .project-workspace.has-project-background .project-next-steps { background: rgb(18 26 36 / var(--project-glass-opacity)); backdrop-filter: blur(var(--project-glass-blur)) saturate(1.08); }
+/* The photo-background board painted its lists and cards with a dark glass
+   fill here and left their text color to the Trello light-card pass further
+   down this file. Because that pass is a class less specific, `background`
+   resolved to the dark glass while `color` resolved to the light-card ink —
+   dark text on a dark card, on every photo board. Both halves now come from
+   one paired token set in lib/styles/board-theme.css, so the surface and its
+   ink can no longer be chosen by two different rules.
+   Only the surfaces that sit outside the board's own token scope are left
+   here. */
+.project-workspace.has-project-background .project-welcome,
+.project-workspace.has-project-background .project-next-steps {
+  color: #e9eff7;
+  background: rgb(18 26 36 / .9);
+  backdrop-filter: blur(10px) saturate(1.08);
+}
 
 /* Project hub: orient people around the product model before asking them to
    choose a board. The three principles stay compact and make the board/cloud/
@@ -1408,10 +1419,14 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
   --agile-blue-800: #0c66e4;
   --agile-blue-700: #1677ff;
   --agile-canvas: #0c1e39;
-  --agile-list: rgb(240 244 248 / .94);
-  --agile-card: #fff;
-  --agile-ink: #172b4d;
-  --agile-muted: #5e6c84;
+  /* Aliases kept so any rule still written against the original Trello-parity
+     names resolves to the board's *current* palette rather than to a fixed
+     light one. The values are defined per board in lib/styles/board-theme.css;
+     these fallbacks only apply outside a themed board. */
+  --agile-list: var(--list-bg, rgb(240 244 248 / .94));
+  --agile-card: var(--card-bg, #fff);
+  --agile-ink: var(--card-ink, #172b4d);
+  --agile-muted: var(--card-ink-faint, #5e6c84);
 }
 
 .app-theme {
@@ -1478,11 +1493,9 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
   padding-top: .65rem;
   padding-bottom: 1.1rem;
 }
-.project-workspace:not(.has-project-background) {
-  background:
-    radial-gradient(circle at 96% 0%, rgb(45 205 255 / .18), transparent 30rem),
-    linear-gradient(135deg, #0c50bb 0%, #126de1 44%, #11b4d1 100%);
-}
+/* The board canvas is painted from --board-canvas / --project-bg-image by the
+   single ::before rule in lib/styles/board-theme.css, so that one selectable
+   theme decides it instead of a hard-coded blue that every theme inherited. */
 .project-workspace > .topbar.project-board-header {
   min-height: 3.4rem;
   align-items: center;
@@ -1762,51 +1775,19 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
    lists and white cards — deliberately independent of the midnight/ocean/light
    theme toggle, the same way choosing a color board in Trello looks the same
    regardless of the rest of the app's appearance setting. */
-.project-workspace.has-color-background { position: relative; isolation: isolate; }
-.project-workspace.has-color-background::before { position: fixed; z-index: -2; inset: 0; content: ''; background: var(--project-bg-image); pointer-events: none; }
-.project-workspace.has-color-background::after { display: none; }
 
-.project-workspace.has-color-background .board-title-group,
-.project-workspace.has-color-background .board-title-group .eyebrow,
-.project-workspace.has-color-background .board-title-group h1,
-.project-workspace.has-color-background .board-card-count,
-.project-workspace.has-color-background .board-header-actions .quiet-button,
-.project-workspace.has-color-background .board-cloud-link { color: #fff; }
-.project-workspace.has-color-background .board-header-actions .quiet-button,
-.project-workspace.has-color-background .board-cloud-link,
-.project-workspace.has-color-background .board-switcher,
-.project-workspace.has-color-background .board-name-button { border-color: rgb(255 255 255 / .5); }
-.project-workspace.has-color-background .board-header-actions .quiet-button:hover,
-.project-workspace.has-color-background .board-name-button:hover { color: #fff; background: rgb(255 255 255 / .16); }
-.project-workspace.has-color-background .board-divider { background: rgb(255 255 255 / .4); }
-.project-workspace.has-color-background .source-lock-chip { border-color: rgb(255 255 255 / .55); color: #fff; }
-
-.project-workspace.has-color-background .project-toolbar { background: rgb(255 255 255 / .14); border-color: rgb(255 255 255 / .28); backdrop-filter: blur(6px); color: #fff; }
-.project-workspace.has-color-background .project-toolbar label,
-.project-workspace.has-color-background .project-stats,
-.project-workspace.has-color-background .find-work-menu small { color: rgb(255 255 255 / .8); }
-.project-workspace.has-color-background .project-toolbar input,
-.project-workspace.has-color-background .project-toolbar select { color: #172b4d; background: #fff; border-color: transparent; }
-.project-workspace.has-color-background .project-toolbar .quiet-button { color: #fff; border-color: rgb(255 255 255 / .5); }
-.project-workspace.has-color-background .project-stats strong { color: #fff; }
-
-/* The board's lists and cards are already forced to the same solid
-   white-on-light-gray Trello palette in every theme (see the `--agile-card`
-   / `--agile-list` / `--agile-ink` tokens above) — nothing to override here,
-   only the chrome that sits directly on the colored background needs it. */
-.project-workspace.has-color-background .add-card-button,
-.project-workspace.has-color-background .add-list-button { color: rgb(255 255 255 / .85); }
-.project-workspace.has-color-background .add-card-button:hover,
-.project-workspace.has-color-background .add-list-button:hover { color: #fff; background: rgb(255 255 255 / .14); }
-.project-workspace.has-color-background .project-column-add-list { background: rgb(255 255 255 / .1); border-color: rgb(255 255 255 / .3); }
-.project-workspace.has-color-background .collapse-button { background: rgb(9 30 66 / .08); color: #5e6c84; }
+/* Chrome that sits on the board background, and the lists and cards
+   themselves, are painted from the paired tokens in
+   lib/styles/board-theme.css. They key off data-canvas-tone and
+   data-card-theme rather than off which *kind* of background was chosen, so a
+   pale color, a photo, and a plain theme canvas all resolve legibly instead of
+   only the one case a rule happened to be written for. */
 
 /* Trello-style label pills everywhere on the board: a solid color fill with
    readable text, not an outlined chip. This is the single most recognizable
    piece of Trello's visual language, so it applies regardless of theme. */
-.project-workspace .tag-chip { --tag-color: var(--accent); padding: .18rem .5rem; border: none; border-radius: .25rem; color: color-mix(in srgb, var(--tag-color) 12%, black 80%); background: var(--tag-color); font-weight: 800; }
+.project-workspace .tag-chip { --tag-color: var(--accent); padding: .18rem .5rem; border: none; border-radius: .25rem; background: var(--tag-color); font-weight: 800; }
 .project-workspace .tag-chip:hover { filter: brightness(1.08); }
-.project-workspace.has-color-background .tag-chip { color: color-mix(in srgb, var(--tag-color) 14%, black 82%); }
 
 /* A grid of clickable swatches, like Trello's own background picker, rather
    than a plain dropdown of label text nobody can preview before choosing. */
@@ -1830,7 +1811,6 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
 
 .project-card-meta .card-number { color: var(--muted); font-variant-numeric: tabular-nums; }
 .card-editor-title .card-number, #card-editor-title .card-number { color: var(--muted); font-size: .8em; font-weight: 500; }
-.project-workspace.has-color-background .project-card-meta .card-number { color: #5e6c84; }
 
 /* Global top-bar search, styled after Trello's own — always reachable, not
    contextual to the current board. */
@@ -1901,10 +1881,6 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
    colored/photo board backgrounds, matching board-header-actions and the
    source-lock chip rather than staying at the muted gray meant for the
    default midnight/ocean/light chrome. */
-.project-workspace.has-color-background .board-star,
-.project-workspace.has-project-background .board-star { color: rgb(255 255 255 / .85); }
-.project-workspace.has-color-background .board-star.active,
-.project-workspace.has-project-background .board-star.active { color: #ffd76b; }
 
 /* Board toolbar compaction. Two changes, together cutting the toolbar from
    three rows to two and shortening the second row:
@@ -1928,7 +1904,6 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
 .project-controls .project-search { position: relative; }
 .project-search-icon { position: absolute; top: 50%; left: .55rem; width: .95rem; height: .95rem; color: var(--muted); transform: translateY(-50%); pointer-events: none; }
 .project-controls .project-search input { padding-left: 1.85rem; }
-.project-workspace.has-color-background .project-search-icon { color: #5e6c84; }
 
 /* A per-list template row inside the lane menu: the template name button
    grows to fill the row (truncating a long name) while its delete button

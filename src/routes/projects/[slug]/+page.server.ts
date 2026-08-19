@@ -3,6 +3,8 @@ import { randomBytes } from 'node:crypto';
 import { archiveAllCardsInLane, createCardAttachment, createProjectCard, createProjectComment, createProjectTag, deleteCardAttachment, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listCardAttachments, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, listStarredProjectSlugs, loadBoardSettings, loadProjectViewState, moveAllCardsInLane, persistenceEnabled, recordProjectActivity, renameProjectLanes, reorderProjectCard, saveBoardSettings, saveProjectViewState, setProjectCardOrder, setProjectCardWatching, setProjectStar, syncUnityPlannerCards, updateProjectCard, updateProjectName } from '$lib/server/persistence';
 import { isSourceOwnedProject, lanesFromSettings, mergeProjectLanes, projectPrefix, sanitizeProjectViewState, validProjectCardInput } from '$lib/projectState';
 import { loadPlan } from '$lib/server/plan';
+import { appearanceToSettings, normalizeAppearance } from '$lib/boardAppearance';
+import { projectBackgrounds } from '$lib/projectBackgrounds';
 import type { CardTemplate, ProjectCard } from '$lib/types';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
@@ -315,6 +317,45 @@ export const actions = {
       return persistenceFailure('delete tag failed', error);
     }
     return { message: 'Tag removed.' };
+  },
+  /**
+   * The quick appearance panel's save. Board-level like `background` is, so a
+   * board looks the same for everyone who opens it, and gated on edit rights
+   * for the same reason. `normalizeAppearance` is the validator: it clamps and
+   * falls back per field rather than rejecting the whole payload, so a stale
+   * client that posts an option this deployment no longer offers still saves
+   * the rest of its choices instead of silently failing.
+   */
+  saveAppearance: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to change this board\'s appearance.' });
+    const project = await getBoardProject(params.slug);
+    if (!project) return fail(404, { error: 'Project not found.' });
+    const form = await request.formData();
+    const appearance = normalizeAppearance({
+      theme: form.get('theme'),
+      cardTheme: form.get('cardTheme'),
+      density: form.get('density'),
+      radius: form.get('radius'),
+      laneWidth: form.get('laneWidth'),
+      textScale: form.get('textScale'),
+      shadow: form.get('shadow'),
+      glassIntensity: form.get('glassIntensity'),
+      accent: form.get('accent'),
+      highContrast: form.get('highContrast')
+    });
+    const background = String(form.get('background') ?? 'none');
+    // A 'custom' background points at an uploaded file that only the settings
+    // page can create, so it is accepted but never invented here.
+    if (background !== 'custom' && !projectBackgrounds.some((option) => option.id === background)) {
+      return fail(400, { error: 'Choose a valid board background.' });
+    }
+    const prefix = projectPrefix(params.slug);
+    try {
+      await saveBoardSettings({ ...appearanceToSettings(appearance, prefix), [`${prefix}background`]: background });
+    } catch (error) {
+      return persistenceFailure('save appearance failed', error);
+    }
+    return { message: 'Appearance saved.' };
   },
   saveView: async ({ request, locals, params }) => {
     if (!locals.username) return fail(401, { error: 'Sign in to save your board view.' });
