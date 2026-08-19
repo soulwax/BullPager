@@ -202,6 +202,21 @@ export type ProjectCard = {
 export const SOURCE_OWNED_CARD_FIELDS = ['title', 'details', 'checklist', 'owner', 'priority', 'coverColor'] as const;
 export type SourceOwnedCardField = (typeof SOURCE_OWNED_CARD_FIELDS)[number];
 
+/** A reusable card shape saved from an existing card, scoped to the list it
+ * was saved from. Stored as one JSON board setting, the same idiom as WIP
+ * limits — a template is board config, not a card, so it only needs a
+ * per-template id for delete/select, not the full card id space. */
+export type CardTemplate = {
+  id: string;
+  name: string;
+  title: string;
+  details: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  coverColor: string;
+  checklist: { id: string; text: string }[];
+  tagIds: string[];
+};
+
 export type ProjectViewState = {
   density?: 'comfortable' | 'compact';
   collapsed?: Record<string, boolean>;

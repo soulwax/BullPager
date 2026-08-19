@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { archiveAllCardsInLane, createCardAttachment, createProjectCard, createProjectComment, createProjectTag, deleteCardAttachment, deleteProjectCard, deleteProjectComment, deleteProjectTag, getBoardProject, listBoardUsers, listCardAttachments, listProjectActivity, listProjectCards, listProjectComments, listProjectTags, listStarredProjectSlugs, loadBoardSettings, loadProjectViewState, moveAllCardsInLane, persistenceEnabled, recordProjectActivity, renameProjectLanes, reorderProjectCard, saveBoardSettings, saveProjectViewState, setProjectCardOrder, setProjectCardWatching, setProjectStar, syncUnityPlannerCards, updateProjectCard, updateProjectName } from '$lib/server/persistence';
 import { isSourceOwnedProject, lanesFromSettings, mergeProjectLanes, projectPrefix, sanitizeProjectViewState, validProjectCardInput } from '$lib/projectState';
 import { loadPlan } from '$lib/server/plan';
-import type { ProjectCard } from '$lib/types';
+import type { CardTemplate, ProjectCard } from '$lib/types';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
 const persistenceFailure = (message: string, error: unknown) => {
@@ -38,7 +38,9 @@ export async function load({ params, url, locals }) {
   const starred = await listStarredProjectSlugs(locals.username ?? '');
   let wipLimits: Record<string, number> = {};
   try { wipLimits = JSON.parse(settings[`${prefix}wip_limits`] ?? '{}'); } catch { /* ignore malformed limits */ }
-  return { project, prefix, settings, sourceOwned: isSourceOwnedProject(settings, prefix), wipLimits, starred: starred.has(params.slug), lanes: mergeProjectLanes(configuredLanes, cards), cards, tags, members: await listBoardUsers(), activity: await listProjectActivity(params.slug), comments: await listProjectComments(params.slug), attachments: await listCardAttachments(params.slug), viewState: await loadProjectViewState(params.slug, username), canEdit: canEdit(locals.role), username, role: locals.role ?? '', openCard, created: url.searchParams.get('created') === '1' };
+  let templates: Record<string, CardTemplate[]> = {};
+  try { templates = JSON.parse(settings[`${prefix}templates`] ?? '{}'); } catch { /* ignore malformed templates */ }
+  return { project, prefix, settings, sourceOwned: isSourceOwnedProject(settings, prefix), wipLimits, templates, starred: starred.has(params.slug), lanes: mergeProjectLanes(configuredLanes, cards), cards, tags, members: await listBoardUsers(), activity: await listProjectActivity(params.slug), comments: await listProjectComments(params.slug), attachments: await listCardAttachments(params.slug), viewState: await loadProjectViewState(params.slug, username), canEdit: canEdit(locals.role), username, role: locals.role ?? '', openCard, created: url.searchParams.get('created') === '1' };
 }
 
 function readCard(form: FormData, projectSlug: string, fallbackId?: string) {
@@ -78,6 +80,18 @@ async function validLanes(slug: string) {
 
 async function projectIsSourceOwned(slug: string) {
   return isSourceOwnedProject(await loadBoardSettings(), projectPrefix(slug));
+}
+
+/** Templates are board config, not cards, so they live in one JSON setting
+ * keyed per list — same idiom as WIP limits — rather than a new table. */
+async function templatesFor(slug: string): Promise<Record<string, CardTemplate[]>> {
+  const allSettings = await loadBoardSettings();
+  try {
+    const parsed = JSON.parse(allSettings[`${projectPrefix(slug)}templates`] ?? '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 export const actions = {
@@ -504,5 +518,85 @@ export const actions = {
       return persistenceFailure('set WIP limit failed', error);
     }
     return { message: limit === null ? 'Limit cleared.' : 'Limit set.' };
+  },
+  saveCardAsTemplate: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to save a template.' });
+    const form = await request.formData();
+    const cardId = String(form.get('cardId') ?? '').trim();
+    const name = String(form.get('name') ?? '').trim().slice(0, 48);
+    if (!name) return fail(400, { error: 'Name the template before saving it.' });
+    const card = (await listProjectCards(params.slug)).find((item) => item.id === cardId);
+    if (!card) return fail(400, { error: 'Choose a valid card.' });
+    const templates = await templatesFor(params.slug);
+    const forLane = templates[card.lane] ?? [];
+    if (forLane.length >= 10) return fail(400, { error: `"${card.lane}" already has 10 templates, the most a list supports.` });
+    const template: CardTemplate = {
+      id: `template-${Date.now()}-${randomBytes(3).toString('hex')}`,
+      name,
+      title: card.title,
+      details: card.details,
+      priority: card.priority,
+      coverColor: card.coverColor,
+      checklist: card.checklist.map((item) => ({ id: item.id, text: item.text })),
+      tagIds: card.tags.map((tag) => tag.id)
+    };
+    try {
+      await saveBoardSettings({ [`${projectPrefix(params.slug)}templates`]: JSON.stringify({ ...templates, [card.lane]: [...forLane, template] }) });
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId: '', summary: `Saved “${name}” as a template on “${card.lane}”.` });
+    } catch (error) {
+      return persistenceFailure('save template failed', error);
+    }
+    return { message: 'Template saved.' };
+  },
+  deleteTemplate: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to remove a template.' });
+    const form = await request.formData();
+    const lane = String(form.get('lane') ?? '').trim();
+    const templateId = String(form.get('templateId') ?? '').trim();
+    const templates = await templatesFor(params.slug);
+    const forLane = templates[lane] ?? [];
+    const next = forLane.filter((template) => template.id !== templateId);
+    if (next.length === forLane.length) return fail(400, { error: 'Choose a valid template.' });
+    try {
+      await saveBoardSettings({ [`${projectPrefix(params.slug)}templates`]: JSON.stringify({ ...templates, [lane]: next }) });
+    } catch (error) {
+      return persistenceFailure('delete template failed', error);
+    }
+    return { message: 'Template removed.' };
+  },
+  createCardFromTemplate: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to create project cards.' });
+    if (await projectIsSourceOwned(params.slug)) return sourceLockedError();
+    const form = await request.formData();
+    const lane = String(form.get('lane') ?? '').trim();
+    const templateId = String(form.get('templateId') ?? '').trim();
+    const lanes = await validLanes(params.slug);
+    if (!lanes.includes(lane)) return fail(400, { error: 'Choose a valid list.' });
+    const templates = await templatesFor(params.slug);
+    const template = (templates[lane] ?? []).find((item) => item.id === templateId);
+    if (!template) return fail(400, { error: 'Choose a valid template.' });
+    const card = {
+      id: `card-${Date.now()}-${randomBytes(6).toString('hex')}`,
+      projectSlug: params.slug,
+      title: template.title,
+      details: template.details,
+      lane,
+      owner: '',
+      priority: template.priority,
+      dueDate: null,
+      dueComplete: false,
+      startDate: null,
+      archived: false,
+      checklist: template.checklist.map((item, index) => ({ ...item, id: `check-${Date.now()}-${index}-${randomBytes(3).toString('hex')}`, done: false })),
+      coverColor: template.coverColor,
+      tagIds: template.tagIds
+    };
+    try {
+      await createProjectCard(card);
+      await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'created', cardId: card.id, summary: `Created “${card.title}” from the “${template.name}” template.` });
+    } catch (error) {
+      return persistenceFailure('create card from template failed', error);
+    }
+    return { message: 'Card created from template.' };
   }
 };

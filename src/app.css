@@ -1929,3 +1929,14 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
 .project-search-icon { position: absolute; top: 50%; left: .55rem; width: .95rem; height: .95rem; color: var(--muted); transform: translateY(-50%); pointer-events: none; }
 .project-controls .project-search input { padding-left: 1.85rem; }
 .project-workspace.has-color-background .project-search-icon { color: #5e6c84; }
+
+/* A per-list template row inside the lane menu: the template name button
+   grows to fill the row (truncating a long name) while its delete button
+   stays a fixed square beside it, matching the tag-manager chip's name +
+   delete-X layout. .lane-menu-body button already forces width:100% for its
+   plain menu items, so the delete button needs an explicit override to let
+   .icon-only's own aspect-ratio sizing win. */
+.lane-menu-template-row { display: flex; align-items: center; gap: .25rem; }
+.lane-menu-template-row button:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lane-menu-body .lane-menu-template-row button.icon-only { flex: 0 0 auto; width: auto; color: var(--muted); }
+.lane-menu-body .lane-menu-template-row button.icon-only:hover { color: var(--accent-strong); }

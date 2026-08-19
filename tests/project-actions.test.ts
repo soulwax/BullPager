@@ -368,3 +368,71 @@ describe('WEB-T3 list and board actions', () => {
     expect(persistence.saveBoardSettings).not.toHaveBeenCalled();
   });
 });
+
+describe('card templates', () => {
+  const sourceCard = { id: 'card-1', projectSlug: 'demo', title: 'Report a bug', details: 'Steps to reproduce', lane: 'Backlog', owner: 'ada', priority: 'high', dueDate: null, startDate: null, archived: false, checklist: [{ id: 'c1', text: 'Repro steps', done: true }], tags: [{ id: 'tag-1', name: 'bug', color: '#F17878' }], coverColor: '#F17878', position: 0, createdAt: '', updatedAt: '' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]' });
+    persistence.listProjectCards.mockResolvedValue([sourceCard]);
+    persistence.saveBoardSettings.mockResolvedValue(undefined);
+    persistence.createProjectCard.mockResolvedValue(undefined);
+    persistence.recordProjectActivity.mockResolvedValue(undefined);
+  });
+
+  it('saves a card as a template scoped to its list', async () => {
+    const result = await actions.saveCardAsTemplate(context({ cardId: 'card-1', name: 'Bug report' }, 'editor'));
+    expect(result).toEqual({ message: 'Template saved.' });
+    const saved = JSON.parse(persistence.saveBoardSettings.mock.calls[0][0]['project_demo_templates']);
+    expect(saved.Backlog).toEqual([expect.objectContaining({ name: 'Bug report', title: 'Report a bug', details: 'Steps to reproduce', priority: 'high', coverColor: '#F17878', checklist: [{ id: 'c1', text: 'Repro steps' }], tagIds: ['tag-1'] })]);
+  });
+
+  it('rejects saving a template without a name', async () => {
+    const result = await actions.saveCardAsTemplate(context({ cardId: 'card-1', name: '  ' }, 'editor'));
+    expect(result).toMatchObject({ status: 400 });
+    expect(persistence.saveBoardSettings).not.toHaveBeenCalled();
+  });
+
+  it('rejects a list past its ten-template cap', async () => {
+    const full = Array.from({ length: 10 }, (_, index) => ({ id: `template-${index}`, name: `T${index}`, title: 't', details: '', priority: 'normal', coverColor: '', checklist: [], tagIds: [] }));
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]', 'project_demo_templates': JSON.stringify({ Backlog: full }) });
+    const result = await actions.saveCardAsTemplate(context({ cardId: 'card-1', name: 'One too many' }, 'editor'));
+    expect(result).toMatchObject({ status: 400 });
+    expect(persistence.saveBoardSettings).not.toHaveBeenCalled();
+  });
+
+  it('deletes a template by id and leaves the rest of the list untouched', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]', 'project_demo_templates': JSON.stringify({ Backlog: [{ id: 'template-1', name: 'Keep', title: '', details: '', priority: 'normal', coverColor: '', checklist: [], tagIds: [] }, { id: 'template-2', name: 'Remove', title: '', details: '', priority: 'normal', coverColor: '', checklist: [], tagIds: [] }] }) });
+    const result = await actions.deleteTemplate(context({ lane: 'Backlog', templateId: 'template-2' }, 'editor'));
+    expect(result).toEqual({ message: 'Template removed.' });
+    expect(persistence.saveBoardSettings).toHaveBeenCalledWith({ 'project_demo_templates': JSON.stringify({ Backlog: [{ id: 'template-1', name: 'Keep', title: '', details: '', priority: 'normal', coverColor: '', checklist: [], tagIds: [] }] }) });
+  });
+
+  it('rejects deleting a template that does not exist', async () => {
+    const result = await actions.deleteTemplate(context({ lane: 'Backlog', templateId: 'missing' }, 'editor'));
+    expect(result).toMatchObject({ status: 400 });
+    expect(persistence.saveBoardSettings).not.toHaveBeenCalled();
+  });
+
+  it('creates a new card from a template with a reset checklist and no owner', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]', 'project_demo_templates': JSON.stringify({ Backlog: [{ id: 'template-1', name: 'Bug report', title: 'Report a bug', details: 'Steps', priority: 'high', coverColor: '#F17878', checklist: [{ id: 'c1', text: 'Repro steps' }], tagIds: ['tag-1'] }] }) });
+    const result = await actions.createCardFromTemplate(context({ lane: 'Backlog', templateId: 'template-1' }, 'editor'));
+    expect(result).toEqual({ message: 'Card created from template.' });
+    expect(persistence.createProjectCard).toHaveBeenCalledWith(expect.objectContaining({ title: 'Report a bug', lane: 'Backlog', owner: '', priority: 'high', coverColor: '#F17878', tagIds: ['tag-1'], checklist: [expect.objectContaining({ text: 'Repro steps', done: false })] }));
+    expect(persistence.recordProjectActivity).toHaveBeenCalledWith(expect.objectContaining({ summary: expect.stringContaining('Bug report') }));
+  });
+
+  it('rejects creating from a template on a source-owned board', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]', 'project_demo_source': 'plan', 'project_demo_templates': JSON.stringify({ Backlog: [{ id: 'template-1', name: 'Bug report', title: 't', details: '', priority: 'normal', coverColor: '', checklist: [], tagIds: [] }] }) });
+    const result = await actions.createCardFromTemplate(context({ lane: 'Backlog', templateId: 'template-1' }, 'editor'));
+    expect(result).toMatchObject({ status: 403 });
+    expect(persistence.createProjectCard).not.toHaveBeenCalled();
+  });
+
+  it('rejects creating from an unknown template', async () => {
+    const result = await actions.createCardFromTemplate(context({ lane: 'Backlog', templateId: 'missing' }, 'editor'));
+    expect(result).toMatchObject({ status: 400 });
+    expect(persistence.createProjectCard).not.toHaveBeenCalled();
+  });
+});
