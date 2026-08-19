@@ -846,9 +846,9 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
   user-select: none;
 }
 .find-work-menu > summary::-webkit-details-marker { display: none; }
-.find-work-menu > summary::after { content: '⌄'; margin-left: .15rem; color: var(--muted); font-size: .75rem; }
+.find-work-chevron { margin-left: .15rem; color: var(--muted); transition: transform .16s ease; }
 .find-work-menu[open] > summary, .find-work-menu > summary:hover, .find-work-menu > summary:focus-visible { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 9%, var(--surface-0)); }
-.find-work-menu[open] > summary::after { content: '⌃'; }
+.find-work-menu[open] > summary .find-work-chevron { transform: rotate(180deg); }
 .find-work-icon { display: grid; width: 1.45rem; height: 1.45rem; place-items: center; border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--line)); border-radius: .35rem; color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: .95rem; line-height: 1; }
 .find-work-menu summary span:last-of-type { display: grid; gap: .05rem; text-align: left; }
 .find-work-menu summary strong { font-size: .74rem; line-height: 1.1; }
@@ -1034,7 +1034,7 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .file-thumb { display: block; width: 1.8rem; height: 1.8rem; flex: 0 0 auto; object-fit: cover; border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line)); border-radius: .35rem; background: #0b1118; }
 .file-type-icon, .file-grid-icon, .file-item-icon { display: grid; place-items: center; flex: 0 0 auto; border: 1px solid color-mix(in srgb, var(--file-type-color, var(--accent)) 48%, var(--line)); color: var(--file-type-color, var(--accent)); background: color-mix(in srgb, var(--file-type-color, var(--accent)) 10%, #0b1118); }
 .file-type-icon { width: 1.8rem; height: 1.8rem; border-radius: .35rem; }
-.file-type-icon b { font-size: .7rem; font-weight: 850; }
+.file-type-icon svg { width: 1rem; height: 1rem; }
 .file-type-icon small, .file-grid-icon small, .file-item-icon small { font-size: .42rem; font-weight: 850; letter-spacing: .04em; }
 .file-type-image { --file-type-color: #6ed7b1; }
 .file-type-pdf { --file-type-color: #f58a8a; }
@@ -1055,13 +1055,13 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .file-grid-item { display: grid; gap: .45rem; min-width: 0; padding: .6rem; border: 1px solid var(--line); border-radius: .55rem; color: inherit; background: var(--surface-1); text-align: left; }
 .file-grid-item:hover, .file-grid-item:focus-visible, .file-grid-item.active { border-color: color-mix(in srgb, var(--accent) 65%, var(--line)); background: var(--surface-2); }
 .file-grid-preview, .file-grid-icon { display: grid; width: 100%; aspect-ratio: 1.45; place-items: center; object-fit: cover; border-radius: .4rem; }
-.file-grid-icon b { font-size: 1.4rem; font-weight: 850; }
+.file-grid-icon svg { width: 1.75rem; height: 1.75rem; }
 .file-grid-item strong { overflow: hidden; color: #e4edf8; font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
 .file-grid-item small { color: var(--muted); font-size: .61rem; }
 .file-item-card { display: flex; gap: .8rem; align-items: center; min-width: 0; padding: .8rem; border: 1px solid var(--line); border-radius: .6rem; color: inherit; background: var(--surface-1); text-align: left; }
 .file-item-card:hover, .file-item-card:focus-visible, .file-item-card.active { border-color: color-mix(in srgb, var(--accent) 65%, var(--line)); background: var(--surface-2); }
 .file-item-preview, .file-item-icon { display: grid; width: 5.2rem; height: 4rem; flex: 0 0 auto; place-items: center; object-fit: cover; border-radius: .45rem; }
-.file-item-icon b { font-size: 1.35rem; font-weight: 850; }
+.file-item-icon svg { width: 1.75rem; height: 1.75rem; }
 .file-item-copy { display: grid; min-width: 0; flex: 1; gap: .25rem; }
 .file-item-copy strong { overflow: hidden; color: #edf4fc; font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
 .file-item-copy small { overflow: hidden; color: var(--muted); font-size: .67rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -1201,7 +1201,7 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .project-workspace .project-column-cards { min-height: 5rem; }
 .project-workspace .project-column.drop-target .project-column-cards { outline: 2px dashed color-mix(in srgb, var(--accent) 52%, var(--line)); outline-offset: -.35rem; border-radius: .45rem; }
 .project-workspace .drag-hint { display: inline-flex; gap: .2rem; align-items: center; margin-left: auto; color: color-mix(in srgb, var(--accent) 72%, var(--muted)); font-size: .58rem; font-weight: 750; }
-.project-workspace .drag-hint::before { content: '⠿'; font-size: .8rem; line-height: 1; }
+.project-workspace .drag-hint svg { width: .85rem; height: .85rem; }
 .project-workspace.has-project-background { position: relative; isolation: isolate; }
 .project-workspace.has-project-background::before { position: fixed; z-index: -2; inset: 0; content: ''; background: linear-gradient(180deg, rgb(5 10 18 / .72), rgb(5 10 18 / .88)), var(--project-bg-image) center / cover no-repeat; pointer-events: none; }
 .project-workspace.has-project-background::after { position: fixed; z-index: -1; inset: 0; content: ''; background: rgb(5 10 18 / .16); pointer-events: none; }
@@ -1226,7 +1226,8 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .project-hub-card:hover, .project-hub-card:focus-within { border-color: color-mix(in srgb, var(--accent) 58%, var(--line)); box-shadow: var(--shadow-md); }
 .project-hub-card-heading { display: flex; gap: .65rem; align-items: center; min-width: 0; }
 .project-hub-card.starred { border-color: color-mix(in srgb, #f4b860 55%, var(--line)); }
-.star-toggle { margin-left: auto; padding: 0; color: var(--muted); background: none; border: none; font-size: 1.2rem; line-height: 1; cursor: pointer; }
+.star-toggle { display: grid; margin-left: auto; padding: 0; place-items: center; color: var(--muted); background: none; border: none; cursor: pointer; }
+.star-toggle svg { width: 1.15rem; height: 1.15rem; }
 .star-toggle.active, .star-toggle:hover { color: #f4b860; }
 .project-mark { display: grid; width: 2.35rem; height: 2.35rem; flex: 0 0 auto; place-items: center; border-radius: .55rem; color: #07111c; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 58%, #ffffff)); font-size: .7rem; font-weight: 900; letter-spacing: .03em; }
 .project-hub-card h3 { margin: 0; overflow: hidden; font-size: 1.05rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -1271,8 +1272,8 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .card-activity li strong { color: var(--accent-strong); font-size: .68rem; text-transform: capitalize; }
 .card-activity li p { margin: .16rem 0; color: #d7e0ea; font-size: .72rem; line-height: 1.4; }
 .card-activity li time { color: var(--muted); font-size: .62rem; }
-.binary-file-icon.file-type-icon { gap: .35rem; }
-.binary-file-icon.file-type-icon b { font-size: 2.3rem; }
+.binary-file-icon.file-type-icon { width: 5rem; height: 5rem; gap: .35rem; }
+.binary-file-icon.file-type-icon svg { width: 2.6rem; height: 2.6rem; }
 .binary-file-icon.file-type-icon small { font-size: .62rem; }
 @media (max-width: 900px) { .card-editor-modal { width: min(680px, 62vw); } }
 @media (max-width: 640px) { .card-editor-modal { width: calc(100vw - .5rem); height: calc(100dvh - .5rem); max-height: calc(100dvh - .5rem); border-radius: .8rem 0 0 .8rem; } }
@@ -1450,7 +1451,7 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
   box-shadow: none;
 }
 .workspace-nav nav a.active { box-shadow: inset 0 -2px #fff; }
-.nav-launcher span { margin-right: .22rem; font-size: 1rem; line-height: .6; }
+.nav-launcher { display: inline-flex; align-items: center; gap: .35rem; }
 .nav-create {
   display: inline-flex;
   min-height: 2.25rem;
@@ -1506,7 +1507,7 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
   text-decoration: none;
 }
 .board-switcher:hover, .board-switcher:focus-visible { color: #fff; border-color: rgb(255 255 255 / .45); background: rgb(255 255 255 / .14); }
-.board-switcher span:first-child { font-size: .95rem; }
+.board-switcher svg { width: .95rem; height: .95rem; }
 .board-divider { width: 1px; height: 1.65rem; background: rgb(255 255 255 / .28); }
 .project-board-header .eyebrow { margin: 0 0 .02rem; color: rgb(234 250 255 / .74); font-size: .57rem; letter-spacing: .09em; }
 .project-board-header h1 { overflow: hidden; margin: 0; color: #fff; font-size: clamp(1.05rem, 2vw, 1.45rem); line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
@@ -1717,7 +1718,8 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 
 /* WEB-T3: list menu (sort/move-all/archive-all/copy/rename/WIP/add-list),
    board menu (star, inline rename, archive browser, activity panel). */
-.board-star { margin-right: .4rem; font-size: 1.35rem; }
+.board-star { margin-right: .4rem; }
+.board-star svg { width: 1.2rem; height: 1.2rem; }
 .board-name-button { padding: 0; color: inherit; background: none; border: none; font: inherit; cursor: pointer; }
 .board-name-button:hover { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 60%, transparent); text-underline-offset: .2rem; }
 .board-rename-form input { min-width: 14rem; font-size: 1.3rem; font-weight: 800; }
@@ -1845,3 +1847,61 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
 .nav-search-card-meta { color: var(--muted); font-size: .68rem; }
 .nav-search-status { margin: 0; padding: .6rem; color: var(--muted); font-size: .78rem; text-align: center; }
 @media (max-width: 900px) { .nav-search { display: none; } }
+
+/* ============================================================
+   Lucide icon system, lean headers, and uniform control heights.
+   Appended last so equal-specificity source order resolves here
+   over the several earlier editorial-redesign passes above. */
+
+/* Every icon renders as an inline <svg class="lucide-icon ...">. Fixing its
+   baseline once, globally, keeps every icon+text pairing in the app aligned
+   without hand-tuning gap/vertical-align per component. */
+.lucide-icon { display: inline-block; flex-shrink: 0; vertical-align: -2px; }
+
+/* A square, icon-only control. Deliberately has no fixed min-height of its
+   own: it inherits whatever height the surrounding row already resolves to
+   (a toolbar button, a nav link, a modal-heading button, ...) and uses
+   aspect-ratio to become exactly that tall and that wide, so an icon-only
+   button always matches the text buttons sitting beside it in the same row. */
+.icon-only {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  width: auto;
+  min-width: 0;
+  padding: 0;
+}
+.modal-heading > button.icon-only { padding: 0; font-size: inherit; }
+.graph-toolbar button.icon-only { padding: 0; }
+
+/* Lean headers: trim the vertical weight of the recurring page chrome
+   (top bar, workspace nav, board header, modal heading) without touching
+   content density inside cards, lists, or forms. */
+.topbar { padding-bottom: 1rem; margin-bottom: 1rem; }
+.workspace-nav { min-height: 3.3rem; padding-block: .3rem; }
+.workspace-nav nav a, .workspace-nav .account-link { min-height: 2.15rem; }
+.project-workspace > .topbar.project-board-header { min-height: 3rem; padding: .4rem .55rem .55rem; }
+.modal-heading { padding-bottom: .65rem; }
+.graph-header { padding-bottom: .8rem; }
+
+/* Buttons sharing a row should match height regardless of tag (<a> vs
+   <button>) or which page they came from. The generic .top-links row is
+   reused across the project hub, files, backlog, and settings headers, each
+   mixing .primary-button anchors with .quiet-button anchors/buttons that
+   otherwise resolve to different heights earlier in this file; the board
+   page's own .board-header-actions already has its own matched height, so
+   it is explicitly excluded here rather than double-set. */
+.top-links:not(.board-header-actions) .primary-button,
+.top-links:not(.board-header-actions) .quiet-button,
+.top-links:not(.board-header-actions) > a { min-height: 2.25rem; }
+
+/* Icons follow the same contrast treatment as their sibling controls on
+   colored/photo board backgrounds, matching board-header-actions and the
+   source-lock chip rather than staying at the muted gray meant for the
+   default midnight/ocean/light chrome. */
+.project-workspace.has-color-background .board-star,
+.project-workspace.has-project-background .board-star { color: rgb(255 255 255 / .85); }
+.project-workspace.has-color-background .board-star.active,
+.project-workspace.has-project-background .board-star.active { color: #ffd76b; }

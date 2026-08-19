@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { getBoardProject, loadBoardSettings, normalizeProjectFilePath, recordProjectActivity, renameProjectLanes, saveBoardSettings, upsertProjectFile } from '$lib/server/persistence';
-import { putProjectFileObject, projectFileObjectKey, r2Configured } from '$lib/server/r2';
+import { deleteProjectFile, getBoardProject, getProjectFileByPath, loadBoardSettings, normalizeProjectFilePath, recordProjectActivity, renameProjectLanes, saveBoardSettings, upsertProjectFile } from '$lib/server/persistence';
+import { deleteProjectFileObject, putProjectFileObject, projectFileObjectKey, r2Configured } from '$lib/server/r2';
 import { lanesFromSettings } from '$lib/projectState';
 import { projectBackgrounds } from '$lib/projectBackgrounds';
 
@@ -65,6 +65,7 @@ export const actions = {
     const extension = upload.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
     const path = normalizeProjectFilePath(`board-background/${Date.now()}-${randomBytes(4).toString('hex')}.${extension}`);
     const prefix = `project_${params.slug}_`;
+    const previousPath = (await loadBoardSettings())[`${prefix}background_custom_path`];
     try {
       const fileId = `file-${Date.now()}-${randomBytes(6).toString('hex')}`;
       const body = new Uint8Array(await upload.arrayBuffer());
@@ -75,6 +76,21 @@ export const actions = {
       await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId: '', summary: 'Uploaded a custom board background.' });
     } catch (error) {
       return persistenceFailure(error);
+    }
+    // Replacing a custom background otherwise orphans the previous upload —
+    // the file row and its R2 object — forever. Delete it only after the new
+    // one is confirmed saved, so a failed upload never leaves the board
+    // background-less.
+    if (previousPath && previousPath !== path) {
+      try {
+        const previousFile = await getProjectFileByPath(params.slug, previousPath);
+        if (previousFile) {
+          if (r2Configured()) await deleteProjectFileObject(projectFileObjectKey(params.slug, previousFile.id, previousFile.path)).catch(() => undefined);
+          await deleteProjectFile(params.slug, previousFile.id);
+        }
+      } catch (error) {
+        console.error('[background upload] could not clean up the previous background file', error);
+      }
     }
     return { message: 'Background uploaded.' };
   }

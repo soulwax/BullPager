@@ -1,5 +1,8 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+  import Plus from '@lucide/svelte/icons/plus';
+  import Search from '@lucide/svelte/icons/search';
   import type { SearchCardResult, UserRole } from '$lib/types';
 
   let { username = '', role }: { username?: string; role?: UserRole } = $props();
@@ -55,12 +58,12 @@
   </a>
   {#if username}
     <nav aria-label="Primary navigation">
-      <a class="nav-launcher" class:active={isActive('/projects') && !isActive('/projects/unity-plan')} href="/projects" aria-label="Open project boards"><span aria-hidden="true">⠿</span> Boards</a>
+      <a class="nav-launcher" class:active={isActive('/projects') && !isActive('/projects/unity-plan')} href="/projects" aria-label="Open project boards"><LayoutGrid /> Boards</a>
       <a class:active={isActive('/projects/unity-plan')} href="/projects/unity-plan">Unity board</a>
       {#if canManage}<a class:active={isActive('/settings')} href="/settings">Settings</a>{/if}
     </nav>
     <div class="nav-search" role="search" onfocusout={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) closeSearch(); }}>
-      <span class="nav-search-icon" aria-hidden="true">⌕</span>
+      <Search class="nav-search-icon" aria-hidden="true" />
       <input
         type="search"
         bind:value={query}
@@ -94,7 +97,7 @@
         </div>
       {/if}
     </div>
-    {#if canCreate}<a class="nav-create" href="/projects/new"><span aria-hidden="true">＋</span> Create</a>{/if}
+    {#if canCreate}<a class="nav-create" href="/projects/new"><Plus /> Create</a>{/if}
     <div class="workspace-account"><span>{username}</span>{#if canManage}<a href="/settings" class="account-link">Settings</a>{/if}<form method="POST" action="/?/logout"><button class="nav-signout" type="submit">Sign out</button></form></div>
   {:else}
     <span class="workspace-private">Private workspace</span>

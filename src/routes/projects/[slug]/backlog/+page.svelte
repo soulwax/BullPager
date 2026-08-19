@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { BoardProject, ProjectCard, ProjectTag } from '$lib/types';
+  import Check from '@lucide/svelte/icons/check';
+  import Circle from '@lucide/svelte/icons/circle';
 
   let { data }: { data: { project: BoardProject; cards: ProjectCard[]; tags: ProjectTag[] } } = $props();
   let query = $state('');
@@ -56,7 +58,7 @@
           {#if card.details}<p class="backlog-details">{card.details}</p>{/if}
           <details class="backlog-checklist" open={card.checklist.length > 0}>
             <summary>{checklistLabel(card)}</summary>
-            {#if card.checklist.length}<ol>{#each card.checklist as item}<li class:done={item.done}>{item.done ? '✓' : '○'} {item.text}</li>{/each}</ol>{:else}<p>No implementation checklist has been attached yet.</p>{/if}
+            {#if card.checklist.length}<ol>{#each card.checklist as item}<li class:done={item.done}>{#if item.done}<Check />{:else}<Circle />{/if} {item.text}</li>{/each}</ol>{:else}<p>No implementation checklist has been attached yet.</p>{/if}
           </details>
         </li>
       {/each}

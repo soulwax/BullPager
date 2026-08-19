@@ -6,7 +6,7 @@ export type ProjectBackground = {
    * Mutually exclusive with `src` — a background has a photo or a color, not both. */
   color?: string;
   /** Groups the option in the settings picker. */
-  kind: 'none' | 'color' | 'gradient' | 'photo';
+  kind: 'none' | 'color' | 'gradient' | 'pattern' | 'photo';
   credit: string;
 };
 
@@ -31,6 +31,12 @@ export const projectBackgrounds: ProjectBackground[] = [
   { id: 'gradient-berry', label: 'Berry', src: '', color: 'linear-gradient(160deg, #d84a91, #6e5dc6 60%, #3d3597)', kind: 'gradient', credit: 'Built-in' },
   { id: 'gradient-ember', label: 'Ember', src: '', color: 'linear-gradient(160deg, #e8912d, #cf513f 55%, #a83f31)', kind: 'gradient', credit: 'Built-in' },
   { id: 'gradient-midnight', label: 'Midnight glow', src: '', color: 'linear-gradient(160deg, #29a3cc, #6e5dc6 55%, #0a4faf)', kind: 'gradient', credit: 'Built-in' },
+
+  // Self-contained CSS textures — no image file, so these cost nothing to add
+  // and nothing to keep, unlike the curated photos below.
+  { id: 'pattern-grid', label: 'Grid', src: '', color: 'repeating-linear-gradient(0deg, rgb(255 255 255 / .07) 0 1px, transparent 1px 32px), repeating-linear-gradient(90deg, rgb(255 255 255 / .07) 0 1px, transparent 1px 32px) #26314a', kind: 'pattern', credit: 'Built-in' },
+  { id: 'pattern-dots', label: 'Dots', src: '', color: 'radial-gradient(circle, rgb(255 255 255 / .16) 2px, transparent 2.6px) 0 0/22px 22px, #4a3b82', kind: 'pattern', credit: 'Built-in' },
+  { id: 'pattern-weave', label: 'Weave', src: '', color: 'repeating-linear-gradient(45deg, rgb(255 255 255 / .06) 0 2px, transparent 2px 18px), repeating-linear-gradient(-45deg, rgb(255 255 255 / .06) 0 2px, transparent 2px 18px) #1f7a52', kind: 'pattern', credit: 'Built-in' },
 
   { id: 'mountain-night', label: 'Mountain night', src: '/assets/backgrounds/mountain-night.jpg', kind: 'photo', credit: 'Unsplash' },
   { id: 'forest-mist', label: 'Forest mist', src: '/assets/backgrounds/forest-mist.jpg', kind: 'photo', credit: 'Unsplash' },

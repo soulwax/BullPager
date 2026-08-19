@@ -2,6 +2,9 @@
   import type { BoardProject } from '$lib/types';
   import { projectBackgrounds } from '$lib/projectBackgrounds';
   import { invalidateAll } from '$app/navigation';
+  import Check from '@lucide/svelte/icons/check';
+  import Plus from '@lucide/svelte/icons/plus';
+  import X from '@lucide/svelte/icons/x';
 
   let { data, form }: { data: { slug: string; prefix: string; project: BoardProject; settings: Record<string, string>; created?: boolean }; form?: { message?: string; error?: string } } = $props();
   const setting = (name: string, fallback = '') => data.settings[`${data.prefix}${name}`] ?? fallback;
@@ -68,22 +71,22 @@
         <legend>Board background</legend>
         <p class="field-help">Choose a color, gradient, or photo for this board. Cards stay opaque and readable on every option.</p>
         <div class="background-swatch-grid">
-          <label class="background-swatch none-swatch" title="Plain midnight"><input type="radio" name="background" value="none" checked={setting('background', 'none') === 'none'} /><span class="swatch-check" aria-hidden="true">✓</span></label>
+          <label class="background-swatch none-swatch" title="Plain midnight"><input type="radio" name="background" value="none" checked={setting('background', 'none') === 'none'} /><span class="swatch-check" aria-hidden="true"><Check /></span></label>
           {#each projectBackgrounds.filter((background) => background.kind !== 'none') as background}
             <label class="background-swatch" class:photo-swatch={Boolean(background.src)} style={background.src ? `--swatch-image: url("${background.src}")` : `--swatch: ${background.color}`} title={background.label}>
               <input type="radio" name="background" value={background.id} checked={setting('background') === background.id} />
-              <span class="swatch-check" aria-hidden="true">✓</span>
+              <span class="swatch-check" aria-hidden="true"><Check /></span>
             </label>
           {/each}
           {#if customBackgroundUrl}
             <label class="background-swatch photo-swatch" style={`--swatch-image: url("${customBackgroundUrl}")`} title="Your uploaded image">
               <input type="radio" name="background" value="custom" checked={setting('background') === 'custom'} />
-              <span class="swatch-check" aria-hidden="true">✓</span>
+              <span class="swatch-check" aria-hidden="true"><Check /></span>
             </label>
           {/if}
           <label class="background-swatch upload-swatch" title="Upload your own image">
             <input type="file" accept="image/*" onchange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void uploadBackground(file); event.currentTarget.value = ''; }} />
-            <span class="upload-swatch-label">{customBackgroundUrl ? '+ Replace' : '+ Upload'}{#if backgroundUploadStatus}<small>{backgroundUploadStatus}</small>{/if}</span>
+            <span class="upload-swatch-label"><Plus /> {customBackgroundUrl ? 'Replace' : 'Upload'}{#if backgroundUploadStatus}<small>{backgroundUploadStatus}</small>{/if}</span>
           </label>
         </div>
         <p class="field-help">Custom uploads are stored with this project's files and shown just like a photo background.</p>
@@ -91,7 +94,7 @@
       <label>Milk-glass intensity <output class="range-output">{glassIntensity}%</output><input name="glassIntensity" type="range" min="0" max="100" step="1" bind:value={glassIntensity} /><small>Higher values blur and soften the background behind board surfaces. Classic color backgrounds use opaque lists instead and ignore this.</small></label>
       <label>Card density <select name="cardDensity"><option value="comfortable" selected={setting('density', 'comfortable') === 'comfortable'}>Comfortable</option><option value="compact" selected={setting('density') === 'compact'}>Compact</option></select></label>
       <label>Lane layout <select name="laneStyle"><option value="scroll" selected={setting('lane_style', 'scroll') === 'scroll'}>Horizontal scroll</option><option value="wrap" selected={setting('lane_style') === 'wrap'}>Wrap lanes</option></select></label>
-      <fieldset class="lane-editor wide-field"><legend>Board columns</legend><p class="field-help">Rename, add, or remove columns. Existing cards follow a renamed column.</p>{#each lanes as lane, index}<div class="lane-editor-row"><input name="laneName" value={lane.name} maxlength="48" aria-label={`Column ${index + 1} name`} oninput={(event) => { lanes[index] = { ...lanes[index], name: (event.currentTarget as HTMLInputElement).value }; lanes = [...lanes]; }} /><input type="hidden" name="laneOriginal" value={lane.original} />{#if lanes.length > 2}<button type="button" class="quiet-button danger" aria-label={`Remove ${lane.name || `column ${index + 1}`}`} onclick={() => removeLane(index)}>×</button>{/if}</div>{/each}<button type="button" class="quiet-button lane-add-button" disabled={lanes.length >= 8} onclick={addLane}>+ Add column</button></fieldset>
+      <fieldset class="lane-editor wide-field"><legend>Board columns</legend><p class="field-help">Rename, add, or remove columns. Existing cards follow a renamed column.</p>{#each lanes as lane, index}<div class="lane-editor-row"><input name="laneName" value={lane.name} maxlength="48" aria-label={`Column ${index + 1} name`} oninput={(event) => { lanes[index] = { ...lanes[index], name: (event.currentTarget as HTMLInputElement).value }; lanes = [...lanes]; }} /><input type="hidden" name="laneOriginal" value={lane.original} />{#if lanes.length > 2}<button type="button" class="quiet-button danger icon-only" aria-label={`Remove ${lane.name || `column ${index + 1}`}`} onclick={() => removeLane(index)}><X /></button>{/if}</div>{/each}<button type="button" class="quiet-button lane-add-button" disabled={lanes.length >= 8} onclick={addLane}><Plus /> Add column</button></fieldset>
       <label class="check"><input type="checkbox" name="showOutcomes" checked={setting('show_outcomes', 'true') !== 'false'} /> Show card outcomes</label>
       <button type="submit">Save project settings</button>
     </form>
