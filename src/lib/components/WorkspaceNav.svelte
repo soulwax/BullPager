@@ -10,7 +10,7 @@
   let { username = '', role }: { username?: string; role?: UserRole } = $props();
   const canManage = $derived(role === 'superadmin' || role === 'admin');
   const canCreate = $derived(role === 'superadmin' || role === 'admin' || role === 'editor');
-  const isActive = (path: string) => path === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(path);
+  const isActive = (path: string) => page.url.pathname.startsWith(path);
 
   let query = $state('');
   let results = $state<SearchCardResult[]>([]);
@@ -60,8 +60,8 @@
   </a>
   {#if username}
     <nav aria-label="Primary navigation">
-      <a class="nav-launcher" class:active={isActive('/projects') && !isActive('/projects/unity-plan')} href="/projects" aria-label="Open project boards"><LayoutGrid /> Boards</a>
-      <a class:active={isActive('/projects/unity-plan')} href="/projects/unity-plan">Unity board</a>
+      <a class="nav-launcher" class:active={page.url.pathname === '/'} href="/" aria-label="All boards"><LayoutGrid /> Boards</a>
+      <a class:active={isActive('/plan')} href="/plan">Plan</a>
       {#if canManage}<a class:active={isActive('/settings')} href="/settings">Settings</a>{/if}
     </nav>
     <div class="nav-search" role="search" onfocusout={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) closeSearch(); }}>

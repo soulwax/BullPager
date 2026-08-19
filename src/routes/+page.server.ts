@@ -1,25 +1,51 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { endSession, sessionCookie } from '$lib/server/auth';
-import { loadPlan, readSources, sourcePaths } from '$lib/server/plan';
-import { buildPreview, buildProposedSource, replaceValidated, sourceHash, validateTransition, type TransitionRequest } from '$lib/server/transition';
-import { persistenceEnabled, revokeAllSessionsForUser, savePacketNote, saveTransition, syncUnityPlannerCards } from '$lib/server/persistence';
-import type { PacketState } from '$lib/types';
+import { listBoardProjects, listProjectCounts, listStarredProjectSlugs, revokeAllSessionsForUser, setProjectStar } from '$lib/server/persistence';
+import { groupProjects } from '$lib/projectAccess';
 
-export async function load() {
-  const plan = await loadPlan();
-  if (persistenceEnabled() && plan.valid && plan.packets.length) {
-    try {
-      await syncUnityPlannerCards(plan.packets, { sourceDigest: plan.sourceDigest });
-    } catch (error) {
-      // The planner remains usable if a transient database failure occurs;
-      // the next load will retry the additive sync.
-      console.error('[planner sync] unable to mirror packets into the board', error);
-    }
-  }
-  throw redirect(303, '/projects/unity-plan');
+/**
+ * The site's front door is the project list.
+ *
+ * It used to redirect straight to the Unity board, which made one project the
+ * whole application: the board was the home page, the nav hard-coded a link to
+ * it, and every other project was reachable only through a secondary hub. The
+ * plan-file tool that lived here moved to `/plan`.
+ *
+ * There is one project today. The point of this page is that nothing about the
+ * shape of the app says so.
+ */
+export async function load({ locals }) {
+  const username = locals.username ?? '';
+  const role = locals.role ?? '';
+  const [projects, starred, counts] = await Promise.all([
+    listBoardProjects(),
+    listStarredProjectSlugs(username),
+    listProjectCounts()
+  ]);
+  return {
+    groups: groupProjects(projects, { username, role, starred }),
+    counts,
+    starred: [...starred],
+    username,
+    role
+  };
 }
 
 export const actions = {
+  toggleStar: async ({ request, locals }) => {
+    if (!locals.username) return fail(401, { error: 'Sign in to star a project.' });
+    const form = await request.formData();
+    const slug = String(form.get('slug') ?? '').trim();
+    const starred = String(form.get('starred') ?? 'true') === 'true';
+    if (!slug) return fail(400, { error: 'Choose a project.' });
+    try {
+      await setProjectStar(locals.username, slug, starred);
+    } catch (error) {
+      console.error('[project star] toggle failed', error);
+      return fail(503, { error: 'The database is temporarily unavailable. Try again shortly.' });
+    }
+    return { message: starred ? 'Board starred.' : 'Board unstarred.' };
+  },
   logout: async ({ cookies }) => {
     await endSession(cookies.get(sessionCookie));
     cookies.delete(sessionCookie, { path: '/' });
@@ -33,78 +59,5 @@ export const actions = {
     await revokeAllSessionsForUser(locals.username);
     cookies.delete(sessionCookie, { path: '/' });
     throw redirect(303, '/login');
-  },
-  previewTransition: async ({ request }) => {
-    const form = await request.formData();
-    const packetId = String(form.get('packetId') ?? '');
-    const nextState = String(form.get('nextState') ?? '') as PacketState;
-    const owner = String(form.get('owner') ?? '');
-    const evidence = String(form.get('evidence') ?? '');
-    const remainder = String(form.get('remainder') ?? '');
-    const plan = await loadPlan();
-    const packet = plan.packets.find((item) => item.id === packetId);
-    if (!packet) return fail(400, { errors: ['Select a valid packet.'] });
-    const transition: TransitionRequest = { packetId, nextState, owner, evidence, remainder };
-    const errors = validateTransition(packet, transition, plan.readyIds.includes(packetId));
-    if (errors.length) return fail(400, { errors, values: transition });
-    const [unity] = await readSources();
-    try {
-      return { preview: buildPreview(unity, packet, transition, plan.readyIds.includes(packetId)), values: transition };
-    } catch (error) {
-      return fail(400, { errors: [error instanceof Error ? error.message : 'Unable to create preview.'], values: transition });
-    }
-  },
-  saveNote: async ({ request }) => {
-    if (!persistenceEnabled()) return fail(503, { errors: ['Hosted persistence is not configured. Add DATABASE_URL to save notes.'] });
-    const form = await request.formData();
-    const packetId = String(form.get('packetId') ?? '');
-    const author = String(form.get('author') ?? '').trim() || 'planner';
-    const body = String(form.get('body') ?? '').trim();
-    const plan = await loadPlan();
-    if (!plan.packets.some((packet) => packet.id === packetId)) return fail(400, { errors: ['Select a valid packet.'] });
-    if (!body) return fail(400, { errors: ['Write a note before saving.'] });
-    if (body.length > 2000) return fail(400, { errors: ['Keep notes under 2,000 characters.'] });
-    try {
-      await savePacketNote(packetId, author.slice(0, 120), body);
-      return { message: `Note saved for ${packetId}.` };
-    } catch (error) {
-      return fail(500, { errors: [error instanceof Error ? error.message : 'Unable to save note.'] });
-    }
-  },
-  applyTransition: async ({ request }) => {
-    if (process.env.VERCEL && !persistenceEnabled()) return fail(503, { errors: ['Hosted persistence is not configured. Add DATABASE_URL to enable saved transitions.'] });
-    const form = await request.formData();
-    const packetId = String(form.get('packetId') ?? '');
-    const confirmation = String(form.get('confirmation') ?? '');
-    const expectedHash = String(form.get('sourceHash') ?? '');
-    const transition: TransitionRequest = {
-      packetId,
-      nextState: String(form.get('nextState') ?? '') as PacketState,
-      owner: String(form.get('owner') ?? ''),
-      evidence: String(form.get('evidence') ?? ''),
-      remainder: String(form.get('remainder') ?? '')
-    };
-    if (confirmation !== packetId) return fail(400, { errors: ['Type the exact packet ID to apply this preview.'], values: transition });
-    const plan = await loadPlan();
-    const packet = plan.packets.find((item) => item.id === packetId);
-    if (!packet) return fail(400, { errors: ['Select a valid packet.'], values: transition });
-    const [unity] = await readSources();
-    if (sourceHash(unity) !== expectedHash) return fail(409, { errors: ['The source changed after preview. Reload and create a new preview.'], values: transition });
-    try {
-      const proposed = buildProposedSource(unity, packet, transition, plan.readyIds.includes(packetId));
-      if (process.env.VERCEL) {
-        await saveTransition({ packetId, nextState: transition.nextState, owner: transition.owner, evidence: transition.evidence, remainder: transition.remainder, sourceHash: expectedHash });
-        return { applied: packetId, message: `${packetId} updated and saved to the hosted project database.` };
-      }
-      const { unityPath } = sourcePaths();
-      await replaceValidated(unityPath, proposed, async (temporary) => {
-        const { readFile } = await import('node:fs/promises');
-        const checked = await readFile(temporary, 'utf8');
-        if (!checked.includes(`| ${packetId} | ${transition.nextState} |`)) throw new Error('Temporary proposal failed ledger validation.');
-      });
-      return { applied: packetId, message: `${packetId} updated. The source was replaced atomically.` };
-    } catch (error) {
-      return fail(400, { errors: [error instanceof Error ? error.message : 'Unable to apply transition.'], values: transition });
-    }
   }
 };

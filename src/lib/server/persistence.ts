@@ -430,6 +430,22 @@ export async function listBoardUsers(): Promise<BoardUser[]> {
   return rows.map((row) => ({ username: row.username, role: row.role as UserRole, createdAt: row.createdAt }));
 }
 
+/** Per-project card totals for the board list. One grouped query rather than
+ * one per project, so the home page cost does not grow with the board count. */
+export async function listProjectCounts(): Promise<Record<string, { active: number; total: number }>> {
+  if (!databaseConfigured()) return {};
+  await ensureSchema();
+  const rows = await requireDatabase()
+    .select({
+      slug: boardProjectCards.projectSlug,
+      total: sql<number>`count(*)::int`,
+      active: sql<number>`count(*) filter (where ${boardProjectCards.archived} = false)::int`
+    })
+    .from(boardProjectCards)
+    .groupBy(boardProjectCards.projectSlug);
+  return Object.fromEntries(rows.map((row) => [row.slug, { active: Number(row.active), total: Number(row.total) }]));
+}
+
 export async function listBoardProjects(): Promise<BoardProject[]> {
   if (!databaseConfigured()) return [];
   await ensureSchema();
@@ -599,7 +615,22 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
     // every packet's short handle list with the full one-sitting breakdown) —
     // a positional id like `ward-00-handle-2` would silently reattach an
     // earlier tick to a completely different new handle at the same index.
-    const fromHandles = (packet.handles ?? []).map((handle) => ({ id: `${packet.id.toLowerCase()}-${handle}`, text: handle, done: false }));
+    // Once a packet has had its detail pass, each handle owns a step of the
+    // form "N. `handle` — instruction". The checklist is the human's actual
+    // worklist, so it carries that instruction rather than the bare slug; the
+    // slug stays on the front for citing the handle in evidence. Un-detailed
+    // packets keep showing the slug alone until their pass lands.
+    const detailByHandle = new Map<string, string>(
+      [...packet.steps.matchAll(/^\d+\.\s+`([a-z0-9-]+)`\s+—\s+(.+)$/gm)].map((match) => [match[1], match[2].trim()])
+    );
+    const fromHandles = (packet.handles ?? []).map((handle) => {
+      const detail = detailByHandle.get(handle);
+      return {
+        id: `${packet.id.toLowerCase()}-${handle}`,
+        text: (detail ? `${handle} — ${detail}` : handle).slice(0, 240),
+        done: false
+      };
+    });
     if (fromHandles.length) return fromHandles.slice(0, MAX_PACKET_CHECKLIST_ITEMS);
     return packet.steps
       .split(/\r?\n/)

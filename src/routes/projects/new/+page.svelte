@@ -27,7 +27,7 @@
       <h1>Start with a useful shape.</h1>
       <p class="subtitle">Choose a workflow that matches the work. Every project starts with one board, one project cloud, and an optional graph view; you can rename columns and adjust the look later.</p>
     </div>
-    <a class="quiet-button settings-back" href="/settings">Back to settings</a>
+    <a class="quiet-button settings-back" href="/">Back to boards</a>
   </header>
 
   {#if form?.error}<p class="action-errors" role="alert">{form.error}</p>{/if}

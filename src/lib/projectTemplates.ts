@@ -1,10 +1,13 @@
+import type { BoardThemeId } from '$lib/boardAppearance';
+
 export type ProjectTemplate = {
   id: string;
   name: string;
   summary: string;
   bestFor: string;
   cadence: 'weekly' | 'biweekly' | 'monthly';
-  theme: 'midnight' | 'ocean' | 'light';
+  /** Any board theme, not just the original three — see `boardAppearance`. */
+  theme: BoardThemeId;
   lanes: string[];
 };
 
@@ -64,6 +67,51 @@ export const projectTemplates: ProjectTemplate[] = [
     theme: 'midnight',
     lanes: ['Concept', 'Prototype', 'Production', 'QA', 'Shipped']
   },
+  {
+    id: 'implementation-plan',
+    name: 'Implementation plan',
+    summary: 'Track packets of work from an authored plan through evidence and closure.',
+    bestFor: 'Plan-driven builds where each card needs proof before it closes',
+    cadence: 'weekly',
+    theme: 'slate',
+    lanes: ['Backlog', 'In progress', 'Blocked', 'Done']
+  },
+  {
+    id: 'personal-tasks',
+    name: 'Personal tasks',
+    summary: 'A small private board for the things only you are tracking.',
+    bestFor: 'Solo work, errands, and everything not worth a meeting',
+    cadence: 'weekly',
+    theme: 'paper',
+    lanes: ['To do', 'Doing', 'Done']
+  },
+  {
+    id: 'bug-triage',
+    name: 'Bug triage',
+    summary: 'Give every report a severity, an owner, and a verified fix.',
+    bestFor: 'Maintenance, QA, and on-call rotations',
+    cadence: 'weekly',
+    theme: 'forest',
+    lanes: ['Reported', 'Triaged', 'Fixing', 'Verifying', 'Closed']
+  },
+  {
+    id: 'writing-project',
+    name: 'Writing project',
+    summary: 'Carry a long piece from outline through revision to publication.',
+    bestFor: 'Books, documentation sets, and long-form research',
+    cadence: 'monthly',
+    theme: 'nebula',
+    lanes: ['Outline', 'Drafting', 'Revising', 'Final', 'Published']
+  },
+  {
+    id: 'blank-board',
+    name: 'Blank board',
+    summary: 'Three columns and nothing else. Bring your own structure.',
+    bestFor: 'Anyone who already knows the shape of their work',
+    cadence: 'weekly',
+    theme: 'midnight',
+    lanes: ['To do', 'Doing', 'Done']
+  }
 ];
 
 export function templateById(id: string | null | undefined): ProjectTemplate {

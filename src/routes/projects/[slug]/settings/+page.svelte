@@ -50,7 +50,7 @@
 <main class="settings-shell">
   <header class="topbar">
     <div><p class="eyebrow">PROJECT SETTINGS</p><h1>{data.project.name}</h1><p class="subtitle">Tune the workflow, appearance, and defaults for this project only. Every appearance option here is also on the board itself — press <kbd>V</kbd> or use the palette button in the board header.</p></div>
-    <div class="top-links"><a class="quiet-button settings-back" href="/settings">All projects</a><a class="quiet-button settings-back" href="/">Back to board</a></div>
+    <div class="top-links"><a class="quiet-button settings-back" href="/">All boards</a><a class="quiet-button settings-back" href={`/projects/${data.slug}`}>Back to board</a></div>
   </header>
 
   {#if data.created}<p class="success" role="status">Project created. Review the defaults below before inviting collaborators.</p>{/if}

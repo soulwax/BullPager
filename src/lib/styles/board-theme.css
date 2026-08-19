@@ -787,8 +787,11 @@
   z-index: 70;
   top: 3.9rem;
   right: clamp(.5rem, 2vw, 1.4rem);
-  /* <dialog> ships margin:auto and its own border; both are reset here so the
-     panel stays anchored under its trigger instead of centering itself. */
+  /* <dialog>'s UA style is `left: 0; right: 0; margin: auto`. Resetting only
+     the margin left `left: 0` in play, and a fixed box with both offsets plus
+     a width resolves against `left` — which anchored the panel over the first
+     lane instead of under its trigger. Both have to be released. */
+  left: auto;
   margin: 0;
   display: grid;
   gap: .55rem;
@@ -809,6 +812,9 @@
 .appearance-panel-heading h2 { margin: 0; color: var(--overlay-ink, inherit); font-size: .85rem; letter-spacing: -.01em; }
 .appearance-panel-heading button { min-height: 1.7rem; padding: 0 .3rem; }
 .appearance-group { display: grid; gap: .3rem; }
+/* The resolved-card-style hint is secondary to the buttons above it; at the
+   panel's inherited body size it read as a heading. */
+.appearance-group .appearance-note { margin: 0; color: var(--overlay-ink-soft, var(--muted)); font-size: .64rem; line-height: 1.35; }
 .appearance-group > span {
   color: var(--overlay-ink-soft, var(--muted));
   font-size: .61rem;

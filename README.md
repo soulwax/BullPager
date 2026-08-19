@@ -70,6 +70,28 @@ explicitly. The GitHub login `soulwax` is always mapped to `superadmin`; other
 GitHub identities are linked to an existing username or provisioned as
 `viewer` users. OAuth state is protected with a short-lived HTTP-only cookie.
 
+### Instant login for local visual checks
+
+Driving the real app in a headless browser — to see an appearance change
+against live data rather than a static fixture — needs a session without a
+login form. Set `DEV_LOGIN_KEY` in your local `.env` to at least 24 random
+characters (`openssl rand -hex 24`) and open:
+
+```text
+/auth/dev?key=$DEV_LOGIN_KEY[&as=<username>][&role=<role>][&next=/projects/<slug>]
+```
+
+It issues a normal signed session cookie and redirects. Defaults to `APP_LOGIN`
+as `superadmin`; `next` only accepts same-origin paths.
+
+This is an authentication bypass, so it fails closed three ways: the route is
+compiled out of every build (`dev` is inlined as `false` by `vite build`, so
+`vite preview` and the Vercel deployment have no such endpoint), it stays off
+unless `DEV_LOGIN_KEY` is set locally, and every rejection returns 404 rather
+than 401 so the route is indistinguishable from one that does not exist. The
+gates are covered by `tests/dev-login.test.ts`. Never set `DEV_LOGIN_KEY` in
+Vercel.
+
 The role hierarchy is enforced on the server: `superadmin` can create and
 promote administrators but no account can be promoted to `superadmin`. Admins
 can use the same system settings and user directory, while invited admins have
