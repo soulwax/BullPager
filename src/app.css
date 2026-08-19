@@ -1940,3 +1940,22 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
 .lane-menu-template-row button:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lane-menu-body .lane-menu-template-row button.icon-only { flex: 0 0 auto; width: auto; color: var(--muted); }
 .lane-menu-body .lane-menu-template-row button.icon-only:hover { color: var(--accent-strong); }
+
+/* Trello parity: a finished checklist and an urgent due date read as solid
+   filled pills at a glance, the same way Trello's own card badges do —
+   rather than requiring a second look at otherwise-identical outlined text
+   to tell "7/7" from "0/6", or "overdue" from "next month". */
+.checklist-summary.checklist-complete span { display: inline-flex; align-items: center; gap: .25rem; padding: .1rem .4rem; border-radius: 99px; color: #0b2b1c; background: var(--good); }
+.checklist-summary.checklist-complete progress { accent-color: var(--good); }
+.checklist-summary-inline.checklist-complete { padding: .1rem .4rem !important; border-radius: 99px; color: #0b2b1c !important; background: var(--good); }
+
+.due-date { border-radius: 99px; }
+.due-overdue { color: #2b1208; background: color-mix(in srgb, #ffc19e 75%, transparent); border-color: transparent; }
+.due-today { color: #2b1f08; background: color-mix(in srgb, #ffd28b 75%, transparent); border-color: transparent; }
+.due-date.due-complete { color: #0b2b1c; background: color-mix(in srgb, var(--good) 55%, transparent); border-color: transparent; text-decoration: none; }
+.due-complete-badge { color: #0b2b1c; background: var(--good); }
+
+/* The list-header count now shows a bare number (Trello's own style), not
+   "N cards" — the fuller phrase moved to aria-label so screen readers still
+   get it, sighted users get a smaller, more scannable badge. */
+small.over-wip { background: color-mix(in srgb, #ff9b7a 30%, transparent) !important; }
