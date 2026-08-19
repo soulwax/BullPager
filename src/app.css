@@ -1981,3 +1981,11 @@ small.over-wip { background: color-mix(in srgb, #ff9b7a 30%, transparent) !impor
 }
 .tag-chip.tag-chip-compact::before { display: none; }
 .label-text-toggle.active { border-color: var(--accent); color: var(--accent-strong); }
+
+/* Trello's other signature cover style: a full image banner, not just a
+   color strip — chosen from the card's own image attachments. Height and
+   background properties only, so it still inherits whichever theme's margin
+   already pulls a plain color .card-cover flush to the card's edges. */
+.card-cover.card-cover-image { height: 5.5rem; background-color: var(--surface-1, #1a222d); background-size: cover; background-position: center; box-shadow: none; }
+.project-board-compact .card-cover.card-cover-image { height: 3.5rem; }
+.cover-swatch-image { background-size: cover; background-position: center; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .16); }

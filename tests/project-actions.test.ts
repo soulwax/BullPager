@@ -91,6 +91,20 @@ describe('project card actions', () => {
     expect(persistence.recordProjectActivity).not.toHaveBeenCalled();
   });
 
+  it('accepts one of the card\'s own attachment URLs as an image cover', async () => {
+    const result = await actions.createCard(context({ title: 'Cover me', lane: 'Ready', coverColor: '/projects/demo/files/raw?path=attachments%2Fcard-1%2Fbanner.png' }, 'editor'));
+    expect(result).toEqual({ message: 'Card saved.' });
+    expect(persistence.createProjectCard).toHaveBeenCalledWith(expect.objectContaining({ coverColor: '/projects/demo/files/raw?path=attachments%2Fcard-1%2Fbanner.png' }));
+  });
+
+  it('rejects a cover pointed at another project or an arbitrary URL', async () => {
+    const other = await actions.createCard(context({ title: 'Nope', lane: 'Ready', coverColor: '/projects/someone-elses-board/files/raw?path=x.png' }, 'editor'));
+    expect(other).toMatchObject({ status: 400 });
+    const external = await actions.createCard(context({ title: 'Nope', lane: 'Ready', coverColor: 'https://evil.example/x.png' }, 'editor'));
+    expect(external).toMatchObject({ status: 400 });
+    expect(persistence.createProjectCard).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid due dates without writing', async () => {
     const result = await actions.createCard(context({ title: 'Bad date', lane: 'Ready', dueDate: '2026-02-30' }, 'editor'));
     expect(result).toMatchObject({ status: 400 });
@@ -444,5 +458,34 @@ describe('card templates', () => {
     const result = await actions.createCardFromTemplate(context({ lane: 'Backlog', templateId: 'missing' }, 'editor'));
     expect(result).toMatchObject({ status: 400 });
     expect(persistence.createProjectCard).not.toHaveBeenCalled();
+  });
+});
+
+describe('image cover cleanup on attachment removal', () => {
+  const coveredCard = { id: 'card-1', projectSlug: 'demo', title: 'Has a cover', details: '', lane: 'Backlog', owner: 'ada', priority: 'normal', dueDate: null, startDate: null, archived: false, checklist: [], tags: [], coverColor: '/projects/demo/files/raw?path=banner.png', position: 0, createdAt: '', updatedAt: '' };
+  const attachment = { id: 'attach-1', projectSlug: 'demo', cardId: 'card-1', name: 'banner.png', url: '/projects/demo/files/raw?path=banner.png', mimeType: 'image/png', size: 1024, createdBy: 'ada', createdAt: '' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    persistence.listProjectCards.mockResolvedValue([coveredCard]);
+    persistence.listCardAttachments.mockResolvedValue([attachment]);
+    persistence.updateProjectCard.mockResolvedValue(undefined);
+    persistence.deleteCardAttachment.mockResolvedValue(undefined);
+    persistence.recordProjectActivity.mockResolvedValue(undefined);
+  });
+
+  it('clears the card cover when its source attachment is deleted', async () => {
+    const result = await actions.deleteAttachment(context({ id: 'attach-1', cardId: 'card-1' }, 'editor'));
+    expect(result).toEqual({ message: 'Attachment removed.' });
+    expect(persistence.updateProjectCard).toHaveBeenCalledWith(expect.objectContaining({ id: 'card-1', coverColor: '' }));
+    expect(persistence.deleteCardAttachment).toHaveBeenCalledWith('demo', 'attach-1');
+  });
+
+  it('leaves the cover untouched when deleting an unrelated attachment', async () => {
+    persistence.listCardAttachments.mockResolvedValue([attachment, { ...attachment, id: 'attach-2', name: 'other.png', url: '/projects/demo/files/raw?path=other.png' }]);
+    const result = await actions.deleteAttachment(context({ id: 'attach-2', cardId: 'card-1' }, 'editor'));
+    expect(result).toEqual({ message: 'Attachment removed.' });
+    expect(persistence.updateProjectCard).not.toHaveBeenCalled();
+    expect(persistence.deleteCardAttachment).toHaveBeenCalledWith('demo', 'attach-2');
   });
 });

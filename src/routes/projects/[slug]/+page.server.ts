@@ -43,6 +43,14 @@ export async function load({ params, url, locals }) {
   return { project, prefix, settings, sourceOwned: isSourceOwnedProject(settings, prefix), wipLimits, templates, starred: starred.has(params.slug), lanes: mergeProjectLanes(configuredLanes, cards), cards, tags, members: await listBoardUsers(), activity: await listProjectActivity(params.slug), comments: await listProjectComments(params.slug), attachments: await listCardAttachments(params.slug), viewState: await loadProjectViewState(params.slug, username), canEdit: canEdit(locals.role), username, role: locals.role ?? '', openCard, created: url.searchParams.get('created') === '1' };
 }
 
+/** A cover is either a hex color or the URL of one of the card's own image
+ * attachments — `attachFile` already only ever stores same-project,
+ * same-origin `/files/raw?path=` URLs, so accepting that exact prefix here
+ * (rather than any URL) means an image cover can never point off-site. */
+function validCoverColor(value: string, projectSlug: string) {
+  return !value || /^#[0-9a-f]{6}$/i.test(value) || value.startsWith(`/projects/${projectSlug}/files/raw?path=`);
+}
+
 function readCard(form: FormData, projectSlug: string, fallbackId?: string) {
   const title = String(form.get('title') ?? '').trim();
   const details = String(form.get('details') ?? '').trim();
@@ -100,7 +108,7 @@ export const actions = {
     if (await projectIsSourceOwned(params.slug)) return sourceLockedError();
     const card = readCard(await request.formData(), params.slug);
     const lanes = await validLanes(params.slug);
-    if (!validProjectCardInput(card, lanes) || (card.coverColor && !/^#[0-9a-f]{6}$/i.test(card.coverColor))) return fail(400, { error: 'Add a title and choose valid lane, priority, due-date, and cover values.' });
+    if (!validProjectCardInput(card, lanes) || !validCoverColor(card.coverColor, params.slug)) return fail(400, { error: 'Add a title and choose valid lane, priority, due-date, and cover values.' });
     const owner = card.owner.slice(0, 120) || locals.username || 'unassigned';
     try {
       await createProjectCard({ ...card, owner });
@@ -116,7 +124,7 @@ export const actions = {
     const id = String(form.get('id') ?? '').trim();
     let card = readCard(form, params.slug, id);
     const lanes = await validLanes(params.slug);
-    if (!id || !validProjectCardInput(card, lanes) || (card.coverColor && !/^#[0-9a-f]{6}$/i.test(card.coverColor))) return fail(400, { error: 'Choose valid card values.' });
+    if (!id || !validProjectCardInput(card, lanes) || !validCoverColor(card.coverColor, params.slug)) return fail(400, { error: 'Choose valid card values.' });
     const existing = (await listProjectCards(params.slug)).find((item) => item.id === id);
     if (!existing) return fail(404, { error: 'That card no longer exists. Refresh the board.' });
     if (await projectIsSourceOwned(params.slug)) card = applySourceLock(card, existing);
@@ -357,6 +365,12 @@ export const actions = {
     const cardId = String(form.get('cardId') ?? '').trim();
     if (!id) return fail(400, { error: 'Choose an attachment.' });
     try {
+      // An image cover points at its source attachment's URL; deleting that
+      // attachment must clear the cover too, or the card is left pointing at
+      // a broken image with no way back to it from the UI.
+      const card = (await listProjectCards(params.slug)).find((item) => item.id === cardId);
+      const attachment = (await listCardAttachments(params.slug, cardId)).find((item) => item.id === id);
+      if (card && attachment && card.coverColor === attachment.url) await updateProjectCard({ ...card, coverColor: '' });
       await deleteCardAttachment(params.slug, id);
       await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId, summary: 'Removed a card attachment.' });
     } catch (error) {
