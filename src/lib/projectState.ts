@@ -79,6 +79,7 @@ export function sanitizeProjectViewState(raw: unknown): ProjectViewState {
   }
   return {
     density: source.density === 'compact' ? 'compact' : source.density === 'comfortable' ? 'comfortable' : undefined,
+    labelText: typeof source.labelText === 'boolean' ? source.labelText : undefined,
     collapsed,
     query: typeof source.query === 'string' ? source.query.trim().slice(0, 120) : undefined,
     priority: ['all', 'low', 'normal', 'high', 'urgent'].includes(String(source.priority)) ? source.priority as ProjectViewState['priority'] : undefined,

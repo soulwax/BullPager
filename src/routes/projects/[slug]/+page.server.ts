@@ -312,6 +312,7 @@ export const actions = {
     if (!locals.username) return fail(401, { error: 'Sign in to save your board view.' });
     const form = await request.formData();
     const density = String(form.get('density') ?? 'comfortable');
+    const labelText = String(form.get('labelText') ?? 'false') === 'true';
     const query = String(form.get('query') ?? '').trim().slice(0, 120);
     const priority = String(form.get('priority') ?? 'all');
     const tag = String(form.get('tag') ?? 'all').trim().slice(0, 120);
@@ -325,7 +326,7 @@ export const actions = {
     if (!['comfortable', 'compact'].includes(density)) return fail(400, { error: 'Choose a valid board density.' });
     if (!['all', 'low', 'normal', 'high', 'urgent'].includes(priority)) return fail(400, { error: 'Choose a valid priority filter.' });
     try {
-      await saveProjectViewState(params.slug, locals.username, { density: density as 'comfortable' | 'compact', collapsed, query, priority: priority as 'all' | 'low' | 'normal' | 'high' | 'urgent', tag, assignee, showArchived });
+      await saveProjectViewState(params.slug, locals.username, { density: density as 'comfortable' | 'compact', labelText, collapsed, query, priority: priority as 'all' | 'low' | 'normal' | 'high' | 'urgent', tag, assignee, showArchived });
     } catch (error) {
       return persistenceFailure('save view failed', error);
     }

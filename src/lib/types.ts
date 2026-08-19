@@ -219,6 +219,10 @@ export type CardTemplate = {
 
 export type ProjectViewState = {
   density?: 'comfortable' | 'compact';
+  /** Trello's own "L" toggle: off shows labels as plain color bars for fast
+   * scanning; on prints the label name inside each bar. Off by default,
+   * matching Trello's own default. */
+  labelText?: boolean;
   collapsed?: Record<string, boolean>;
   query?: string;
   priority?: 'all' | 'low' | 'normal' | 'high' | 'urgent';

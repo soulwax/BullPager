@@ -129,7 +129,17 @@ describe('project card actions', () => {
       params: { slug: 'demo' }
     } as never);
     expect(result).toEqual({ message: 'View saved.' });
-    expect(persistence.saveProjectViewState).toHaveBeenCalledWith('demo', 'ada', { density: 'compact', collapsed: { Ready: true, Done: false }, query: '', priority: 'all', tag: 'all', assignee: 'all', showArchived: false });
+    expect(persistence.saveProjectViewState).toHaveBeenCalledWith('demo', 'ada', { density: 'compact', labelText: false, collapsed: { Ready: true, Done: false }, query: '', priority: 'all', tag: 'all', assignee: 'all', showArchived: false });
+  });
+
+  it('persists the label-text preference', async () => {
+    const result = await actions.saveView({
+      request: request({ labelText: 'true' }),
+      locals: { role: 'viewer', username: 'ada' },
+      params: { slug: 'demo' }
+    } as never);
+    expect(result).toEqual({ message: 'View saved.' });
+    expect(persistence.saveProjectViewState).toHaveBeenCalledWith('demo', 'ada', expect.objectContaining({ labelText: true }));
   });
 
   it('creates a tag for editors and rejects viewers', async () => {

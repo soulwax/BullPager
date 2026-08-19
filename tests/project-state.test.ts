@@ -54,4 +54,11 @@ describe('project state helpers', () => {
     expect(sanitizeProjectViewState({ density: 'wide', collapsed: null })).toEqual({ density: undefined, collapsed: {}, query: undefined, priority: undefined, tag: undefined, showArchived: false });
     expect(sanitizeProjectViewState(null)).toEqual({});
   });
+
+  it('sanitizes the label-text preference to a strict boolean', () => {
+    expect(sanitizeProjectViewState({ labelText: true }).labelText).toBe(true);
+    expect(sanitizeProjectViewState({ labelText: false }).labelText).toBe(false);
+    expect(sanitizeProjectViewState({ labelText: 'true' }).labelText).toBeUndefined();
+    expect(sanitizeProjectViewState({}).labelText).toBeUndefined();
+  });
 });

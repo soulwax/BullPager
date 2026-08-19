@@ -1959,3 +1959,25 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
    "N cards" — the fuller phrase moved to aria-label so screen readers still
    get it, sighted users get a smaller, more scannable badge. */
 small.over-wip { background: color-mix(in srgb, #ff9b7a 30%, transparent) !important; }
+
+/* Trello's own "L" toggle: labels default to plain solid-color bars for fast
+   scanning across a full board, with the name available on hover/focus via
+   aria-label + title; "Show label text" switches every card front back to
+   named chips. Compact-bar rules are written against three ascending levels
+   of existing specificity (bare .tag-chip, .project-card-tags .tag-chip, and
+   the .project-workspace-scoped light-theme version) so the toggle wins
+   regardless of theme. */
+.tag-chip.tag-chip-compact,
+.project-card-tags .tag-chip.tag-chip-compact,
+.project-workspace .project-card-tags .tag-chip.tag-chip-compact {
+  display: inline-block;
+  width: 2.1rem;
+  height: .5rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: .2rem;
+  background: var(--tag-color);
+}
+.tag-chip.tag-chip-compact::before { display: none; }
+.label-text-toggle.active { border-color: var(--accent); color: var(--accent-strong); }
