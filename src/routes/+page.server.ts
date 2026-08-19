@@ -1,8 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { sessionCookie } from '$lib/server/auth';
+import { endSession, sessionCookie } from '$lib/server/auth';
 import { loadPlan, readSources, sourcePaths } from '$lib/server/plan';
 import { buildPreview, buildProposedSource, replaceValidated, sourceHash, validateTransition, type TransitionRequest } from '$lib/server/transition';
-import { persistenceEnabled, savePacketNote, saveTransition, syncUnityPlannerCards } from '$lib/server/persistence';
+import { persistenceEnabled, revokeAllSessionsForUser, savePacketNote, saveTransition, syncUnityPlannerCards } from '$lib/server/persistence';
 import type { PacketState } from '$lib/types';
 
 export async function load() {
@@ -21,8 +21,18 @@ export async function load() {
 
 export const actions = {
   logout: async ({ cookies }) => {
+    await endSession(cookies.get(sessionCookie));
     cookies.delete(sessionCookie, { path: '/' });
     return { message: 'Signed out.' };
+  },
+  logoutEverywhere: async ({ cookies, locals }) => {
+    if (!locals.username) return fail(401, { errors: ['Sign in first.'] });
+    // Revokes every session for this account, including the one making this
+    // request — a captured or leaked token from another device stops working
+    // on its next request rather than riding out its 7-day signed expiry.
+    await revokeAllSessionsForUser(locals.username);
+    cookies.delete(sessionCookie, { path: '/' });
+    throw redirect(303, '/login');
   },
   previewTransition: async ({ request }) => {
     const form = await request.formData();

@@ -24,7 +24,7 @@ export const actions = {
       return fail(401, { error: 'Login or password is incorrect.', login });
     }
     await clearLoginFailures(attemptKey);
-    cookies.set(sessionCookie, createSession(login, role), {
+    cookies.set(sessionCookie, await createSession(login, role), {
       path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:', maxAge: 7 * 24 * 60 * 60
     });
     const next = url.searchParams.get('next');

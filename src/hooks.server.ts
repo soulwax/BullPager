@@ -3,7 +3,7 @@ import type { Handle } from '@sveltejs/kit';
 import { sessionCookie, sessionFromCookie } from '$lib/server/auth';
 
 export const handle: Handle = async ({ event, resolve }) => {
-  const session = sessionFromCookie(event.cookies.get(sessionCookie));
+  const session = await sessionFromCookie(event.cookies.get(sessionCookie));
   event.locals.authenticated = Boolean(session);
   event.locals.username = session?.username;
   event.locals.role = session?.role;

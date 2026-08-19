@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+  import MoreHorizontal from '@lucide/svelte/icons/more-horizontal';
   import Plus from '@lucide/svelte/icons/plus';
   import Search from '@lucide/svelte/icons/search';
   import type { SearchCardResult, UserRole } from '$lib/types';
@@ -98,7 +99,7 @@
       {/if}
     </div>
     {#if canCreate}<a class="nav-create" href="/projects/new"><Plus /> Create</a>{/if}
-    <div class="workspace-account"><span>{username}</span>{#if canManage}<a href="/settings" class="account-link">Settings</a>{/if}<form method="POST" action="/?/logout"><button class="nav-signout" type="submit">Sign out</button></form></div>
+    <div class="workspace-account"><span>{username}</span>{#if canManage}<a href="/settings" class="account-link">Settings</a>{/if}<details class="lane-menu account-more-menu"><summary aria-label="More account actions"><MoreHorizontal /></summary><div class="lane-menu-body"><form method="POST" action="/?/logoutEverywhere" onsubmit={(event) => { if (!confirm('Sign out of every device? You will need to log in again here too.')) event.preventDefault(); }}><button type="submit">Sign out everywhere</button></form></div></details><form method="POST" action="/?/logout"><button class="nav-signout" type="submit">Sign out</button></form></div>
   {:else}
     <span class="workspace-private">Private workspace</span>
   {/if}

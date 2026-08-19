@@ -31,6 +31,18 @@ export const loginAttempts = pgTable('login_attempts', {
   createdAt: createdAt()
 }, (table) => ({ keyCreatedIndex: index('login_attempts_key_created_idx').on(table.attemptKey, table.createdAt) }));
 
+/** The revocation half of a session: the signed cookie still carries
+ * username/role/expiry (so a normal request needs no DB read to fail a
+ * tampered or naturally-expired token), but this row is what lets a logout,
+ * a "sign out everywhere," or a deleted account kill a token before its
+ * signed expiry — something a stateless-only token can never do. */
+export const boardSessions = pgTable('board_sessions', {
+  id: text('id').primaryKey(),
+  username: text('username').notNull(),
+  createdAt: createdAt(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'string' })
+}, (table) => ({ usernameIndex: index('board_sessions_username_idx').on(table.username) }));
+
 export const boardUsers = pgTable('board_users', {
   username: text('username').primaryKey(),
   passwordHash: text('password_hash').notNull(),

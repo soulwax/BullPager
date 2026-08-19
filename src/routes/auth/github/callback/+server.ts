@@ -16,6 +16,6 @@ export async function GET({ cookies, url }) {
   if (!profileResponse.ok) throw error(502, 'GitHub profile lookup failed.');
   const profile = await profileResponse.json() as { id: number; login: string };
   const role = await authenticateGithub(String(profile.id), profile.login);
-  cookies.set(sessionCookie, createSession(profile.login, role), { path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:', maxAge: 7 * 24 * 60 * 60 });
+  cookies.set(sessionCookie, await createSession(profile.login, role), { path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:', maxAge: 7 * 24 * 60 * 60 });
   throw redirect(303, '/');
 }

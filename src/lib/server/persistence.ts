@@ -4,7 +4,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, SearchCardResult, TransitionRecord, UserRole } from '$lib/types';
 import { defaultProjectTags, slugifyTag, tagColors, tagId, tagPalette } from '$lib/projectTags';
 import { databaseConfigured, db, neonClient } from './db';
-import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectStars, boardProjectTags, boardProjectViews, boardProjects, boardSettings, boardUsers, loginAttempts, packetNotes, packetTransitions } from './db/schema';
+import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectStars, boardProjectTags, boardProjectViews, boardProjects, boardSessions, boardSettings, boardUsers, loginAttempts, packetNotes, packetTransitions } from './db/schema';
 
 /** Card description/detail length before the sync appends a truncation marker
  * instead of silently cutting the text mid-sentence. */
@@ -244,12 +244,20 @@ async function initializeSchema() {
       attempt_key TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_sessions (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      revoked_at TIMESTAMPTZ
+    )
   `]);
   // Each rawSql call above is its own HTTP round-trip with no ordering
   // guarantee between them, so an index on a table created in that same
   // Promise.all can race ahead of the CREATE TABLE and fail — this one runs
   // sequentially after, once the table is guaranteed to exist.
   await rawSql`CREATE INDEX IF NOT EXISTS login_attempts_key_created_idx ON login_attempts (attempt_key, created_at)`;
+  await rawSql`CREATE INDEX IF NOT EXISTS board_sessions_username_idx ON board_sessions (username)`;
   await rawSql`ALTER TABLE board_project_cards ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS due_date DATE, ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS checklist TEXT NOT NULL DEFAULT '[]', ADD COLUMN IF NOT EXISTS cover_color TEXT NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS due_complete BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS start_date DATE, ADD COLUMN IF NOT EXISTS card_number INTEGER`;
   await rawSql`ALTER TABLE board_users ADD COLUMN IF NOT EXISTS github_id TEXT UNIQUE`;
   await rawSql`
@@ -363,6 +371,42 @@ export async function clearLoginFailures(attemptKey: string): Promise<void> {
   if (!databaseConfigured()) return;
   await ensureSchema();
   await requireDatabase().delete(loginAttempts).where(eq(loginAttempts.attemptKey, attemptKey));
+}
+
+export async function recordSession(sessionId: string, username: string): Promise<void> {
+  if (!databaseConfigured()) return;
+  await ensureSchema();
+  await requireDatabase().insert(boardSessions).values({ id: sessionId, username });
+}
+
+/** Fails open (treats the session as not revoked) when persistence is
+ * unavailable, rather than locking everyone out — the signed token's own
+ * signature and expiry, checked before this ever runs, remain the primary
+ * security boundary; this only adds the ability to kill a token early. */
+export async function isSessionRevoked(sessionId: string): Promise<boolean> {
+  if (!databaseConfigured()) return false;
+  try {
+    await ensureSchema();
+    const rows = await requireDatabase().select({ revokedAt: boardSessions.revokedAt }).from(boardSessions).where(eq(boardSessions.id, sessionId)).limit(1);
+    return rows[0]?.revokedAt != null;
+  } catch (error) {
+    console.error('[session check] treating an unreadable session store as not revoked', error);
+    return false;
+  }
+}
+
+export async function revokeSession(sessionId: string): Promise<void> {
+  if (!databaseConfigured()) return;
+  await ensureSchema();
+  await requireDatabase().update(boardSessions).set({ revokedAt: new Date().toISOString() }).where(eq(boardSessions.id, sessionId));
+}
+
+/** Used by "sign out everywhere" and by account deletion — a token issued
+ * before either action stops working on its very next request. */
+export async function revokeAllSessionsForUser(username: string): Promise<void> {
+  if (!databaseConfigured()) return;
+  await ensureSchema();
+  await requireDatabase().update(boardSessions).set({ revokedAt: new Date().toISOString() }).where(and(eq(boardSessions.username, username), sql`${boardSessions.revokedAt} IS NULL`));
 }
 
 export async function authenticateGithubUser(githubId: string, username: string, defaultRole: Exclude<UserRole, 'superadmin'> = 'viewer'): Promise<UserRole> {
@@ -1189,6 +1233,10 @@ export async function updateBoardUserRole(username: string, role: Exclude<UserRo
 export async function deleteBoardUser(username: string) {
   await ensureSchema();
   await requireDatabase().delete(boardUsers).where(eq(boardUsers.username, username));
+  // A deleted account's existing session tokens are still signature-valid
+  // until their natural 7-day expiry otherwise — revoking here is what
+  // actually logs a removed user out, not just blocks their next login.
+  await revokeAllSessionsForUser(username);
 }
 
 export function overlayTransitions(packets: Packet[], transitions: PersistedTransition[]): Packet[] {
