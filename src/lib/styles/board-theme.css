@@ -30,27 +30,67 @@
    `--chrome-*` are the header/toolbar colors that sit directly on it. */
 
 .project-workspace[data-board-theme='midnight'] {
+  --panel: #16202c;
+  --line: #31414f;
+  --muted: #9aa8b8;
+  --text: #e9eff7;
+  color-scheme: dark;
   --board-canvas: radial-gradient(circle at 96% 0%, rgb(45 205 255 / .18), transparent 30rem), linear-gradient(135deg, #0c50bb 0%, #126de1 44%, #11b4d1 100%);
 }
 .project-workspace[data-board-theme='ocean'] {
+  --panel: #0f2334;
+  --line: #2c4a60;
+  --muted: #9cb6c9;
+  --text: #e6f1f8;
+  color-scheme: dark;
   --board-canvas: radial-gradient(circle at 90% 4%, rgb(64 196 226 / .16), transparent 28rem), linear-gradient(140deg, #06283d 0%, #0d4f6c 48%, #1b7ea3 100%);
 }
 .project-workspace[data-board-theme='slate'] {
+  --panel: #1c212a;
+  --line: #3a4453;
+  --muted: #a3adbb;
+  --text: #e9edf3;
+  color-scheme: dark;
   --board-canvas: linear-gradient(150deg, #1b1f26 0%, #2c333d 52%, #414a57 100%);
 }
 .project-workspace[data-board-theme='forest'] {
+  --panel: #10231b;
+  --line: #2c4d3d;
+  --muted: #9dbcac;
+  --text: #e7f3ec;
+  color-scheme: dark;
   --board-canvas: radial-gradient(circle at 8% 100%, rgb(93 214 160 / .14), transparent 32rem), linear-gradient(145deg, #0d2a1e 0%, #1c5540 50%, #2f7d5b 100%);
 }
 .project-workspace[data-board-theme='nebula'] {
+  --panel: #1e1733;
+  --line: #413461;
+  --muted: #b0a3cc;
+  --text: #efeaf9;
+  color-scheme: dark;
   --board-canvas: radial-gradient(circle at 92% 0%, rgb(190 140 255 / .2), transparent 30rem), linear-gradient(150deg, #241543 0%, #4b2a90 52%, #7a4bd0 100%);
 }
 .project-workspace[data-board-theme='light'] {
+  --panel: #ffffff;
+  --line: #c7d2df;
+  --muted: #54637a;
+  --text: #17202b;
+  color-scheme: light;
   --board-canvas: linear-gradient(150deg, #dde6f1 0%, #eef3f9 48%, #ffffff 100%);
 }
 .project-workspace[data-board-theme='paper'] {
+  --panel: #fffdf8;
+  --line: #d8cdb9;
+  --muted: #5d5546;
+  --text: #231e17;
+  color-scheme: light;
   --board-canvas: linear-gradient(150deg, #e9e0d1 0%, #f6f0e6 50%, #fdfaf4 100%);
 }
 .project-workspace[data-board-theme='contrast'] {
+  --panel: #000000;
+  --line: #ffffff;
+  --muted: #e6e6e6;
+  --text: #ffffff;
+  color-scheme: dark;
   --board-canvas: #000;
 }
 
@@ -75,9 +115,9 @@
    Each block defines a complete, self-consistent list + card pair. */
 
 .project-workspace[data-card-theme='light'] {
-  --list-bg: rgb(241 244 248 / .96);
+  --list-bg: #f1f4f8;
   --list-ink: #172b4d;
-  --list-ink-soft: #5e6c84;
+  --list-ink-soft: #4a5768;
   --list-line: rgb(9 30 66 / .13);
   --card-bg: #fff;
   --card-bg-hover: #fff;
@@ -92,9 +132,9 @@
 }
 
 .project-workspace[data-card-theme='dark'] {
-  --list-bg: rgb(14 20 28 / .9);
+  --list-bg: #0e141c;
   --list-ink: #e9eff7;
-  --list-ink-soft: #9db0c4;
+  --list-ink-soft: #a8bacd;
   --list-line: rgb(255 255 255 / .13);
   --card-bg: #1d2733;
   --card-bg-hover: #243040;
@@ -109,9 +149,9 @@
 }
 
 .project-workspace[data-card-theme='glass-light'] {
-  --list-bg: rgb(255 255 255 / calc(var(--glass-opacity, .74) * .82));
-  --list-ink: #14243d;
-  --list-ink-soft: #43536b;
+  --list-bg: rgb(255 255 255 / calc(var(--glass-opacity, .78) * .9));
+  --list-ink: #0e1c30;
+  --list-ink-soft: #33415a;
   --list-line: rgb(9 30 66 / .16);
   --card-bg: rgb(255 255 255 / var(--glass-opacity, .78));
   --card-bg-hover: rgb(255 255 255 / calc(var(--glass-opacity, .78) + .12));
@@ -126,9 +166,9 @@
 }
 
 .project-workspace[data-card-theme='glass-dark'] {
-  --list-bg: rgb(12 17 24 / calc(var(--glass-opacity, .74) * .88));
-  --list-ink: #eaf1f9;
-  --list-ink-soft: #a3b4c6;
+  --list-bg: rgb(12 17 24 / calc(var(--glass-opacity, .78) * .94));
+  --list-ink: #f2f7fc;
+  --list-ink-soft: #b6c6d6;
   --list-line: rgb(255 255 255 / .16);
   --card-bg: rgb(20 28 38 / var(--glass-opacity, .78));
   --card-bg-hover: rgb(28 38 51 / calc(var(--glass-opacity, .78) + .12));
@@ -245,14 +285,19 @@
   inset: 0;
   content: '';
   pointer-events: none;
-  background: var(--project-bg-image, var(--board-canvas)) center / cover no-repeat;
+  /* The theme canvas is the bottom layer rather than an either/or fallback:
+     a chosen background sits on top of it, so a photo that 404s or is still
+     loading leaves the board on its own palette instead of on whatever the
+     page body happens to be. That matters most for a light theme, where the
+     dark body would otherwise show through under dark chrome. */
+  background: var(--project-bg-image, none) center / cover no-repeat, var(--board-canvas);
 }
 .project-workspace[data-board-theme]::after { display: none; }
 
 /* A photo cannot be trusted to stay dark across its whole area, so it — and
    only it — keeps a scrim. Flat colors and gradients are already uniform. */
 .project-workspace[data-board-theme].has-project-background::before {
-  background: linear-gradient(180deg, rgb(5 10 18 / .5), rgb(5 10 18 / .72)), var(--project-bg-image) center / cover no-repeat;
+  background: linear-gradient(180deg, rgb(5 10 18 / .5), rgb(5 10 18 / .72)), var(--project-bg-image) center / cover no-repeat, var(--board-canvas);
 }
 
 /* --- Board chrome --------------------------------------------------------
