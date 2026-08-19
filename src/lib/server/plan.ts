@@ -8,7 +8,7 @@ import unitySnapshot from '../../../content/UNITY_PLAN.md?raw';
 import guideSnapshot from '../../../content/HUMAN_AGILE_GUIDE.md?raw';
 
 const states: PacketState[] = ['OPEN', 'ACTIVE', 'PARTIAL', 'BLOCKED', 'CLOSED', 'DROPPED'];
-const packetHeading = /^###\s+(MIG-[0-9]+)\s+—\s+(.+)$/;
+const packetHeading = /^###\s+(WARD-[0-9]+)\s+—\s+(.+)$/;
 /** A packet whose source line exceeds this is rejected by `validatePackets`
  * rather than silently truncated — see BUILD_MASTERPLAN.md §B.3 (B3-1). */
 export const MAX_PACKET_HANDLES = 40;
@@ -51,7 +51,7 @@ export function parsePackets(markdown: string): Packet[] {
       handles: [...new Set(field(block, 'Handles').split(',').map((handle) => handle.trim().toLowerCase()).filter(Boolean))],
       runbook: field(block, 'Runbook'),
       dependsOn: depends && depends.toLowerCase() !== 'none'
-        ? [...depends.matchAll(/MIG-\d+/g)].map((match) => match[0])
+        ? [...depends.matchAll(/WARD-\d+/g)].map((match) => match[0])
         : [],
       milestone: milestoneFor(heading[1]),
       outcome: field(block, 'Outcome'),
@@ -113,17 +113,17 @@ export function validatePackets(packets: Packet[]): string[] {
   return errors;
 }
 
-// An explicit table, not a numeric-range heuristic: MIG-04 (U0) and MIG-14
+// An explicit table, not a numeric-range heuristic: WARD-04 (U0) and WARD-14
 // (U2) both break a range formula, and only the ledger in UNITY_PLAN.md §11
 // is authoritative for which milestone a packet belongs to.
 const MILESTONE_BY_PACKET: Record<string, string> = {
-  'MIG-00': 'U0', 'MIG-01': 'U0', 'MIG-04': 'U0', 'MIG-05': 'U0',
-  'MIG-02': 'U1', 'MIG-03': 'U1', 'MIG-10': 'U1', 'MIG-11': 'U1', 'MIG-12': 'U1', 'MIG-13': 'U1',
-  'MIG-14': 'U2', 'MIG-20': 'U2', 'MIG-21': 'U2', 'MIG-22': 'U2', 'MIG-23': 'U2',
-  'MIG-30': 'U3', 'MIG-31': 'U3', 'MIG-32': 'U3', 'MIG-33': 'U3', 'MIG-40': 'U3',
-  'MIG-60': 'U4', 'MIG-61': 'U4',
-  'MIG-50': 'U5', 'MIG-51': 'U5', 'MIG-52': 'U5', 'MIG-62': 'U5',
-  'MIG-70': 'U6'
+  'WARD-00': 'U0', 'WARD-01': 'U0', 'WARD-04': 'U0', 'WARD-05': 'U0',
+  'WARD-02': 'U1', 'WARD-03': 'U1', 'WARD-10': 'U1', 'WARD-11': 'U1', 'WARD-12': 'U1', 'WARD-13': 'U1',
+  'WARD-14': 'U2', 'WARD-20': 'U2', 'WARD-21': 'U2', 'WARD-22': 'U2', 'WARD-23': 'U2',
+  'WARD-30': 'U3', 'WARD-31': 'U3', 'WARD-32': 'U3', 'WARD-33': 'U3', 'WARD-40': 'U3',
+  'WARD-60': 'U4', 'WARD-61': 'U4',
+  'WARD-50': 'U5', 'WARD-51': 'U5', 'WARD-52': 'U5', 'WARD-62': 'U5',
+  'WARD-70': 'U6'
 };
 
 function milestoneFor(id: string): string {

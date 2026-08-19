@@ -434,11 +434,37 @@ async function ensurePlannerTags(projectSlug: string, packets: Packet[]) {
  * board-owned fields (lane, position, archive state, comments, watchers, and
  * view state) are deliberately left untouched for existing cards.
  */
+
+/** One-time rename from the retired `MIG-*` packet-id prefix to `WARD-*`,
+ * covering the card row itself, every table that stores a card id, and the
+ * `mig-...` item ids embedded in the checklist JSON. Each statement matches
+ * by LIKE independently, so this is safe to call on every planner sync: a
+ * no-op once every row is renamed, and resumable if interrupted partway
+ * through, since whichever tables didn't finish just get picked up again. */
+async function renameLegacyPacketIds(projectSlug: string) {
+  if (!rawSql) return;
+  await Promise.all([
+    rawSql`UPDATE board_project_card_tags SET card_id = regexp_replace(card_id, '^unity-mig-', 'unity-ward-') WHERE card_id LIKE 'unity-mig-%'`,
+    rawSql`UPDATE board_project_card_watchers SET card_id = regexp_replace(card_id, '^unity-mig-', 'unity-ward-') WHERE card_id LIKE 'unity-mig-%'`,
+    rawSql`UPDATE board_project_activity SET card_id = regexp_replace(card_id, '^unity-mig-', 'unity-ward-') WHERE card_id LIKE 'unity-mig-%'`,
+    rawSql`UPDATE board_project_comments SET card_id = regexp_replace(card_id, '^unity-mig-', 'unity-ward-') WHERE card_id LIKE 'unity-mig-%'`,
+    rawSql`UPDATE board_project_card_attachments SET card_id = regexp_replace(card_id, '^unity-mig-', 'unity-ward-') WHERE card_id LIKE 'unity-mig-%'`,
+    rawSql`UPDATE board_project_graph_nodes SET card_id = regexp_replace(card_id, '^unity-mig-', 'unity-ward-') WHERE card_id LIKE 'unity-mig-%'`
+  ]);
+  await rawSql`
+    UPDATE board_project_cards
+    SET id = regexp_replace(id, '^unity-mig-', 'unity-ward-'),
+        checklist = regexp_replace(checklist, '"id":"mig-', '"id":"ward-', 'g')
+    WHERE project_slug = ${projectSlug} AND id LIKE 'unity-mig-%'
+  `;
+}
+
 export async function syncUnityPlannerCards(packets: Packet[], options: { sourceDigest?: string; actor?: string } = {}): Promise<number> {
   if (!databaseConfigured()) return 0;
   await ensureSchema();
   const database = requireDatabase();
   const projectSlug = 'unity-plan';
+  await renameLegacyPacketIds(projectSlug);
   const owner = env.APP_LOGIN || 'superadmin';
   await database.insert(boardProjects).values({ slug: projectSlug, name: 'Unity implementation board', owner, visibility: 'private' }).onConflictDoNothing();
   await database.update(boardProjects).set({ name: 'Unity implementation board' }).where(and(eq(boardProjects.slug, projectSlug), inArray(boardProjects.name, ['Unity migration plan', 'Unity greenfield build plan'])));
@@ -472,7 +498,7 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
     // list. Handles get reordered and inserted as a packet's decomposition is
     // refined (exactly what happened when BUILD_MASTERPLAN.md §B.4 replaced
     // every packet's short handle list with the full one-sitting breakdown) —
-    // a positional id like `mig-00-handle-2` would silently reattach an
+    // a positional id like `ward-00-handle-2` would silently reattach an
     // earlier tick to a completely different new handle at the same index.
     const fromHandles = (packet.handles ?? []).map((handle) => ({ id: `${packet.id.toLowerCase()}-${handle}`, text: handle, done: false }));
     if (fromHandles.length) return fromHandles.slice(0, MAX_PACKET_CHECKLIST_ITEMS);

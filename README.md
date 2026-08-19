@@ -163,7 +163,7 @@ be attached in a later iteration.
 
 The Unity board is also available at `/projects/unity-plan`. On planner load,
 all canonical Unity packets are mirrored into that Kanban project using stable
-`unity-mig-*` card IDs. The sync is additive: it fills missing cards, keeps
+`unity-ward-*` card IDs. The sync is additive: it fills missing cards, keeps
 existing card edits and ordering intact, and can safely resume after a network
 links back to both the planner and the Unity board.
 

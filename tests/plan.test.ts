@@ -13,7 +13,7 @@ describe('plan helpers', () => {
   });
 
   it('keeps greenfield taxonomy available to database sync', () => {
-    const [packet] = parsePackets(`### MIG-00 — Build the foundation
+    const [packet] = parsePackets(`### WARD-00 — Build the foundation
 State: OPEN
 Owner: unassigned
 Category: Foundation and project operations
@@ -27,7 +27,7 @@ Depends on: None
 Outcome: A clean Unity project.
 Steps: 1. Create it.`);
     expect(packet).toMatchObject({
-      id: 'MIG-00',
+      id: 'WARD-00',
       category: 'Foundation and project operations',
       subcategory: 'Project scaffold and CI',
       tags: ['greenfield', 'unity', 'ci'],
@@ -37,46 +37,46 @@ Steps: 1. Create it.`);
   });
 
   it('rejects duplicate IDs and missing dependencies before sync', () => {
-    const packets = parsePackets(`### MIG-00 — Foundation
+    const packets = parsePackets(`### WARD-00 — Foundation
 State: OPEN
 Owner: unassigned
 Category: Foundation
 Subcategory: Scaffold
-Depends on: MIG-99
+Depends on: WARD-99
 
-### MIG-00 — Duplicate
+### WARD-00 — Duplicate
 State: OPEN
 Owner: unassigned
 Category: Foundation
 Subcategory: Scaffold
 Depends on: none`);
     expect(validatePackets(packets)).toEqual(expect.arrayContaining([
-      'Duplicate packet ID: MIG-00.',
-      'MIG-00 depends on missing packet MIG-99.'
+      'Duplicate packet ID: WARD-00.',
+      'WARD-00 depends on missing packet WARD-99.'
     ]));
   });
 
   it('maps implementation packets to the documented milestones', () => {
-    const packets = parsePackets(`### MIG-50 — Assets
+    const packets = parsePackets(`### WARD-50 — Assets
 State: OPEN
 Owner: unassigned
 Category: World
 Subcategory: Assets
 Depends on: none
 
-### MIG-60 — Campaign
+### WARD-60 — Campaign
 State: OPEN
 Owner: unassigned
 Category: Story
 Subcategory: Campaign
-Depends on: MIG-50
+Depends on: WARD-50
 
-### MIG-62 — Voice
+### WARD-62 — Voice
 State: OPEN
 Owner: unassigned
 Category: Audio
 Subcategory: Voice
-Depends on: MIG-60`);
+Depends on: WARD-60`);
     expect(packets.map((packet) => packet.milestone)).toEqual(['U5', 'U4', 'U5']);
   });
 
@@ -89,18 +89,18 @@ Depends on: MIG-60`);
     expect(validatePackets(packets)).toEqual([]);
   });
 
-  it('fixes MIG-04 and MIG-14 to the ledger milestone rather than a numeric-range guess', () => {
-    // MIG-04 (sync, numeric 4) and MIG-14 (save, numeric 14) both break a
+  it('fixes WARD-04 and WARD-14 to the ledger milestone rather than a numeric-range guess', () => {
+    // WARD-04 (sync, numeric 4) and WARD-14 (save, numeric 14) both break a
     // clean numeric-range formula against UNITY_PLAN.md §11's ledger — U0 and
     // U2 respectively, not U1. Only an explicit table gets these right.
     const packets = parsePackets(unitySnapshot);
     const byId = new Map(packets.map((packet) => [packet.id, packet.milestone]));
-    expect(byId.get('MIG-04')).toBe('U0');
-    expect(byId.get('MIG-14')).toBe('U2');
+    expect(byId.get('WARD-04')).toBe('U0');
+    expect(byId.get('WARD-14')).toBe('U2');
   });
 
   it('rejects a handle that does not match u<milestone>-<scope>-<slice>-<kind>', () => {
-    const packets = parsePackets(`### MIG-00 — Foundation
+    const packets = parsePackets(`### WARD-00 — Foundation
 State: OPEN
 Owner: unassigned
 Category: Foundation and project operations
@@ -116,7 +116,7 @@ Steps: 1. Do it.`);
   });
 
   it('rejects handles whose milestone digit disagrees with the packet ledger', () => {
-    const packets = parsePackets(`### MIG-00 — Foundation
+    const packets = parsePackets(`### WARD-00 — Foundation
 State: OPEN
 Owner: unassigned
 Category: Foundation and project operations
@@ -132,7 +132,7 @@ Steps: 1. Do it.`);
   });
 
   it('rejects handles that mix more than one scope token in a packet', () => {
-    const packets = parsePackets(`### MIG-00 — Foundation
+    const packets = parsePackets(`### WARD-00 — Foundation
 State: OPEN
 Owner: unassigned
 Category: Foundation and project operations
@@ -148,7 +148,7 @@ Steps: 1. Do it.`);
   });
 
   it('rejects a packet outside the 4-20 right-sized handle band', () => {
-    const packets = parsePackets(`### MIG-00 — Foundation
+    const packets = parsePackets(`### WARD-00 — Foundation
 State: OPEN
 Owner: unassigned
 Category: Foundation and project operations
@@ -164,7 +164,7 @@ Steps: 1. Do it.`);
   });
 
   it('requires a -review handle for visible-change categories', () => {
-    const packets = parsePackets(`### MIG-20 — Build the greybox
+    const packets = parsePackets(`### WARD-20 — Build the greybox
 State: OPEN
 Owner: unassigned
 Category: House and spatial world

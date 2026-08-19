@@ -71,7 +71,7 @@ If you are opening this guide to work now:
 
 1. Open `../UNITY_PLAN.md` and find the compact migration ledger in section 15.
 2. Find the first `OPEN` packet whose `Depends on` packets are all `CLOSED`.
-3. For the current audited plan, that is `MIG-00`.
+3. For the current audited plan, that is `WARD-00`.
 4. Read that packet, guide sections 1–6, and delivery section 15.3.
 5. Copy the packet kickoff canvas from section 14 into your working issue/note.
 6. Fill every field. If a required decision is missing, record the blocker and
@@ -124,7 +124,7 @@ A parser must:
 3. Decode with `json.loads` and require the declared schema/version.
 4. Parse Unity packet fields from `../UNITY_PLAN.md` using the field names in
    `packet_field_order`; do not infer live state from this guide.
-5. Join packets by exact `MIG-##` ID and calculate readiness from current packet
+5. Join packets by exact `WARD-##` ID and calculate readiness from current packet
    state plus closed dependencies.
 6. Treat `external_dependencies` and conditional dependencies as human-owned
    gates that cannot be auto-closed.
@@ -152,7 +152,7 @@ surface. Change them only with a schema-version increment and parser fixture.
   "authority_rule": "The authority files own requirements and live packet data; this manifest owns interactive navigation only.",
   "packet_source": {
     "path": "../UNITY_PLAN.md",
-    "heading_pattern": "^### (MIG-[0-9]{2}) — (.+)$",
+    "heading_pattern": "^### (WARD-[0-9]{2}) — (.+)$",
     "packet_field_order": [
       "ID",
       "State",
@@ -280,54 +280,54 @@ surface. Change them only with a schema-version increment and parser fixture.
     {"id": "U7", "label": "Release candidate", "deliveries": ["D10"], "guide_section": "16", "hard_gate": "product_masterplan_release_gate"}
   ],
   "deliveries": [
-    {"id": "D0", "label": "Transition charter", "section": "15.3", "packets": ["MIG-00"], "exit": "reviewed_transition_charter"},
-    {"id": "D1", "label": "Reproducible Unity foundation", "section": "15.4", "packets": ["MIG-01", "MIG-05"], "exit": "u0_hard_gate"},
-    {"id": "D2", "label": "Deterministic content boundary", "section": "15.5", "packets": ["MIG-02", "MIG-03"], "exit": "deterministic_import_without_duplicate_authority"},
-    {"id": "D3", "label": "Migration truth and domain core", "section": "15.6", "packets": ["MIG-04", "MIG-10", "MIG-11", "MIG-12", "MIG-13"], "exit": "deterministic_unity_free_game_session"},
-    {"id": "D4", "label": "Save safety and greybox embodiment", "section": "15.7", "packets": ["MIG-14", "MIG-20"], "exit": "recoverable_save_and_complete_bound_greybox"},
-    {"id": "D5", "label": "Movement interaction and acoustics", "section": "15.8", "packets": ["MIG-21", "MIG-22", "MIG-23"], "exit": "u2_routes_and_human_gates"},
-    {"id": "D6", "label": "Persistent UI and accessible Day 1", "section": "15.9", "packets": ["MIG-30", "MIG-31", "MIG-32", "MIG-33"], "exit": "keyboard_text_complete_day1_route"},
-    {"id": "D7", "label": "Day 1 vertical slice", "section": "15.10", "packets": ["MIG-40"], "exit": "u3_hard_gate_and_dart_freeze_decision"},
-    {"id": "D8", "label": "Campaign and endings", "section": "15.11", "packets": ["MIG-60", "MIG-61"], "exit": "u5_campaign_and_three_derived_endings"},
-    {"id": "D9", "label": "Production house rooms lighting and voice", "section": "15.12", "packets": ["MIG-50", "MIG-51", "MIG-52", "MIG-62"], "exit": "u6_human_approved_production_assets"},
-    {"id": "D10", "label": "Release candidate", "section": "15.13", "packets": ["MIG-70"], "exit": "human_release_and_retirement_decisions"}
+    {"id": "D0", "label": "Transition charter", "section": "15.3", "packets": ["WARD-00"], "exit": "reviewed_transition_charter"},
+    {"id": "D1", "label": "Reproducible Unity foundation", "section": "15.4", "packets": ["WARD-01", "WARD-05"], "exit": "u0_hard_gate"},
+    {"id": "D2", "label": "Deterministic content boundary", "section": "15.5", "packets": ["WARD-02", "WARD-03"], "exit": "deterministic_import_without_duplicate_authority"},
+    {"id": "D3", "label": "Migration truth and domain core", "section": "15.6", "packets": ["WARD-04", "WARD-10", "WARD-11", "WARD-12", "WARD-13"], "exit": "deterministic_unity_free_game_session"},
+    {"id": "D4", "label": "Save safety and greybox embodiment", "section": "15.7", "packets": ["WARD-14", "WARD-20"], "exit": "recoverable_save_and_complete_bound_greybox"},
+    {"id": "D5", "label": "Movement interaction and acoustics", "section": "15.8", "packets": ["WARD-21", "WARD-22", "WARD-23"], "exit": "u2_routes_and_human_gates"},
+    {"id": "D6", "label": "Persistent UI and accessible Day 1", "section": "15.9", "packets": ["WARD-30", "WARD-31", "WARD-32", "WARD-33"], "exit": "keyboard_text_complete_day1_route"},
+    {"id": "D7", "label": "Day 1 vertical slice", "section": "15.10", "packets": ["WARD-40"], "exit": "u3_hard_gate_and_dart_freeze_decision"},
+    {"id": "D8", "label": "Campaign and endings", "section": "15.11", "packets": ["WARD-60", "WARD-61"], "exit": "u5_campaign_and_three_derived_endings"},
+    {"id": "D9", "label": "Production house rooms lighting and voice", "section": "15.12", "packets": ["WARD-50", "WARD-51", "WARD-52", "WARD-62"], "exit": "u6_human_approved_production_assets"},
+    {"id": "D10", "label": "Release candidate", "section": "15.13", "packets": ["WARD-70"], "exit": "human_release_and_retirement_decisions"}
   ],
   "packets": [
-    {"id": "MIG-00", "milestone": "U0", "delivery": "D0", "depends_on": [], "external_dependencies": [], "human_gates": ["transition_charter_review"], "split": "forbidden"},
-    {"id": "MIG-01", "milestone": "U0", "delivery": "D1", "depends_on": ["MIG-00"], "external_dependencies": ["approved_unity_6_3_lts_patch", "windows_build_environment"], "human_gates": ["clean_environment_reproduction"], "split": "optional"},
-    {"id": "MIG-02", "milestone": "U1", "delivery": "D2", "depends_on": ["MIG-01"], "external_dependencies": [], "human_gates": [], "split": "optional_by_transaction_safe_catalogue_boundary"},
-    {"id": "MIG-03", "milestone": "U1", "delivery": "D2", "depends_on": ["MIG-02"], "external_dependencies": [], "human_gates": ["content_identity_sample_review"], "split": "optional_by_catalogue_with_global_validation_intact"},
-    {"id": "MIG-04", "milestone": "U1", "delivery": "D3", "depends_on": ["MIG-01"], "external_dependencies": ["human_resolution_of_decision_rows"], "human_gates": ["migration_map_decisions"], "split": "optional_by_rule_family"},
-    {"id": "MIG-05", "milestone": "U0", "delivery": "D1", "depends_on": ["MIG-01"], "external_dependencies": [], "human_gates": ["minimal_code_review"], "split": "optional"},
-    {"id": "MIG-10", "milestone": "U1", "delivery": "D3", "depends_on": ["MIG-03", "MIG-04", "MIG-05"], "external_dependencies": ["accepted_pacing_policy"], "human_gates": ["product_rule_decisions", "minimal_code_review"], "split": "recommended_by_rule_cluster"},
-    {"id": "MIG-11", "milestone": "U1", "delivery": "D3", "depends_on": ["MIG-03", "MIG-04", "MIG-05"], "external_dependencies": [], "human_gates": ["journal_semantics_review", "minimal_code_review"], "split": "recommended_by_journal_behavior"},
-    {"id": "MIG-12", "milestone": "U1", "delivery": "D3", "depends_on": ["MIG-03", "MIG-05", "MIG-10", "MIG-11"], "external_dependencies": ["STORY-01_closed", "STORY-02_closed"], "human_gates": ["content_effect_and_callback_review", "minimal_code_review"], "split": "recommended_by_event_behavior"},
-    {"id": "MIG-13", "milestone": "U1", "delivery": "D3", "depends_on": ["MIG-10", "MIG-11", "MIG-12"], "external_dependencies": [], "human_gates": ["state_ownership_review", "minimal_code_review"], "split": "optional_by_command_path"},
-    {"id": "MIG-14", "milestone": "U2", "delivery": "D4", "depends_on": ["MIG-13"], "external_dependencies": ["cross_engine_save_decision"], "human_gates": ["save_compatibility_review"], "split": "only_when_intermediate_state_is_non_destructive"},
-    {"id": "MIG-20", "milestone": "U2", "delivery": "D4", "depends_on": ["MIG-03", "MIG-13"], "external_dependencies": [], "human_gates": ["domestic_scale_and_topology_approval"], "split": "recommended_by_floor_with_parent_gate_retained"},
-    {"id": "MIG-21", "milestone": "U2", "delivery": "D5", "depends_on": ["MIG-20"], "external_dependencies": [], "human_gates": ["motion_and_reduced_motion_approval"], "split": "recommended_by_route_increment"},
-    {"id": "MIG-22", "milestone": "U2", "delivery": "D5", "depends_on": ["MIG-21"], "external_dependencies": [], "human_gates": ["interaction_feedback_approval"], "split": "recommended_by_target_and_failure_path"},
-    {"id": "MIG-23", "milestone": "U2", "delivery": "D5", "depends_on": ["MIG-20", "MIG-22"], "external_dependencies": [], "human_gates": ["speaker_and_headphone_audio_approval"], "split": "recommended_by_audio_path"},
-    {"id": "MIG-30", "milestone": "U3", "delivery": "D6", "depends_on": ["MIG-13", "MIG-21"], "external_dependencies": [], "human_gates": ["persistent_ui_approval"], "split": "recommended_by_modal_or_settings_path"},
-    {"id": "MIG-31", "milestone": "U3", "delivery": "D6", "depends_on": ["MIG-12", "MIG-23", "MIG-30"], "external_dependencies": [], "human_gates": ["dialogue_caption_and_fallback_approval"], "split": "recommended_by_conversation_path"},
-    {"id": "MIG-32", "milestone": "U3", "delivery": "D6", "depends_on": ["MIG-11", "MIG-30"], "external_dependencies": [], "human_gates": ["journal_ui_approval"], "split": "recommended_by_journal_action"},
-    {"id": "MIG-33", "milestone": "U3", "delivery": "D6", "depends_on": ["MIG-22", "MIG-23", "MIG-30", "MIG-31", "MIG-32"], "external_dependencies": ["real_human_usability_reviewer"], "human_gates": ["keyboard_accessibility_route_approval"], "split": "optional_by_accessibility_mode_with_integrated_gate_retained"},
-    {"id": "MIG-40", "milestone": "U3", "delivery": "D7", "depends_on": ["MIG-14", "MIG-20", "MIG-21", "MIG-22", "MIG-23", "MIG-31", "MIG-32", "MIG-33"], "external_dependencies": ["LOOP-01_acceptance", "day1_canonical_content"], "human_gates": ["complete_play", "visual", "audio", "accessibility", "dart_feature_freeze_decision"], "split": "only_by_integrated_day1_beat_with_parent_gate_retained"},
-    {"id": "MIG-50", "milestone": "U6", "delivery": "D9", "depends_on": ["MIG-40"], "external_dependencies": ["rights_cleared_human_house_source"], "human_gates": ["house_scale_visual_and_route_approval"], "split": "optional_by_validated_import_boundary"},
-    {"id": "MIG-51", "milestone": "U6", "delivery": "D9", "depends_on": ["MIG-50"], "external_dependencies": [], "human_gates": ["material_lighting_profile_approval"], "split": "recommended_by_baseline_then_treatment"},
-    {"id": "MIG-52", "milestone": "U6", "delivery": "D9", "depends_on": ["MIG-51"], "external_dependencies": ["canonical_consequences_for_affected_rooms"], "human_gates": ["per_room_pair_visual_audio_approval"], "split": "required_MIG-52A_MIG-52B_MIG-52C"},
-    {"id": "MIG-60", "milestone": "U4-U5", "delivery": "D8", "depends_on": ["MIG-40"], "external_dependencies": ["STORY-03_batches_closed"], "human_gates": ["per_act_pacing_and_restraint_approval"], "split": "required_MIG-60A_MIG-60B_MIG-60C"},
-    {"id": "MIG-61", "milestone": "U5", "delivery": "D8", "depends_on": ["MIG-60"], "external_dependencies": ["END-01_acceptance"], "human_gates": ["three_ending_campaign_and_visual_review"], "split": "optional_by_ending_with_combined_gate_retained"},
-    {"id": "MIG-62", "milestone": "U5-U6", "delivery": "D9", "depends_on": ["MIG-60"], "external_dependencies": ["human_story_lock"], "human_gates": ["voice_performance_mix_and_provenance_approval"], "split": "only_by_complete_atomic_voice_batch"},
-    {"id": "MIG-70", "milestone": "U7", "delivery": "D10", "depends_on": ["MIG-52", "MIG-61"], "conditional_dependencies": [{"any_of": ["MIG-62", "human_text_first_ship_decision"]}], "external_dependencies": ["declared_target_hardware", "product_release_criteria"], "human_gates": ["visual", "audio", "accessibility", "complete_playthrough", "release_decision", "dart_retirement_decision"], "split": "recommended_by_verification_lane_with_single_candidate_gate"}
+    {"id": "WARD-00", "milestone": "U0", "delivery": "D0", "depends_on": [], "external_dependencies": [], "human_gates": ["transition_charter_review"], "split": "forbidden"},
+    {"id": "WARD-01", "milestone": "U0", "delivery": "D1", "depends_on": ["WARD-00"], "external_dependencies": ["approved_unity_6_3_lts_patch", "windows_build_environment"], "human_gates": ["clean_environment_reproduction"], "split": "optional"},
+    {"id": "WARD-02", "milestone": "U1", "delivery": "D2", "depends_on": ["WARD-01"], "external_dependencies": [], "human_gates": [], "split": "optional_by_transaction_safe_catalogue_boundary"},
+    {"id": "WARD-03", "milestone": "U1", "delivery": "D2", "depends_on": ["WARD-02"], "external_dependencies": [], "human_gates": ["content_identity_sample_review"], "split": "optional_by_catalogue_with_global_validation_intact"},
+    {"id": "WARD-04", "milestone": "U1", "delivery": "D3", "depends_on": ["WARD-01"], "external_dependencies": ["human_resolution_of_decision_rows"], "human_gates": ["migration_map_decisions"], "split": "optional_by_rule_family"},
+    {"id": "WARD-05", "milestone": "U0", "delivery": "D1", "depends_on": ["WARD-01"], "external_dependencies": [], "human_gates": ["minimal_code_review"], "split": "optional"},
+    {"id": "WARD-10", "milestone": "U1", "delivery": "D3", "depends_on": ["WARD-03", "WARD-04", "WARD-05"], "external_dependencies": ["accepted_pacing_policy"], "human_gates": ["product_rule_decisions", "minimal_code_review"], "split": "recommended_by_rule_cluster"},
+    {"id": "WARD-11", "milestone": "U1", "delivery": "D3", "depends_on": ["WARD-03", "WARD-04", "WARD-05"], "external_dependencies": [], "human_gates": ["journal_semantics_review", "minimal_code_review"], "split": "recommended_by_journal_behavior"},
+    {"id": "WARD-12", "milestone": "U1", "delivery": "D3", "depends_on": ["WARD-03", "WARD-05", "WARD-10", "WARD-11"], "external_dependencies": ["STORY-01_closed", "STORY-02_closed"], "human_gates": ["content_effect_and_callback_review", "minimal_code_review"], "split": "recommended_by_event_behavior"},
+    {"id": "WARD-13", "milestone": "U1", "delivery": "D3", "depends_on": ["WARD-10", "WARD-11", "WARD-12"], "external_dependencies": [], "human_gates": ["state_ownership_review", "minimal_code_review"], "split": "optional_by_command_path"},
+    {"id": "WARD-14", "milestone": "U2", "delivery": "D4", "depends_on": ["WARD-13"], "external_dependencies": ["cross_engine_save_decision"], "human_gates": ["save_compatibility_review"], "split": "only_when_intermediate_state_is_non_destructive"},
+    {"id": "WARD-20", "milestone": "U2", "delivery": "D4", "depends_on": ["WARD-03", "WARD-13"], "external_dependencies": [], "human_gates": ["domestic_scale_and_topology_approval"], "split": "recommended_by_floor_with_parent_gate_retained"},
+    {"id": "WARD-21", "milestone": "U2", "delivery": "D5", "depends_on": ["WARD-20"], "external_dependencies": [], "human_gates": ["motion_and_reduced_motion_approval"], "split": "recommended_by_route_increment"},
+    {"id": "WARD-22", "milestone": "U2", "delivery": "D5", "depends_on": ["WARD-21"], "external_dependencies": [], "human_gates": ["interaction_feedback_approval"], "split": "recommended_by_target_and_failure_path"},
+    {"id": "WARD-23", "milestone": "U2", "delivery": "D5", "depends_on": ["WARD-20", "WARD-22"], "external_dependencies": [], "human_gates": ["speaker_and_headphone_audio_approval"], "split": "recommended_by_audio_path"},
+    {"id": "WARD-30", "milestone": "U3", "delivery": "D6", "depends_on": ["WARD-13", "WARD-21"], "external_dependencies": [], "human_gates": ["persistent_ui_approval"], "split": "recommended_by_modal_or_settings_path"},
+    {"id": "WARD-31", "milestone": "U3", "delivery": "D6", "depends_on": ["WARD-12", "WARD-23", "WARD-30"], "external_dependencies": [], "human_gates": ["dialogue_caption_and_fallback_approval"], "split": "recommended_by_conversation_path"},
+    {"id": "WARD-32", "milestone": "U3", "delivery": "D6", "depends_on": ["WARD-11", "WARD-30"], "external_dependencies": [], "human_gates": ["journal_ui_approval"], "split": "recommended_by_journal_action"},
+    {"id": "WARD-33", "milestone": "U3", "delivery": "D6", "depends_on": ["WARD-22", "WARD-23", "WARD-30", "WARD-31", "WARD-32"], "external_dependencies": ["real_human_usability_reviewer"], "human_gates": ["keyboard_accessibility_route_approval"], "split": "optional_by_accessibility_mode_with_integrated_gate_retained"},
+    {"id": "WARD-40", "milestone": "U3", "delivery": "D7", "depends_on": ["WARD-14", "WARD-20", "WARD-21", "WARD-22", "WARD-23", "WARD-31", "WARD-32", "WARD-33"], "external_dependencies": ["LOOP-01_acceptance", "day1_canonical_content"], "human_gates": ["complete_play", "visual", "audio", "accessibility", "dart_feature_freeze_decision"], "split": "only_by_integrated_day1_beat_with_parent_gate_retained"},
+    {"id": "WARD-50", "milestone": "U6", "delivery": "D9", "depends_on": ["WARD-40"], "external_dependencies": ["rights_cleared_human_house_source"], "human_gates": ["house_scale_visual_and_route_approval"], "split": "optional_by_validated_import_boundary"},
+    {"id": "WARD-51", "milestone": "U6", "delivery": "D9", "depends_on": ["WARD-50"], "external_dependencies": [], "human_gates": ["material_lighting_profile_approval"], "split": "recommended_by_baseline_then_treatment"},
+    {"id": "WARD-52", "milestone": "U6", "delivery": "D9", "depends_on": ["WARD-51"], "external_dependencies": ["canonical_consequences_for_affected_rooms"], "human_gates": ["per_room_pair_visual_audio_approval"], "split": "required_WARD-52A_WARD-52B_WARD-52C"},
+    {"id": "WARD-60", "milestone": "U4-U5", "delivery": "D8", "depends_on": ["WARD-40"], "external_dependencies": ["STORY-03_batches_closed"], "human_gates": ["per_act_pacing_and_restraint_approval"], "split": "required_WARD-60A_WARD-60B_WARD-60C"},
+    {"id": "WARD-61", "milestone": "U5", "delivery": "D8", "depends_on": ["WARD-60"], "external_dependencies": ["END-01_acceptance"], "human_gates": ["three_ending_campaign_and_visual_review"], "split": "optional_by_ending_with_combined_gate_retained"},
+    {"id": "WARD-62", "milestone": "U5-U6", "delivery": "D9", "depends_on": ["WARD-60"], "external_dependencies": ["human_story_lock"], "human_gates": ["voice_performance_mix_and_provenance_approval"], "split": "only_by_complete_atomic_voice_batch"},
+    {"id": "WARD-70", "milestone": "U7", "delivery": "D10", "depends_on": ["WARD-52", "WARD-61"], "conditional_dependencies": [{"any_of": ["WARD-62", "human_text_first_ship_decision"]}], "external_dependencies": ["declared_target_hardware", "product_release_criteria"], "human_gates": ["visual", "audio", "accessibility", "complete_playthrough", "release_decision", "dart_retirement_decision"], "split": "recommended_by_verification_lane_with_single_candidate_gate"}
   ],
   "child_packets": [
-    {"id": "MIG-52A", "parent": "MIG-52", "label": "Kitchen and cellar", "depends_on": ["MIG-51"]},
-    {"id": "MIG-52B", "parent": "MIG-52", "label": "Bedroom and landing", "depends_on": ["MIG-51"]},
-    {"id": "MIG-52C", "parent": "MIG-52", "label": "Bathroom and spare room", "depends_on": ["MIG-51"]},
-    {"id": "MIG-60A", "parent": "MIG-60", "label": "Days 2 through 7", "depends_on": ["MIG-40"]},
-    {"id": "MIG-60B", "parent": "MIG-60", "label": "Days 8 through 14", "depends_on": ["MIG-60A"]},
-    {"id": "MIG-60C", "parent": "MIG-60", "label": "Days 15 through 20", "depends_on": ["MIG-60B"]}
+    {"id": "WARD-52A", "parent": "WARD-52", "label": "Kitchen and cellar", "depends_on": ["WARD-51"]},
+    {"id": "WARD-52B", "parent": "WARD-52", "label": "Bedroom and landing", "depends_on": ["WARD-51"]},
+    {"id": "WARD-52C", "parent": "WARD-52", "label": "Bathroom and spare room", "depends_on": ["WARD-51"]},
+    {"id": "WARD-60A", "parent": "WARD-60", "label": "Days 2 through 7", "depends_on": ["WARD-40"]},
+    {"id": "WARD-60B", "parent": "WARD-60", "label": "Days 8 through 14", "depends_on": ["WARD-60A"]},
+    {"id": "WARD-60C", "parent": "WARD-60", "label": "Days 15 through 20", "depends_on": ["WARD-60B"]}
   ],
   "forms": [
     {"id": "packet_kickoff", "section": "14", "required_fields": ["packet", "owner", "reviewer", "observable_outcome", "production_path", "dependencies_verified", "intended_files", "highest_risk", "first_check", "packaged_scenario", "stop_condition"]},
@@ -400,8 +400,8 @@ GuideManifest
   actions[]
 
 LivePlan
-  packets_by_id: MIG ID -> parsed Unity packet fields
-  ledger_by_id: MIG ID -> parsed ledger row
+  packets_by_id: WARD ID -> parsed Unity packet fields
+  ledger_by_id: WARD ID -> parsed ledger row
   computed_ready_ids[]
   validation_errors[]
 ```
@@ -417,7 +417,7 @@ parser:
 
 ```text
 packet_heading := "### " packet_id " — " title
-packet_id      := "MIG-" two_digits
+packet_id      := "WARD-" two_digits
 scalar_field   := field_name ":" value_continuation
 steps_field    := "Steps:" blank_line ordered_markdown_list
 packet_end     := next packet_heading | next level-two heading | end_of_file
@@ -432,7 +432,7 @@ Parsing rules:
 - `Steps` contains the ordered list after `Steps:` through the line before
   `Checks:`. Preserve item numbers and continuation lines.
 - Extract packet dependency IDs from the `Depends on` value with
-  `MIG-[0-9]{2}`; preserve all remaining text as unresolved external or
+  `WARD-[0-9]{2}`; preserve all remaining text as unresolved external or
   conditional authority and reconcile it against this manifest.
 - Interpret `none` case-insensitively only for fields that explicitly allow it;
   an empty field is missing data, not `none`.
@@ -535,7 +535,7 @@ coherent history and explicit dependency.
 Before planning work, read only:
 
 - `MASTERPLAN.md` sections 0, 1, 9, 10, and the relevant product packet;
-- `../UNITY_PLAN.md` sections 0–6 and the relevant `MIG-*` packet;
+- `../UNITY_PLAN.md` sections 0–6 and the relevant `WARD-*` packet;
 - `GROUND_RULES.md`; and
 - files named by the packet.
 
@@ -768,19 +768,19 @@ as a sequence of risk reductions, not as eight mini-waterfalls:
 
 | Milestone | Packets | Human question answered before advancing |
 |---|---|---|
-| U0 Scaffold | `MIG-00`, `MIG-01`, `MIG-05` | Can this team reproduce, understand, and safely extend the pinned project? |
-| U1 Shared truth | `MIG-02`–`MIG-04`, `MIG-10`–`MIG-13` | Is Unity consuming the same accepted content and deterministic rules without duplicate authority? |
-| U2 Greybox house | `MIG-14`, `MIG-20`–`MIG-23` | Can a human inhabit the canonical house, act, hear consequences, and recover state? |
-| U3 Day 1 | `MIG-30`–`MIG-33`, `MIG-40` | Is the complete red thread understandable, accessible, and paced in a packaged build? |
-| U4–U5 Campaign | split children of `MIG-60`, then `MIG-61` | Does accepted Day 1 structure sustain escalation, callbacks, and derived endings? |
-| U6 Production | `MIG-50`–`MIG-52`, optionally `MIG-62` | Can validated human art/audio replace proxies without changing gameplay truth? |
-| U7 Release | `MIG-70` | Is the exact candidate supportable, legal, recoverable, accessible, and worth retiring Dart for? |
+| U0 Scaffold | `WARD-00`, `WARD-01`, `WARD-05` | Can this team reproduce, understand, and safely extend the pinned project? |
+| U1 Shared truth | `WARD-02`–`WARD-04`, `WARD-10`–`WARD-13` | Is Unity consuming the same accepted content and deterministic rules without duplicate authority? |
+| U2 Greybox house | `WARD-14`, `WARD-20`–`WARD-23` | Can a human inhabit the canonical house, act, hear consequences, and recover state? |
+| U3 Day 1 | `WARD-30`–`WARD-33`, `WARD-40` | Is the complete red thread understandable, accessible, and paced in a packaged build? |
+| U4–U5 Campaign | split children of `WARD-60`, then `WARD-61` | Does accepted Day 1 structure sustain escalation, callbacks, and derived endings? |
+| U6 Production | `WARD-50`–`WARD-52`, optionally `WARD-62` | Can validated human art/audio replace proxies without changing gameplay truth? |
+| U7 Release | `WARD-70` | Is the exact candidate supportable, legal, recoverable, accessible, and worth retiring Dart for? |
 
 Some packets within a milestone can proceed independently when their declared
 dependencies permit it. Keep the global WIP limit anyway. For example,
-`MIG-04` can refine fixtures while `MIG-02` is active, but starting both is
+`WARD-04` can refine fixtures while `WARD-02` is active, but starting both is
 useful only if each has an owner, distinct files, and a near-term integration
-point. `MIG-52` and `MIG-60` must be split before activation exactly as the
+point. `WARD-52` and `WARD-60` must be split before activation exactly as the
 Unity plan requires.
 
 ### Replenishment decision sequence
@@ -948,7 +948,7 @@ Choose the pattern that preserves a complete feedback loop:
 - **One accessibility mode across one journey:** keyboard-only Day 1 or large UI
   across the threshold sequence, rather than one setting across disconnected
   screens.
-- **One room pair or act:** use the explicit `MIG-52` and `MIG-60` boundaries.
+- **One room pair or act:** use the explicit `WARD-52` and `WARD-60` boundaries.
 - **Decision before implementation:** separate a save compatibility, package,
   rendering, or voice-lock decision when alternatives change the write set.
 
@@ -958,22 +958,22 @@ properties must close with the happy path.
 
 ### Concrete packet examples
 
-For `MIG-20`, a useful first integrated child could generate the ground-floor
+For `WARD-20`, a useful first integrated child could generate the ground-floor
 proxy and validate its stable room/portal bindings in a development build. It
 must leave upper/cellar route work explicit and cannot close the parent or claim
 the complete house.
 
-For `MIG-22`, “door interaction” is still too broad if it means all doors and
+For `WARD-22`, “door interaction” is still too broad if it means all doors and
 feedback. A better child proves one closed front door through collider hit,
 focus eligibility, typed command, accepted state, presentation update, and
 save/reload. A second child covers rejection/occlusion and the remaining target
 kinds using the established path.
 
-For `MIG-40`, do not split by UI/audio/code discipline. Split by Day 1 beats only
+For `WARD-40`, do not split by UI/audio/code discipline. Split by Day 1 beats only
 when each child runs in the packaged composition and the final integration
 packet still owns end-to-end timing, reload, and human review.
 
-For `MIG-60`, create stable children for Days 2–7, 8–14, and 15–20 before work.
+For `WARD-60`, create stable children for Days 2–7, 8–14, and 15–20 before work.
 Within an act, pull the smallest playable day/consequence pair, but retain the
 act-level exactly-once and pacing gate.
 
@@ -1322,7 +1322,7 @@ Review a simple aging table weekly:
 
 | Packet | State | Age | Last integrated evidence | Waiting for | Next action |
 |---|---|---:|---|---|---|
-| `MIG-##` | `ACTIVE` | working days | build/commit or none | person/decision/none | one observable action |
+| `WARD-##` | `ACTIVE` | working days | build/commit or none | person/decision/none | one observable action |
 
 The useful conversation is why work waits and how to finish it. Do not create a
 dashboard unless the manual table has repeatedly informed decisions.
@@ -1525,32 +1525,32 @@ first Ready item that fits the WIP limit.
 
 ```text
 Transition and safety
-  MIG-00 -> MIG-01 -> MIG-05
+  WARD-00 -> WARD-01 -> WARD-05
                |       |
-Shared truth   +-> MIG-02 -> MIG-03 -+
-               +-> MIG-04 ------------+-> MIG-10 --+
-                                      +-> MIG-11 --+-> MIG-12 -> MIG-13 -> MIG-14
+Shared truth   +-> WARD-02 -> WARD-03 -+
+               +-> WARD-04 ------------+-> WARD-10 --+
+                                      +-> WARD-11 --+-> WARD-12 -> WARD-13 -> WARD-14
 
-Embodied house                     MIG-03 + MIG-13 -> MIG-20 -> MIG-21 -> MIG-22
+Embodied house                     WARD-03 + WARD-13 -> WARD-20 -> WARD-21 -> WARD-22
                                                        |                 |
-                                                       +----------------> MIG-23
+                                                       +----------------> WARD-23
 
-Player-facing shell                         MIG-13 + MIG-21 -> MIG-30
-                                  MIG-12 + MIG-23 + MIG-30 -> MIG-31
-                                           MIG-11 + MIG-30 -> MIG-32
-                               MIG-22/23/30/31/32 -> MIG-33
+Player-facing shell                         WARD-13 + WARD-21 -> WARD-30
+                                  WARD-12 + WARD-23 + WARD-30 -> WARD-31
+                                           WARD-11 + WARD-30 -> WARD-32
+                               WARD-22/23/30/31/32 -> WARD-33
 
-Vertical slice       MIG-14/20/21/22/23/31/32/33 -> MIG-40
+Vertical slice       WARD-14/20/21/22/23/31/32/33 -> WARD-40
 
-Campaign             MIG-40 -> MIG-60 act children -> MIG-61
-Production house     MIG-40 -> MIG-50 -> MIG-51 -> MIG-52 room-pair children
-Voice                MIG-60 + story lock -> MIG-62
+Campaign             WARD-40 -> WARD-60 act children -> WARD-61
+Production house     WARD-40 -> WARD-50 -> WARD-51 -> WARD-52 room-pair children
+Voice                WARD-60 + story lock -> WARD-62
 
-Release              MIG-52 + MIG-61 + MIG-62 or text-first decision -> MIG-70
+Release              WARD-52 + WARD-61 + WARD-62 or text-first decision -> WARD-70
 ```
 
 Use this topology only as a navigation aid. The dependency fields in the Unity
-plan are authoritative. `MIG-10` and `MIG-11`, for example, can be independently
+plan are authoritative. `WARD-10` and `WARD-11`, for example, can be independently
 Ready after their shared prerequisites close, but the WIP limit may still make
 sequential pull the better choice.
 
@@ -1578,7 +1578,7 @@ Apply this cycle to every packet and child packet:
 Do not start the next numbered step when the current step revealed an authority
 conflict, unsafe partial state, or a need to expand beyond the packet boundary.
 
-### 15.3 Delivery 0 — Transition charter (`MIG-00`)
+### 15.3 Delivery 0 — Transition charter (`WARD-00`)
 
 Objective: remove the human decisions that would otherwise force the Unity
 implementation to guess.
@@ -1603,15 +1603,15 @@ Integration checkpoint:
 - No code, story, asset, or package changed.
 - Every later packet can quote a decision instead of inferring one.
 
-Exit criteria: `MIG-00` is `CLOSED`, the compact ledger agrees, and `MIG-01` has
+Exit criteria: `WARD-00` is `CLOSED`, the compact ledger agrees, and `WARD-01` has
 an owner plus an available Windows build environment.
 
-### 15.4 Delivery 1 — Reproducible Unity foundation (`MIG-01`, `MIG-05`)
+### 15.4 Delivery 1 — Reproducible Unity foundation (`WARD-01`, `WARD-05`)
 
 Objective: create the smallest pinned Unity project that future work can trust
 and mechanically prevent the most damaging architectural drift.
 
-`MIG-01` implementation slices:
+`WARD-01` implementation slices:
 
 1. Create the empty URP project under `unity/` using the chartered patch.
 2. Configure text serialization, visible meta files, project identity, Windows
@@ -1625,7 +1625,7 @@ and mechanically prevent the most damaging architectural drift.
    worktree using the recorded editor path.
 7. Replace Unity plan command placeholders with exact verified commands.
 
-`MIG-05` implementation slices:
+`WARD-05` implementation slices:
 
 1. Add narrow formatting rules without reformatting vendor/generated content.
 2. Enforce assembly direction through `.asmdef` references first.
@@ -1638,9 +1638,9 @@ and mechanically prevent the most damaging architectural drift.
 
 Integration checkpoints:
 
-- After `MIG-01`: clean checkout compiles, EditMode test passes, and Windows
+- After `WARD-01`: clean checkout compiles, EditMode test passes, and Windows
   development build launches.
-- After `MIG-05`: every declared invalid fixture fails for the intended reason;
+- After `WARD-05`: every declared invalid fixture fails for the intended reason;
   removing the invalid fixture returns the project to green.
 
 Human gates: a second human reproduces the commands and the Unity technical
@@ -1650,12 +1650,12 @@ visual gate.
 Exit criteria: U0 hard gate passes and new contributors have one documented,
 tested path into the project.
 
-### 15.5 Delivery 2 — Deterministic content boundary (`MIG-02`, `MIG-03`)
+### 15.5 Delivery 2 — Deterministic content boundary (`WARD-02`, `WARD-03`)
 
 Objective: make Unity a deterministic consumer of canonical shared content,
 never a second authoring source.
 
-`MIG-02` implementation slices:
+`WARD-02` implementation slices:
 
 1. Inventory the exact allowed source roots, file types, schema versions, and
    owned Unity raw destinations.
@@ -1669,7 +1669,7 @@ never a second authoring source.
 6. Remove or corrupt one required reference and prove the last valid mirror is
    unchanged.
 
-`MIG-03` implementation slices:
+`WARD-03` implementation slices:
 
 1. Import one smallest catalogue into validation DTOs, then generated typed
    assets, with stable source ID/hash and a readable report row.
@@ -1688,15 +1688,15 @@ Integration checkpoints:
 Human gates: content owner samples report mappings and resolves any ambiguous or
 duplicate canonical identity. No visual approval is needed.
 
-Exit criteria: `MIG-02` and `MIG-03` close with reproducible hashes and no
+Exit criteria: `WARD-02` and `WARD-03` close with reproducible hashes and no
 duplicate story/house authority in Unity.
 
-### 15.6 Delivery 3 — Migration truth and domain core (`MIG-04`, `MIG-10`–`MIG-13`)
+### 15.6 Delivery 3 — Migration truth and domain core (`WARD-04`, `WARD-10`–`WARD-13`)
 
 Objective: port accepted behavior, not Dart structure or known defects, into one
 Unity-free deterministic session.
 
-`MIG-04` migration-map sequence:
+`WARD-04` migration-map sequence:
 
 1. Inventory production callers and focused tests for time/resources, journal,
    visitors/story, saves, and endings.
@@ -1710,7 +1710,7 @@ Unity-free deterministic session.
 6. Make the empty Unity runner discover every fixture and report unsupported
    behavior honestly until its owning packet lands.
 
-`MIG-10` recommended children:
+`WARD-10` recommended children:
 
 - Clock boundaries and explicit elapsed-time input.
 - Resource spend/earn with typed rejection and no negative state.
@@ -1718,7 +1718,7 @@ Unity-free deterministic session.
 - Weather/difficulty via deterministic random source.
 - Stable serialized snapshot and ordered events.
 
-`MIG-11` recommended children:
+`WARD-11` recommended children:
 
 - Entry/revision identity, write, certainty, and source metadata.
 - Compare result taxonomy: mismatch, contradiction, unverifiable.
@@ -1726,7 +1726,7 @@ Unity-free deterministic session.
 - Deterministic sleep-triggered drift with protected-entry exclusion.
 - Sparse save representation and stable digest.
 
-`MIG-12` recommended children:
+`WARD-12` recommended children:
 
 - Catalogue-wide event-kind/effect-key validation.
 - Deterministic event eligibility and time-window selection.
@@ -1735,7 +1735,7 @@ Unity-free deterministic session.
 - Delivered-event and active-encounter persistence proving exactly once.
 - Full 21-day schema sweep without requiring presentation implementation.
 
-`MIG-13` recommended children:
+`WARD-13` recommended children:
 
 - Define typed player commands and accepted/rejected results.
 - Compose time/resources/journal/narrative behind one `GameSession` owner.
@@ -1758,12 +1758,12 @@ and public API size.
 Exit criteria: a deterministic Unity-free session can replay representative
 multi-day commands and emit the same accepted state/events twice.
 
-### 15.7 Delivery 4 — Save safety and greybox embodiment (`MIG-14`, `MIG-20`)
+### 15.7 Delivery 4 — Save safety and greybox embodiment (`WARD-14`, `WARD-20`)
 
 Objective: persist complete session truth safely and bind it to a replaceable,
 canonically scaled domestic greybox.
 
-`MIG-14` implementation slices:
+`WARD-14` implementation slices:
 
 1. Define save envelope fields: save schema, product/build, content compatibility,
    session state, settings/player metadata, and checksum/version information.
@@ -1773,10 +1773,10 @@ canonically scaled domestic greybox.
    primary, valid backup, and no-save first boot.
 5. Save immediately before an event boundary, reload, and prove exactly-once
    delivery.
-6. Implement or explicitly omit Dart-save import according to `MIG-00`.
+6. Implement or explicitly omit Dart-save import according to `WARD-00`.
 7. Run the real packaged filesystem path, not only an in-memory adapter.
 
-`MIG-20` implementation slices:
+`WARD-20` implementation slices:
 
 1. Generate one labeled ground-floor proxy from canonical data at identity root.
 2. Bind stable room and portal IDs independently from display/hierarchy names.
@@ -1801,12 +1801,12 @@ house production begins.
 Exit criteria: a packaged build boots the complete greybox from canonical data,
 shows saved portal state, and safely restores after corruption scenarios.
 
-### 15.8 Delivery 5 — Movement, interaction, and acoustics (`MIG-21`–`MIG-23`)
+### 15.8 Delivery 5 — Movement, interaction, and acoustics (`WARD-21`–`WARD-23`)
 
 Objective: let the player inhabit, manipulate, and hear the canonical greybox
 through production controls.
 
-`MIG-21` recommended route increments:
+`WARD-21` recommended route increments:
 
 1. Look/move and stable room-volume transition on the ground floor.
 2. Capsule collision, wall slide, doorway crossing, and tunneling rejection.
@@ -1815,7 +1815,7 @@ through production controls.
 5. Save/reload on stairs and immediately after portal/room transition.
 6. Supported frame-rate and reduced-motion human checks in Windows build.
 
-`MIG-22` recommended interaction increments:
+`WARD-22` recommended interaction increments:
 
 1. One front-door collider hit -> stable focus target -> typed command -> domain
    result -> one presentation update.
@@ -1824,7 +1824,7 @@ through production controls.
 4. Remaining door, shutter, mantle, inspection, and journal-desk target types.
 5. One direct-manipulation proof and save/reload for every proof state.
 
-`MIG-23` recommended audio increments:
+`WARD-23` recommended audio increments:
 
 1. Stable listener/emitter room binding and one room ambience.
 2. Portal graph path for one localized cue in open and closed states.
@@ -1843,12 +1843,12 @@ speaker/headphone acoustic causality each receive named approval.
 Exit criteria: U2 route checks pass with no hierarchy lookup, duplicate command,
 invisible required action, or save-state disagreement.
 
-### 15.9 Delivery 6 — Persistent UI and accessible Day 1 (`MIG-30`–`MIG-33`)
+### 15.9 Delivery 6 — Persistent UI and accessible Day 1 (`WARD-30`–`WARD-33`)
 
 Objective: expose the accepted session through one persistent, keyboard-usable,
 text-complete interface.
 
-`MIG-30` implementation slices:
+`WARD-30` implementation slices:
 
 1. Persistent UI root with one panel stack and explicit modal ledger.
 2. Pause/resume, semantic close/back, cursor, movement, and input-map ownership.
@@ -1856,7 +1856,7 @@ text-complete interface.
 4. HUD/focus prompt and focus-loss recovery.
 5. Keyboard navigation, remap/conflict handling, credits, and packaged captures.
 
-`MIG-31` implementation slices:
+`WARD-31` implementation slices:
 
 1. Render one authored Day 1 line from a session event with speaker/source.
 2. Present options and route one choice exactly once; add silence/walk-away.
@@ -1864,7 +1864,7 @@ text-complete interface.
 4. Add speech, non-speech, and direction captions.
 5. Prove audio present, missing, disabled, interrupted, and reload paths.
 
-`MIG-32` implementation slices:
+`WARD-32` implementation slices:
 
 1. Read-only entry ledger and revision/source/certainty presentation.
 2. Keyboard entry creation through a typed session command.
@@ -1872,7 +1872,7 @@ text-complete interface.
 4. Distinct mismatch/contradiction/unverifiable wording.
 5. Save/reload with accessible revision history and protected state.
 
-`MIG-33` integrated audit:
+`WARD-33` integrated audit:
 
 1. Inventory every required Day 1 action and target against input bindings.
 2. Complete keyboard-only production route without debug navigation.
@@ -1887,10 +1887,10 @@ Integration checkpoint: from boot, a keyboard-only player can configure the
 game, complete threshold dialogue and journal work, pause/resume, and retain
 settings/session state after process restart.
 
-Exit criteria: `MIG-30`–`MIG-33` close with semantic automation, packaged route
+Exit criteria: `WARD-30`–`WARD-33` close with semantic automation, packaged route
 evidence, and named human UI/accessibility approval.
 
-### 15.10 Delivery 7 — Day 1 vertical-slice gate (`MIG-40`)
+### 15.10 Delivery 7 — Day 1 vertical-slice gate (`WARD-40`)
 
 Objective: prove that the accumulated components make the intended game loop,
 not merely compatible subsystems.
@@ -1914,25 +1914,25 @@ Implementation sequence:
 10. After approval, record the human Dart feature-freeze decision.
 
 Do not implement Days 2–21 or begin production-house expansion to make the demo
-appear complete. `MIG-40` owns integration and evidence; subsystem defects remain
+appear complete. `WARD-40` owns integration and evidence; subsystem defects remain
 owned by their original directories/packets.
 
 Exit criteria: U3 hard gate passes in one identified Windows build and the first
 act/campaign packet is not activated until its canonical content dependency is
 Ready.
 
-### 15.11 Delivery 8 — Campaign expansion and endings (`MIG-60`, `MIG-61`)
+### 15.11 Delivery 8 — Campaign expansion and endings (`WARD-60`, `WARD-61`)
 
 Objective: scale the accepted loop across the campaign without losing pacing,
 causal callbacks, save safety, or ending derivation.
 
-Required `MIG-60` children:
+Required `WARD-60` children:
 
 | Child | Content | Integrated proof | Human gate |
 |---|---|---|---|
-| `MIG-60A` | Days 2–7 | First journal anomaly, declared callbacks, per-day consequence, act save/reload. | Act I pacing and no-idle-wait review. |
-| `MIG-60B` | Days 8–14 | Mid-campaign escalation, persistent house states, exactly-once act fixture. | Restraint, comprehension, and fatigue review. |
-| `MIG-60C` | Days 15–20 | Late callbacks/residues and ending facts accumulated without selection UI. | Late-act pacing and clue-preservation review. |
+| `WARD-60A` | Days 2–7 | First journal anomaly, declared callbacks, per-day consequence, act save/reload. | Act I pacing and no-idle-wait review. |
+| `WARD-60B` | Days 8–14 | Mid-campaign escalation, persistent house states, exactly-once act fixture. | Restraint, comprehension, and fatigue review. |
+| `WARD-60C` | Days 15–20 | Late callbacks/residues and ending facts accumulated without selection UI. | Late-act pacing and clue-preservation review. |
 
 For each act child:
 
@@ -1945,7 +1945,7 @@ For each act child:
 6. Run prior accepted days as a regression subset after every integrated batch.
 7. Conduct a timed uncoached play sample before closing the act child.
 
-`MIG-61` implementation sequence:
+`WARD-61` implementation sequence:
 
 1. Define inspectable eligibility facts for compliance, synchronisation, and
    player-initiated rupture.
@@ -1961,12 +1961,12 @@ Exit criteria: U5 passes semantic campaign automation and human playthroughs;
 all endings are derived from saved play and the full game remains voice-off
 complete.
 
-### 15.12 Delivery 9 — Production house, rooms, lighting, and voice (`MIG-50`–`MIG-52`, `MIG-62`)
+### 15.12 Delivery 9 — Production house, rooms, lighting, and voice (`WARD-50`–`WARD-52`, `WARD-62`)
 
 Objective: replace validated proxies with rights-cleared human production craft
 without altering topology, state truth, accessibility, or save compatibility.
 
-`MIG-50` house replacement sequence:
+`WARD-50` house replacement sequence:
 
 1. Approve source ownership/license, source/interchange hashes, exporter/importer
    versions, units, axes, transforms, material slots, and anchor contract.
@@ -1979,7 +1979,7 @@ without altering topology, state truth, accessibility, or save compatibility.
 6. Reject the replacement atomically if any route, identity, rights, or scale
    gate fails.
 
-`MIG-51` hero-route sequence:
+`WARD-51` hero-route sequence:
 
 1. Audit texture/material import semantics and physical scale.
 2. Establish daylight and bounded warm practicals with post disabled.
@@ -1988,18 +1988,18 @@ without altering topology, state truth, accessibility, or save compatibility.
 5. Add only restrained accepted post treatment.
 6. Measure frame behavior and capture high/safe/accessibility states.
 
-Required `MIG-52` children:
+Required `WARD-52` children:
 
-- `MIG-52A`: kitchen/cellar.
-- `MIG-52B`: bedroom/landing.
-- `MIG-52C`: bathroom/spare-room.
+- `WARD-52A`: kitchen/cellar.
+- `WARD-52B`: bedroom/landing.
+- `WARD-52C`: bathroom/spare-room.
 
 Each room-pair child performs asset intake, normal/consequence/late-state
 authoring, route/focus/save/acoustic regression, profile/performance capture, and
 separate human approval. Never activate two pairs merely to keep artists busy
 when integration or review WIP is full.
 
-`MIG-62` voice sequence, only after human story lock:
+`WARD-62` voice sequence, only after human story lock:
 
 1. Hash locked text and record cast, pronunciation, direction, rights, and
    intended line keys.
@@ -2014,7 +2014,7 @@ Exit criteria: U6 room batches are individually accepted, all source/provenance
 is indexed, saves and routes remain compatible, and text/captions still carry
 the complete game without voice.
 
-### 15.13 Delivery 10 — Release candidate (`MIG-70`)
+### 15.13 Delivery 10 — Release candidate (`WARD-70`)
 
 Objective: stabilize, measure, audit, and decide one exact shippable build.
 
@@ -2053,18 +2053,18 @@ At the repository state audited by the Unity plan, the first backlog should be:
 
 | Order | Item | Required preparation | Close evidence |
 |---:|---|---|---|
-| 1 | `MIG-00` transition charter | Decision owners available. | Reviewed charter and plan links. |
-| 2 | `MIG-01` pinned scaffold | Chartered patch and Windows builder. | Clean EditMode test and development build. |
-| 3 | `MIG-05` guardrails | Scaffold assemblies exist. | Invalid fixtures rejected; build green. |
-| 4 | `MIG-04` migration map foundation | Dart production callers/tests identified. | Classified first rule set and fixture discovery. |
-| 5 | `MIG-02` content sync | Scaffold command path and canonical input inventory. | Idempotence plus non-destructive failure. |
-| 6 | `MIG-03` typed import | Valid synchronized raw content. | Stable GUID/hash report and negative schemas. |
+| 1 | `WARD-00` transition charter | Decision owners available. | Reviewed charter and plan links. |
+| 2 | `WARD-01` pinned scaffold | Chartered patch and Windows builder. | Clean EditMode test and development build. |
+| 3 | `WARD-05` guardrails | Scaffold assemblies exist. | Invalid fixtures rejected; build green. |
+| 4 | `WARD-04` migration map foundation | Dart production callers/tests identified. | Classified first rule set and fixture discovery. |
+| 5 | `WARD-02` content sync | Scaffold command path and canonical input inventory. | Idempotence plus non-destructive failure. |
+| 6 | `WARD-03` typed import | Valid synchronized raw content. | Stable GUID/hash report and negative schemas. |
 
-This order puts safety and behavioral truth early. `MIG-02` and `MIG-04` may
-swap or overlap after `MIG-01` if owners, write sets, and integration capacity
+This order puts safety and behavioral truth early. `WARD-02` and `WARD-04` may
+swap or overlap after `WARD-01` if owners, write sets, and integration capacity
 are genuinely independent. Do not activate the whole table.
 
-For the next replenishment, refine only `MIG-00` and prepare `MIG-01`. Everything
+For the next replenishment, refine only `WARD-00` and prepare `WARD-01`. Everything
 else stays at outcome/dependency detail until evidence from the scaffold changes
 what is known.
 
@@ -2132,7 +2132,7 @@ without coaching.
 
 Human emphasis:
 
-- Schedule product, visual, audio, and accessibility reviewers before `MIG-40`.
+- Schedule product, visual, audio, and accessibility reviewers before `WARD-40`.
 - Play wake through reload with production input and no debug intervention.
 - Verify keyboard-only, remapping, large UI, captions, reduced modes, safe/high,
   and missing/disabled voice.
@@ -2168,7 +2168,7 @@ Human emphasis:
 
 - Validate sources, units, hashes, anchors, licenses, and import presets first.
 - Compare proxy and human house routes/bindings/saves before visual approval.
-- Approve each `MIG-52` room pair independently across story states and profiles.
+- Approve each `WARD-52` room pair independently across story states and profiles.
 - Establish clean lighting/material baseline before restrained post treatment.
 - Promote voice only as a complete, hash-locked, reviewed batch.
 
@@ -2244,8 +2244,8 @@ participant.
 
 ### Accessibility review is continuous
 
-Accessibility is part of every affected packet, with `MIG-33` providing the
-integrated Day 1 proof and `MIG-70` repeating release coverage. At minimum:
+Accessibility is part of every affected packet, with `WARD-33` providing the
+integrated Day 1 proof and `WARD-70` repeating release coverage. At minimum:
 
 - every action remains reachable with the declared device route;
 - focus order, close/back, remapping, conflict, reset, and persistence behave;
@@ -2428,13 +2428,13 @@ Do not start Unity implementation before this short human session:
 
 1. Read the product red thread aloud and confirm it still describes the game.
 2. Assign the product, Unity technical, content, and experience-review hats.
-3. Review `MIG-00` and fill its missing human decisions.
+3. Review `WARD-00` and fill its missing human decisions.
 4. Confirm the Unity 6.3 LTS patch-selection process and available Windows build
    environment.
 5. Decide whether public Dart saves require cross-engine import.
 6. Confirm when Dart feature freeze occurs and what emergency fixes remain
    allowed afterward.
-7. Make `MIG-00` Ready, assign one owner, and schedule its review.
+7. Make `WARD-00` Ready, assign one owner, and schedule its review.
 8. Leave every later packet `OPEN`.
 
 The outcome is not code. It is a small, unambiguous transition charter that lets
@@ -2528,8 +2528,8 @@ Before the first Unity packet:
 
 1. Confirm each repository opens and its remote/history is understood.
 2. Confirm the required Dart and Node versions for reference-side checks.
-3. Complete `MIG-00` before installing or selecting Unity for production work.
-4. After `MIG-01`, record the exact Unity executable/patch and tested commands in
+3. Complete `WARD-00` before installing or selecting Unity for production work.
+4. After `WARD-01`, record the exact Unity executable/patch and tested commands in
    the Unity plan placeholders. Never rely on “open it normally.”
 5. Create one shared location for packet issues/notes and one for generated
    evidence, following the repository rules and later Unity tooling decision.
@@ -2544,7 +2544,7 @@ Product truth:      tmp/MASTERPLAN.md
 Unity migration:   UNITY_PLAN.md
 Human workflow:    tmp/HUMAN_AGILE_GUIDE.md
 Repository rules:  tmp/GROUND_RULES.md
-Current packet:    MIG-__
+Current packet:    WARD-__
 Owner:             __________
 Reviewer:          __________
 Last green build:  __________
@@ -2560,10 +2560,10 @@ Do this without a parser:
 3. Resolve `ACTIVE`, `PARTIAL`, `BLOCKED`, and Review work before considering a
    new `OPEN` row.
 4. For the first remaining `OPEN` row, open its packet body in section 7.
-5. Check every `MIG-*` ID in `Depends on`; each must be `CLOSED` in both its body
+5. Check every `WARD-*` ID in `Depends on`; each must be `CLOSED` in both its body
    and ledger.
 6. Check named product decisions, story packets, assets, rights, hardware, and
-   human reviewers. These are dependencies even when they are not `MIG-*` IDs.
+   human reviewers. These are dependencies even when they are not `WARD-*` IDs.
 7. Complete the Definition of Ready in section 6.
 8. Copy the packet kickoff canvas and fill it in.
 9. Change `State: OPEN` to `State: ACTIVE` and `Owner: unassigned` to the human's
@@ -2640,7 +2640,7 @@ rather than coding from assumption.
 
 ### 23.6 Implementation runbooks by work type
 
-#### Pure Domain C# (`MIG-10`–`MIG-13`, ending resolver parts)
+#### Pure Domain C# (`WARD-10`–`WARD-13`, ending resolver parts)
 
 Start with:
 
@@ -2663,7 +2663,7 @@ bus, base class, or public extension point with no current second use.
 Evidence: focused EditMode result, fixture name/digest, deterministic repeat,
 and a short state-ownership review note.
 
-#### Content synchronization/import (`MIG-02`, `MIG-03`)
+#### Content synchronization/import (`WARD-02`, `WARD-03`)
 
 Start with a tiny valid fixture and one deliberately invalid copy. Keep a backup
 of the last valid generated output only through the designed transaction, not a
@@ -2684,7 +2684,7 @@ to edit generated assets by hand.
 Evidence: valid run, second identical run, invalid run, unchanged valid output,
 and sampled report rows.
 
-#### Saves and recovery (`MIG-14`)
+#### Saves and recovery (`WARD-14`)
 
 Use disposable test profiles/directories and label every save with schema,
 content, and build identity. Never test corruption against the only useful save.
@@ -2704,7 +2704,7 @@ Minimum manual matrix:
 Evidence: save files/fixtures, before/after digests, packaged logs, and recovery
 steps another human can repeat.
 
-#### Scene, house, movement, and interaction (`MIG-20`–`MIG-22`)
+#### Scene, house, movement, and interaction (`WARD-20`–`WARD-22`)
 
 Keep four layers visibly separate:
 
@@ -2729,7 +2729,7 @@ For every new route/target, check:
 Evidence: route name, start save/position, production build, marker/assertion
 result, normal capture, failure capture when relevant, and human scale/feel note.
 
-#### UI, dialogue, journal, and accessibility (`MIG-30`–`MIG-33`)
+#### UI, dialogue, journal, and accessibility (`WARD-30`–`WARD-33`)
 
 Begin keyboard-only. A mouse may be added/tested, but keyboard focus and
 semantic close/back should never become a cleanup task.
@@ -2751,7 +2751,7 @@ typed session commands.
 Evidence: keyboard route, focus order, settings before/after restart, required
 captures, and uncoached human usability record.
 
-#### Audio (`MIG-23`, room audio, voice)
+#### Audio (`WARD-23`, room audio, voice)
 
 Test causality before polish. The listener should hear a clear, bounded change
 when the player crosses a room or changes a portal, and captions/text must carry
@@ -2770,7 +2770,7 @@ Manual matrix:
 Record hardware, OS device, mixer settings, room/portal IDs, and build. “Sounds
 good on my machine” is not review evidence.
 
-#### Art, materials, and lighting (`MIG-50`–`MIG-52`)
+#### Art, materials, and lighting (`WARD-50`–`WARD-52`)
 
 Before Unity work, confirm source ownership/license, editable source, export,
 hashes, units, axes, transforms, texture semantics, and stable anchors. Keep the
@@ -2789,7 +2789,7 @@ Review in this order:
 Never solve a route/binding failure by moving canonical markers to fit the new
 model without an approved source migration.
 
-#### Release candidate (`MIG-70`)
+#### Release candidate (`WARD-70`)
 
 Write the candidate ID on every checklist and artifact. Any behavior-affecting
 fix creates a new candidate; do not mix evidence between them.
@@ -2928,7 +2928,7 @@ the original close evidence.
 | Required reviewer is unavailable | Keep Review/Partial, preserve reproducible build, reschedule. | Self-approve or remove the gate. |
 | Plans disagree | Stop affected work and ask the owning human authority to reconcile them. | Choose the easier interpretation. |
 | Worktree contains unknown changes | Identify owner/purpose and isolate your write set. | Reset, overwrite, or include them. |
-| No exact Unity command exists yet | Finish `MIG-01` command recording. | Guess paths in later packets. |
+| No exact Unity command exists yet | Finish `WARD-01` command recording. | Guess paths in later packets. |
 
 ### 23.12 First five human working sessions
 
@@ -2936,17 +2936,17 @@ This is a suggested starting sequence, not a date commitment.
 
 #### Session 1 — Close the transition questions
 
-- Read the red thread and `MIG-00` aloud.
+- Read the red thread and `WARD-00` aloud.
 - Assign hats and reviewers.
 - Decide platform/editor policy, engine coexistence, and save import.
 - Write/review the transition charter.
-- Close `MIG-00` only when every decision owner agrees.
+- Close `WARD-00` only when every decision owner agrees.
 
 Result: humans can begin Unity without guessing.
 
 #### Session 2 — Create the reproducible shell
 
-- Claim `MIG-01`.
+- Claim `WARD-01`.
 - Create the pinned minimal URP project and assemblies.
 - Add one Unity-free Domain test.
 - Record exact batch test/build commands.
@@ -2958,14 +2958,14 @@ Result: one clean path from checkout to running build.
 
 - Have another human follow the recorded clean setup.
 - Fix missing assumptions in commands/settings.
-- Close `MIG-01` after reproduction.
-- Claim `MIG-05`; add assembly/generated-content guards incrementally.
+- Close `WARD-01` after reproduction.
+- Claim `WARD-05`; add assembly/generated-content guards incrementally.
 
 Result: the foundation is understandable and resists common drift.
 
 #### Session 4 — Decide what behavior is real
 
-- Begin `MIG-04` if WIP permits.
+- Begin `WARD-04` if WIP permits.
 - Inventory only the first domain rule family.
 - Classify adopt/replace/retire/decision.
 - Resolve required human decisions.
@@ -2975,7 +2975,7 @@ Result: Unity work targets accepted behavior, not memory or class names.
 
 #### Session 5 — Establish deterministic content flow
 
-- Claim `MIG-02` when capacity/dependencies allow.
+- Claim `WARD-02` when capacity/dependencies allow.
 - Inventory canonical sources and owned destinations.
 - Implement validation and staging for the smallest content subset.
 - Prove identical second run and non-destructive invalid run.
@@ -3094,7 +3094,7 @@ The local page provides:
 - plan/ledger validation errors and state counts; and
 - synchronized state-change preview and confirmation.
 
-A green-edged `Ready` card means only that all `MIG-*` dependencies are closed.
+A green-edged `Ready` card means only that all `WARD-*` dependencies are closed.
 The human must still verify external/product dependencies, complete section 6,
 name the owner/reviewer, and decide that work is actually Ready.
 
@@ -3117,7 +3117,7 @@ List one state or inspect a packet with joined implementation guidance:
 
 ```sh
 python3 tmp/human_agile_app.py list --state ACTIVE
-python3 tmp/human_agile_app.py show MIG-00
+python3 tmp/human_agile_app.py show WARD-00
 ```
 
 Print a copyable form:
@@ -3138,7 +3138,7 @@ python3 tmp/human_agile_app.py summary
 Preview claiming the first packet without writing:
 
 ```sh
-python3 tmp/human_agile_app.py transition MIG-00 ACTIVE \
+python3 tmp/human_agile_app.py transition WARD-00 ACTIVE \
   --owner "Human Name" \
   --ready
 ```
@@ -3148,23 +3148,23 @@ Inspect it. To apply the exact change, repeat with both explicit write and exact
 packet confirmation:
 
 ```sh
-python3 tmp/human_agile_app.py transition MIG-00 ACTIVE \
+python3 tmp/human_agile_app.py transition WARD-00 ACTIVE \
   --owner "Human Name" \
   --ready \
   --apply \
-  --confirm MIG-00
+  --confirm WARD-00
 ```
 
 Closing requires evidence and `Remainder: none`:
 
 ```sh
-python3 tmp/human_agile_app.py transition MIG-00 CLOSED \
+python3 tmp/human_agile_app.py transition WARD-00 CLOSED \
   --evidence "Charter review PASS; evidence HR-001" \
   --ledger-evidence "HR-001 PASS" \
   --remainder none
 ```
 
-That command still previews only. Add `--apply --confirm MIG-00` only after
+That command still previews only. Add `--apply --confirm WARD-00` only after
 reviewing the diff.
 
 The application enforces declared state transitions and minimum safety fields:

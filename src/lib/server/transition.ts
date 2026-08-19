@@ -53,7 +53,7 @@ export function buildProposedSource(source: string, packet: Packet, request: Tra
   if (errors.length) throw new Error(errors.join(' '));
   const heading = `### ${packet.id} — ${packet.title}`;
   const start = source.indexOf(heading);
-  const end = source.indexOf('\n### MIG-', start + heading.length);
+  const end = source.indexOf('\n### WARD-', start + heading.length);
   if (start < 0) throw new Error(`Packet ${packet.id} was not found in the source text.`);
   const boundary = end < 0 ? source.length : end;
   let block = source.slice(start, boundary);

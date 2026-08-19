@@ -197,7 +197,7 @@ describe('project card actions', () => {
 
   it('rejects assigning a card on a source-owned board', async () => {
     persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]', 'project_demo_source': 'plan' });
-    const result = await actions.assignCard(context({ id: 'unity-mig-21', owner: 'ada' }, 'editor', 'ada'));
+    const result = await actions.assignCard(context({ id: 'unity-ward-21', owner: 'ada' }, 'editor', 'ada'));
     expect(result).toMatchObject({ status: 403 });
     expect(persistence.updateProjectCard).not.toHaveBeenCalled();
   });
@@ -219,9 +219,9 @@ describe('source-owned lock (Unity plan mirror)', () => {
   });
 
   it('rejects duplicating and deleting a card on a source-owned board', async () => {
-    const duplicated = await actions.duplicateCard({ request: request({ id: 'unity-mig-21' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+    const duplicated = await actions.duplicateCard({ request: request({ id: 'unity-ward-21' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
     expect(duplicated).toMatchObject({ status: 403 });
-    const deleted = await actions.deleteCard({ request: request({ id: 'unity-mig-21' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+    const deleted = await actions.deleteCard({ request: request({ id: 'unity-ward-21' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
     expect(deleted).toMatchObject({ status: 403 });
     expect(persistence.createProjectCard).not.toHaveBeenCalled();
     expect(persistence.deleteProjectCard).not.toHaveBeenCalled();
@@ -229,22 +229,22 @@ describe('source-owned lock (Unity plan mirror)', () => {
 
   it('keeps title/details/owner/priority/cover from the source but takes the submitted checklist ticks, lane, and due date', async () => {
     persistence.listProjectCards.mockResolvedValue([{
-      id: 'unity-mig-21', projectSlug: 'demo', title: 'MIG-21 · Implement movement', details: 'Synced from the plan.', lane: 'Backlog', owner: 'unassigned', priority: 'high', coverColor: '#5E9CFF', dueDate: null, dueComplete: false, startDate: null, archived: false, position: 0, createdAt: '', updatedAt: '',
-      checklist: [{ id: 'mig-21-handle-1', text: 'u2-move-capsule-rule', done: false }, { id: 'mig-21-handle-2', text: 'u2-move-stairs-rule', done: false }],
+      id: 'unity-ward-21', projectSlug: 'demo', title: 'WARD-21 · Implement movement', details: 'Synced from the plan.', lane: 'Backlog', owner: 'unassigned', priority: 'high', coverColor: '#5E9CFF', dueDate: null, dueComplete: false, startDate: null, archived: false, position: 0, createdAt: '', updatedAt: '',
+      checklist: [{ id: 'ward-21-handle-1', text: 'u2-move-capsule-rule', done: false }, { id: 'ward-21-handle-2', text: 'u2-move-stairs-rule', done: false }],
       tags: []
     }]);
     const result = await actions.updateCard({
       request: requestEntries([
-        ['id', 'unity-mig-21'], ['title', 'A forged title'], ['details', 'forged details'], ['lane', 'Ready'], ['owner', 'sneaky'], ['priority', 'low'], ['coverColor', '#F17878'], ['dueDate', '2026-09-01'],
-        ['checkItemId', 'mig-21-handle-1'], ['checkItemText', 'renamed handle text'], ['checkItemDone', 'mig-21-handle-1'],
-        ['checkItemId', 'mig-21-handle-2'], ['checkItemText', 'u2-move-stairs-rule']
+        ['id', 'unity-ward-21'], ['title', 'A forged title'], ['details', 'forged details'], ['lane', 'Ready'], ['owner', 'sneaky'], ['priority', 'low'], ['coverColor', '#F17878'], ['dueDate', '2026-09-01'],
+        ['checkItemId', 'ward-21-handle-1'], ['checkItemText', 'renamed handle text'], ['checkItemDone', 'ward-21-handle-1'],
+        ['checkItemId', 'ward-21-handle-2'], ['checkItemText', 'u2-move-stairs-rule']
       ]),
       locals: { role: 'editor', username: 'ada' },
       params: { slug: 'demo' }
     } as never);
     expect(result).toEqual({ message: 'Card updated.' });
     expect(persistence.updateProjectCard).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'MIG-21 · Implement movement',
+      title: 'WARD-21 · Implement movement',
       details: 'Synced from the plan.',
       owner: 'unassigned',
       priority: 'high',
@@ -252,17 +252,17 @@ describe('source-owned lock (Unity plan mirror)', () => {
       lane: 'Ready',
       dueDate: '2026-09-01',
       checklist: [
-        { id: 'mig-21-handle-1', text: 'u2-move-capsule-rule', done: true },
-        { id: 'mig-21-handle-2', text: 'u2-move-stairs-rule', done: false }
+        { id: 'ward-21-handle-1', text: 'u2-move-capsule-rule', done: true },
+        { id: 'ward-21-handle-2', text: 'u2-move-stairs-rule', done: false }
       ]
     }));
   });
 
   it('archiving, moving, and commenting stay allowed on a source-owned board', async () => {
-    persistence.listProjectCards.mockResolvedValue([{ id: 'unity-mig-21', projectSlug: 'demo', title: 'MIG-21', details: '', lane: 'Ready', owner: 'unassigned', priority: 'high', dueDate: null, archived: false, checklist: [], tags: [], position: 0, createdAt: '', updatedAt: '' }]);
-    const archived = await actions.archiveCard(context({ id: 'unity-mig-21', archived: 'true' }, 'editor'));
+    persistence.listProjectCards.mockResolvedValue([{ id: 'unity-ward-21', projectSlug: 'demo', title: 'WARD-21', details: '', lane: 'Ready', owner: 'unassigned', priority: 'high', dueDate: null, archived: false, checklist: [], tags: [], position: 0, createdAt: '', updatedAt: '' }]);
+    const archived = await actions.archiveCard(context({ id: 'unity-ward-21', archived: 'true' }, 'editor'));
     expect(archived).toEqual({ message: 'Card archived.' });
-    const moved = await actions.moveCard(context({ id: 'unity-mig-21', lane: 'Done' }, 'editor'));
+    const moved = await actions.moveCard(context({ id: 'unity-ward-21', lane: 'Done' }, 'editor'));
     expect(moved).toEqual({ message: 'Card moved.' });
   });
 });
