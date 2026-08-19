@@ -25,7 +25,7 @@
 </script>
 
 <svelte:head>
-  <title>Projects · Project Agile</title>
+  <title>Projects · BullPager</title>
   <meta name="description" content="Choose a project board and keep its working context together." />
 </svelte:head>
 
@@ -42,7 +42,7 @@
     </div>
   </header>
 
-  <section class="project-hub-principles" aria-label="How Project Agile works">
+  <section class="project-hub-principles" aria-label="How BullPager works">
     <article><span class="principle-icon"><ArrowUpRight /></span><div><strong>Move work</strong><p>Capture cards, clarify the next step, and move them across the project board.</p></div></article>
     <article><span class="principle-icon"><Cloud /></span><div><strong>Keep context</strong><p>Store briefs, screenshots, and notes beside the board in the project cloud.</p></div></article>
     <article><span class="principle-icon"><Waypoints /></span><div><strong>See relationships</strong><p>Use graph mode when dependencies and ideas need more space than a list.</p></div></article>

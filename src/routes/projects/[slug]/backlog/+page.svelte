@@ -23,7 +23,7 @@
   }
 </script>
 
-<svelte:head><title>{data.project.name} backlog · Project Agile</title></svelte:head>
+<svelte:head><title>{data.project.name} backlog · BullPager</title></svelte:head>
 
 <main class="backlog-page">
   <header class="topbar">

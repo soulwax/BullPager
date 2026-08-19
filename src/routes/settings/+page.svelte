@@ -5,7 +5,7 @@
   const roleOptions = $derived<Exclude<UserRole, 'superadmin'>[]>(data.role === 'superadmin' ? ['admin', 'editor', 'viewer'] : ['editor', 'viewer']);
 </script>
 
-<svelte:head><title>Settings · Project Agile Board</title></svelte:head>
+<svelte:head><title>Settings · BullPager Board</title></svelte:head>
 <main class="settings-shell">
   <header class="topbar"><div><p class="eyebrow">ADMINISTRATION</p><h1>System settings</h1><p class="subtitle">Manage access without editing deployment secrets.</p></div><a class="quiet-button settings-back" href="/">Back to board</a></header>
   <section class="settings-card"><p class="eyebrow">ROLES</p><h2>Access model</h2><p class="subtitle">The deployment credentials are always the <strong>superadmin</strong> bootstrap account. Administrators have the same system settings access, retain editor capabilities, and become editors automatically when invited to a project.</p><dl class="role-list"><dt>superadmin</dt><dd>Deployment owner; can manage every setting and promote users to admin.</dd><dt>admin</dt><dd>Can see users and manage settings, but cannot change or remove superadmins or other admins.</dd><dt>editor</dt><dd>Can work with boards, project files, and project settings.</dd><dt>viewer</dt><dd>Read-only project access.</dd></dl></section>

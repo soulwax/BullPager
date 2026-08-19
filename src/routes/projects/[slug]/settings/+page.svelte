@@ -41,7 +41,7 @@
   function removeLane(index: number) { if (lanes.length > 2) lanes = lanes.filter((_, laneIndex) => laneIndex !== index); }
 </script>
 
-<svelte:head><title>{data.project.name} settings · Project Agile Board</title></svelte:head>
+<svelte:head><title>{data.project.name} settings · BullPager Board</title></svelte:head>
 
 <main class="settings-shell">
   <header class="topbar">

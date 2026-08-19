@@ -1401,7 +1401,7 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .project-workspace .add-card-button { margin-inline: .1rem; width: calc(100% - .2rem); }
 
 /* Board-first application shell. The visual language borrows the fast scanning
-   rhythm of familiar Kanban tools, but keeps Project Agile's own mark, blue
+   rhythm of familiar Kanban tools, but keeps BullPager's own mark, blue
    spectrum, and information hierarchy. */
 :root {
   --agile-blue-950: #09275d;

@@ -660,7 +660,7 @@
 
 <svelte:window ondragstart={captureWindowDrag} ondragend={finishWindowDrag} onkeydown={handleShortcut} />
 
-<svelte:head><title>{data.project.name} · Project Agile Board</title></svelte:head>
+<svelte:head><title>{data.project.name} · BullPager Board</title></svelte:head>
 
 <main class={`project-workspace theme-${setting('theme', 'midnight')} project-lane-${setting('lane_style', 'scroll')}`} class:has-project-background={Boolean(boardBackground.src)} class:has-color-background={Boolean(boardBackground.color)} style={boardSurfaceStyle}>
   {#if data.members.length}<datalist id="project-members">{#each data.members as member}<option value={member.username}>{member.role}</option>{/each}</datalist>{/if}

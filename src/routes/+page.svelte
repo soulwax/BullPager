@@ -153,7 +153,7 @@
 
 <svelte:window onkeydown={focusSearch} />
 
-<svelte:head><title>Project Agile Board</title><meta name="description" content="A source-backed greenfield Unity implementation plan." /></svelte:head>
+<svelte:head><title>BullPager Board</title><meta name="description" content="A source-backed greenfield Unity implementation plan." /></svelte:head>
 
 <main class={`board-page theme-${data.plan.projectSettings.project_unity_theme || 'midnight'} project-lane-${data.plan.projectSettings.project_unity_lane_style || 'scroll'}`}>
   <header class="topbar board-topbar">

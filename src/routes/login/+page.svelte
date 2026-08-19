@@ -7,7 +7,7 @@
   onMount(() => loginInput?.focus());
 </script>
 
-<svelte:head><title>Sign in · Project Agile</title></svelte:head>
+<svelte:head><title>Sign in · BullPager</title></svelte:head>
 
 <main class="login-shell">
   <section class="login-card" aria-labelledby="login-title">

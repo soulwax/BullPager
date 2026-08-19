@@ -18,7 +18,7 @@
   }
 </script>
 
-<svelte:head><title>New project · Project Agile Board</title><meta name="description" content="Start a project from a focused workflow template." /></svelte:head>
+<svelte:head><title>New project · BullPager Board</title><meta name="description" content="Start a project from a focused workflow template." /></svelte:head>
 
 <main class="settings-shell new-project-shell">
   <header class="topbar">

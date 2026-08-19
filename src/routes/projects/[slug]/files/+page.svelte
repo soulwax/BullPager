@@ -233,7 +233,7 @@
 <svelte:window onkeydown={saveWithShortcut} />
 
 <svelte:head>
-  <title>Files · {data.project.name} · Project Agile</title>
+  <title>Files · {data.project.name} · BullPager</title>
   <meta name="description" content="Project-scoped Markdown and text files." />
 </svelte:head>
 

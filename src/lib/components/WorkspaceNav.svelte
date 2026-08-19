@@ -53,9 +53,9 @@
 </script>
 
 <header class="workspace-nav">
-  <a class="workspace-brand" href="/" aria-label="Project Agile home">
+  <a class="workspace-brand" href="/" aria-label="BullPager home">
     <img class="brand-mark" src="/assets/brand/project-agile-mark.svg" alt="" />
-    <span><strong>Project Agile</strong><small>Boards for focused delivery</small></span>
+    <span><strong>BullPager</strong><small>Boards for focused delivery</small></span>
   </a>
   {#if username}
     <nav aria-label="Primary navigation">
