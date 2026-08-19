@@ -2079,3 +2079,16 @@ small.over-wip { background: color-mix(in srgb, #ff9b7a 30%, transparent) !impor
    plain rectangular input. */
 .nav-search input { border-radius: 99px; padding-left: 2.1rem; }
 .nav-search-icon { left: .8rem; }
+
+/* Board automation ("Butler" rules). */
+.automation-rule-list { display: grid; gap: .5rem; padding: 0; margin: 0; list-style: none; }
+.automation-rule { display: flex; gap: .8rem; align-items: center; justify-content: space-between; padding: .65rem .75rem; border: 1px solid var(--line-soft); border-radius: .55rem; background: color-mix(in srgb, var(--surface-0) 40%, transparent); }
+.automation-rule.disabled { opacity: .55; }
+.automation-rule-copy strong { display: block; margin-bottom: .15rem; }
+.automation-rule-copy p { margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
+.automation-rule-actions { display: flex; flex: 0 0 auto; gap: .35rem; align-items: center; }
+.automation-trigger, .automation-actions { display: grid; gap: .5rem; padding: .7rem .8rem; margin: 0; border: 1px solid var(--line-soft); border-radius: .55rem; }
+.automation-trigger legend, .automation-actions legend { padding: 0 .3rem; color: var(--muted); font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.automation-trigger label.check { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; font-weight: 500; }
+.automation-action-row { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.automation-add-action { justify-self: start; }

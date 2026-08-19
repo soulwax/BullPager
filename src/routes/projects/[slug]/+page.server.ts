@@ -5,6 +5,7 @@ import { isSourceOwnedProject, lanesFromSettings, mergeProjectLanes, projectPref
 import { loadPlan } from '$lib/server/plan';
 import { appearanceToSettings, normalizeAppearance } from '$lib/boardAppearance';
 import { projectBackgrounds } from '$lib/projectBackgrounds';
+import { runAutomationEvent, sanitizeAutomationRules, type AutomationCardState, type AutomationEvent } from '$lib/automation';
 import type { CardTemplate, ProjectCard } from '$lib/types';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
@@ -104,6 +105,48 @@ async function templatesFor(slug: string): Promise<Record<string, CardTemplate[]
   }
 }
 
+/** Board automation ("Butler" in Trello's own naming) — rules stored as one
+ * JSON board setting, the same idiom as templates and WIP limits. Rules are
+ * re-validated against the board's *current* lanes/tags on every read, so a
+ * rule left over from a deleted list or label just drops instead of
+ * half-applying against something that no longer exists. */
+async function automationRulesFor(slug: string) {
+  const [allSettings, lanes, tags] = await Promise.all([loadBoardSettings(), validLanes(slug), listProjectTags(slug)]);
+  try {
+    const parsed = JSON.parse(allSettings[`${projectPrefix(slug)}automations`] ?? '[]');
+    return sanitizeAutomationRules(parsed, lanes, tags.map((tag) => tag.id));
+  } catch {
+    return [];
+  }
+}
+
+type AutomationCardInput = { id: string; projectSlug: string; title: string; details: string; owner: string; dueDate: string | null; startDate: string | null; checklist: ProjectCard['checklist']; coverColor: string; lane: string; tagIds: string[]; priority: ProjectCard['priority']; dueComplete: boolean; archived: boolean };
+
+function toAutomationInput(card: ProjectCard, overrides: Partial<Pick<AutomationCardInput, 'lane' | 'tagIds' | 'priority' | 'dueComplete' | 'archived'>> = {}): AutomationCardInput {
+  return { id: card.id, projectSlug: card.projectSlug, title: card.title, details: card.details, owner: card.owner, dueDate: card.dueDate, startDate: card.startDate, checklist: card.checklist ?? [], coverColor: card.coverColor ?? '', lane: card.lane, tagIds: (card.tags ?? []).map((tag) => tag.id), priority: card.priority, dueComplete: card.dueComplete, archived: card.archived, ...overrides };
+}
+
+/** Applies whichever rules match this event to the card that triggered it.
+ * Deliberately fails soft — a hiccup here must never turn a plain card move
+ * or checklist tick into a 500 for the person who made it. */
+async function runAutomations(slug: string, card: AutomationCardInput, event: AutomationEvent) {
+  const rules = await automationRulesFor(slug);
+  if (!rules.length) return;
+  const tags = await listProjectTags(slug);
+  const tagNameById = new Map(tags.map((tag) => [tag.id, tag.name]));
+  const state: AutomationCardState = { lane: card.lane, tagIds: card.tagIds, priority: card.priority, dueComplete: card.dueComplete, archived: card.archived };
+  const { state: next, ran } = runAutomationEvent(state, rules, event, tagNameById);
+  if (!ran.length) return;
+  try {
+    await updateProjectCard({ ...card, lane: next.lane, priority: next.priority, dueComplete: next.dueComplete, archived: next.archived, tagIds: next.tagIds });
+    if (next.lane !== card.lane) await reorderProjectCard(slug, card.id, next.lane);
+    const summary = ran.map((entry) => `“${entry.rule.name}” — ${entry.summary.join(', ')}`).join('; ');
+    await recordProjectActivity({ projectSlug: slug, actor: 'Automation', action: 'updated', cardId: card.id, summary: `Automation ran: ${summary}` });
+  } catch (error) {
+    console.error('[automation] failed to apply rule actions', error);
+  }
+}
+
 export const actions = {
   createCard: async ({ request, locals, params }) => {
     if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to change project cards.' });
@@ -137,6 +180,12 @@ export const actions = {
       await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || owner, action: 'updated', cardId: card.id, summary: `Updated “${card.title}”.` });
     } catch (error) {
       return persistenceFailure('update card failed', error);
+    }
+    if (existing.lane !== card.lane) {
+      await runAutomations(params.slug, { ...card, owner }, { type: 'enters-lane', lane: card.lane });
+    } else {
+      const isDone = (list: typeof card.checklist) => list.length > 0 && list.every((item) => item.done);
+      if (isDone(card.checklist) && !isDone(existing.checklist)) await runAutomations(params.slug, { ...card, owner }, { type: 'checklist-completed' });
     }
     return { message: 'Card updated.' };
   },
@@ -172,6 +221,7 @@ export const actions = {
     } catch (error) {
       return persistenceFailure('move card failed', error);
     }
+    await runAutomations(params.slug, toAutomationInput(card, { lane }), { type: 'enters-lane', lane });
     return { message: 'Card moved.' };
   },
   reorderCard: async ({ request, locals, params }) => {
@@ -182,12 +232,17 @@ export const actions = {
     const beforeId = String(form.get('beforeId') ?? '').trim();
     const lanes = await validLanes(params.slug);
     if (!id || !lanes.includes(lane)) return fail(400, { error: 'Choose a valid card and destination lane.' });
+    const existing = (await listProjectCards(params.slug)).find((item) => item.id === id);
     try {
       await reorderProjectCard(params.slug, id, lane, beforeId);
       await recordProjectActivity({ projectSlug: params.slug, actor: locals.username || 'unknown', action: 'updated', cardId: id, summary: `Reordered a card in ${lane}.` });
     } catch (error) {
       return persistenceFailure('reorder card failed', error);
     }
+    // A cross-lane drag lands here too (the client posts the drop lane), so
+    // this is the other place — besides the explicit moveCard action — a
+    // card can "enter" a lane a rule is watching for.
+    if (existing && existing.lane !== lane) await runAutomations(params.slug, toAutomationInput(existing, { lane }), { type: 'enters-lane', lane });
     return { message: 'Card order saved.' };
   },
   saveOrder: async ({ request, locals, params }) => {

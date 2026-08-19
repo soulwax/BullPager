@@ -15,6 +15,7 @@ const persistence = vi.hoisted(() => ({
   listProjectActivity: vi.fn(),
   listProjectCards: vi.fn(),
   listProjectComments: vi.fn(),
+  listProjectTags: vi.fn(),
   listStarredProjectSlugs: vi.fn(),
   loadBoardSettings: vi.fn(),
   loadProjectViewState: vi.fn(),
@@ -55,6 +56,7 @@ describe('project card actions', () => {
     vi.clearAllMocks();
     persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]' });
     persistence.listProjectCards.mockResolvedValue([]);
+    persistence.listProjectTags.mockResolvedValue([]);
     persistence.createProjectCard.mockResolvedValue(undefined);
     persistence.createProjectComment.mockResolvedValue(undefined);
     persistence.deleteProjectComment.mockResolvedValue(undefined);
@@ -231,6 +233,7 @@ describe('source-owned lock (Unity plan mirror)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]', 'project_demo_source': 'plan' });
+    persistence.listProjectTags.mockResolvedValue([]);
     persistence.updateProjectCard.mockResolvedValue(undefined);
     persistence.recordProjectActivity.mockResolvedValue(undefined);
     persistence.reorderProjectCard.mockResolvedValue(undefined);
@@ -296,6 +299,7 @@ describe('WEB-T3 list and board actions', () => {
     vi.clearAllMocks();
     persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]' });
     persistence.listProjectCards.mockResolvedValue([]);
+    persistence.listProjectTags.mockResolvedValue([]);
     persistence.saveBoardSettings.mockResolvedValue(undefined);
     persistence.renameProjectLanes.mockResolvedValue(undefined);
     persistence.moveAllCardsInLane.mockResolvedValue(0);
@@ -400,6 +404,7 @@ describe('card templates', () => {
     vi.clearAllMocks();
     persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Ready","Done"]' });
     persistence.listProjectCards.mockResolvedValue([sourceCard]);
+    persistence.listProjectTags.mockResolvedValue([]);
     persistence.saveBoardSettings.mockResolvedValue(undefined);
     persistence.createProjectCard.mockResolvedValue(undefined);
     persistence.recordProjectActivity.mockResolvedValue(undefined);
@@ -539,5 +544,69 @@ describe('saveAppearance action (board-level theme, cards, density, background)'
     const result = await actions.saveAppearance(context({ ...fullAppearance, background: 'not-a-real-background' }, 'editor'));
     expect(result).toMatchObject({ status: 400 });
     expect(persistence.saveBoardSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe('board automation (Butler-style rules) wired into moveCard/reorderCard/updateCard', () => {
+  const doneRule = { id: 'r1', name: 'Wrap up', enabled: true, trigger: { type: 'enters-lane', lane: 'Done' }, actions: [{ type: 'set-priority', priority: 'low' }, { type: 'mark-due-complete' }] };
+  const card = { id: 'card-1', projectSlug: 'demo', title: 'Ship the thing', details: '', lane: 'Backlog', owner: 'ada', priority: 'urgent', dueDate: '2026-09-01', dueComplete: false, startDate: null, archived: false, checklist: [], tags: [], coverColor: '', position: 0, createdAt: '', updatedAt: '' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    persistence.listProjectCards.mockResolvedValue([card]);
+    persistence.listProjectTags.mockResolvedValue([]);
+    persistence.updateProjectCard.mockResolvedValue(undefined);
+    persistence.reorderProjectCard.mockResolvedValue(undefined);
+    persistence.recordProjectActivity.mockResolvedValue(undefined);
+  });
+
+  it('runs a matching rule when moveCard lands the card in the trigger lane', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Doing","Done"]', 'project_demo_automations': JSON.stringify([doneRule]) });
+    await actions.moveCard(context({ id: 'card-1', lane: 'Done' }, 'editor'));
+    expect(persistence.updateProjectCard).toHaveBeenCalledWith(expect.objectContaining({ id: 'card-1', priority: 'low', dueComplete: true }));
+    expect(persistence.recordProjectActivity).toHaveBeenCalledWith(expect.objectContaining({ actor: 'Automation', summary: expect.stringContaining('Wrap up') }));
+  });
+
+  it('runs a matching rule when a cross-lane reorderCard drop lands in the trigger lane', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Doing","Done"]', 'project_demo_automations': JSON.stringify([doneRule]) });
+    await actions.reorderCard(context({ id: 'card-1', lane: 'Done', beforeId: '' }, 'editor'));
+    expect(persistence.updateProjectCard).toHaveBeenCalledWith(expect.objectContaining({ id: 'card-1', priority: 'low', dueComplete: true }));
+  });
+
+  it('does not run a same-lane reorder (no lane actually entered)', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Doing","Done"]', 'project_demo_automations': JSON.stringify([doneRule]) });
+    await actions.reorderCard(context({ id: 'card-1', lane: 'Backlog', beforeId: '' }, 'editor'));
+    expect(persistence.updateProjectCard).not.toHaveBeenCalled();
+  });
+
+  it('runs a checklist-completed rule from updateCard only on the tick that finishes the list', async () => {
+    const almostDone = { ...card, checklist: [{ id: 'c1', text: 'a', done: true }, { id: 'c2', text: 'b', done: false }] };
+    persistence.listProjectCards.mockResolvedValue([almostDone]);
+    persistence.loadBoardSettings.mockResolvedValue({
+      'project_demo_lanes': '["Backlog","Doing","Done"]',
+      'project_demo_automations': JSON.stringify([{ id: 'r2', name: 'Auto-archive', enabled: true, trigger: { type: 'checklist-completed' }, actions: [{ type: 'archive' }] }])
+    });
+    await actions.updateCard({
+      request: requestEntries([
+        ['id', 'card-1'], ['title', 'Ship the thing'], ['details', ''], ['lane', 'Backlog'], ['owner', 'ada'], ['priority', 'urgent'],
+        ['checkItemId', 'c1'], ['checkItemText', 'a'], ['checkItemDone', 'c1'],
+        ['checkItemId', 'c2'], ['checkItemText', 'b'], ['checkItemDone', 'c2']
+      ]),
+      locals: { role: 'editor', username: 'ada' },
+      params: { slug: 'demo' }
+    } as never);
+    expect(persistence.updateProjectCard).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'card-1', archived: true }));
+  });
+
+  it('does nothing when no rule is configured for the board', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Doing","Done"]' });
+    await actions.moveCard(context({ id: 'card-1', lane: 'Done' }, 'editor'));
+    expect(persistence.updateProjectCard).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing for a disabled rule', async () => {
+    persistence.loadBoardSettings.mockResolvedValue({ 'project_demo_lanes': '["Backlog","Doing","Done"]', 'project_demo_automations': JSON.stringify([{ ...doneRule, enabled: false }]) });
+    await actions.moveCard(context({ id: 'card-1', lane: 'Done' }, 'editor'));
+    expect(persistence.updateProjectCard).toHaveBeenCalledTimes(1);
   });
 });
