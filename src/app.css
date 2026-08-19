@@ -1905,3 +1905,27 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
 .project-workspace.has-project-background .board-star { color: rgb(255 255 255 / .85); }
 .project-workspace.has-color-background .board-star.active,
 .project-workspace.has-project-background .board-star.active { color: #ffd76b; }
+
+/* Board toolbar compaction. Two changes, together cutting the toolbar from
+   three rows to two and shortening the second row:
+   1. The workflow-pulse pills ("2 Blocked", ...) used to be their own
+      full-width row purely because they were a third grid child of a
+      two-column .project-toolbar grid (copy | stats), so they had nowhere
+      to go but the next line. Wrapping them with .project-stats in one
+      .toolbar-summary flex group lets both sit in the grid's existing
+      second column, on the same row as Find work / Cloud.
+   2. The Search/Priority/Tag/Assignee/Density controls used to stack a
+      visible label above each one, doubling that row's height. The label
+      text moves to .sr-only (still announced to screen readers and still
+      available as a title tooltip) because each control's own closed-state
+      text is already self-explanatory ("All priorities", "Everyone",
+      "Comfortable") the same way Trello's own filter bar has no visible
+      labels above its dropdowns. */
+.toolbar-summary { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .7rem; min-width: max-content; }
+.workflow-pulse { padding: 0; border-top: 0; }
+
+.project-controls label { display: flex; align-items: center; min-height: var(--board-control-height, 2.15rem); }
+.project-controls .project-search { position: relative; }
+.project-search-icon { position: absolute; top: 50%; left: .55rem; width: .95rem; height: .95rem; color: var(--muted); transform: translateY(-50%); pointer-events: none; }
+.project-controls .project-search input { padding-left: 1.85rem; }
+.project-workspace.has-color-background .project-search-icon { color: #5e6c84; }
