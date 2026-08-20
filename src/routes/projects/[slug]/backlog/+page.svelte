@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { appearanceAttributes, appearanceFromSettings, appearanceStyle } from '$lib/boardAppearance';
+  import { projectBackground } from '$lib/projectBackgrounds';
+
   import type { BoardProject, ProjectCard, ProjectTag } from "$lib/types";
   import ProjectHeader from "$lib/components/ProjectHeader.svelte";
   import Check from "@lucide/svelte/icons/check";
@@ -14,6 +17,8 @@
       canEdit: boolean;
       username: string;
       starred: boolean;
+      settings?: Record<string, string>;
+      prefix?: string;
     };
   } = $props();
   let query = $state("");
@@ -40,6 +45,20 @@
       ? `${done}/${card.checklist.length} checklist items complete`
       : "No checklist";
   }
+  const chromeBackground = $derived(
+    (data.settings ?? {})[`${data.prefix ?? ''}background`] === 'custom' && data.settings?.[`${data.prefix}background_custom_path`]
+      ? { id: 'custom', label: 'Custom', src: `/projects/${data.project.slug}/files/raw?path=${encodeURIComponent(data.settings?.[`${data.prefix}background_custom_path`] as string)}`, kind: 'photo' as const, credit: 'Uploaded' }
+      : projectBackground((data.settings ?? {})[`${data.prefix ?? ''}background`] ?? 'none')
+  );
+
+  // The board's appearance follows the person onto every project page, so a
+  // themed board does not hand off to default-themed chrome one click later.
+  const chromeCanvas = $derived({
+    src: chromeBackground.src || undefined,
+    color: chromeBackground.color
+  });
+  const chromeAttributes = $derived(appearanceAttributes(appearanceFromSettings(data.settings ?? {}, data.prefix ?? ''), chromeCanvas));
+  const chromeStyle = $derived(appearanceStyle(appearanceFromSettings(data.settings ?? {}, data.prefix ?? ''), chromeCanvas));
 </script>
 
 <svelte:head
@@ -47,7 +66,7 @@
   ></svelte:head
 >
 
-<main class="backlog-page">
+<main class="backlog-page" {...chromeAttributes} style={chromeStyle}>
   <ProjectHeader
     project={data.project}
     active="backlog"

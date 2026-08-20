@@ -1111,9 +1111,6 @@
     starred={data.starred}
   >
     {#snippet extra()}
-      <span class="board-card-count"
-        >{boardCards.length} {boardCards.length === 1 ? "card" : "cards"}</span
-      >
       <div class="top-links board-header-actions">
         <button
           type="button"
@@ -1179,10 +1176,8 @@
     <div class="project-toolbar-copy">
       <details class="find-work-menu">
         <summary
-          ><span class="find-work-icon"><Search /></span><span
-            ><strong>Find work</strong><small
-              >{visibleCards.length} visible · {activeCards.length} active</small
-            ></span
+          ><Search class="find-work-icon" aria-hidden="true" /><strong
+            >Find work</strong
           ><ChevronDown class="find-work-chevron" /></summary
         >
         <div class="find-work-body">
@@ -1224,14 +1219,7 @@
           </div>
         </div>
       </details>
-      <a
-        class="project-cloud-button"
-        href={`/projects/${data.project.slug}/files`}
-        aria-label="Open project cloud"
-        ><Cloud class="project-cloud-glyph" aria-hidden="true" /><span
-          >Cloud</span
-        ></a
-      >{#if savedStatus}<span
+      {#if savedStatus}<span
           class="save-status"
           role="status"
           aria-live="polite">{savedStatus}</span

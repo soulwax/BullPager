@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { loadProjectChrome } from '$lib/server/projectChrome';
 import { getBoardProject, listProjectCards, listProjectTags, listStarredProjectSlugs, persistenceEnabled, syncUnityPlannerCards } from '$lib/server/persistence';
 import { loadPlan } from '$lib/server/plan';
 
@@ -23,5 +24,5 @@ export async function load({ params, locals }) {
     listProjectTags(params.slug),
     listStarredProjectSlugs(locals.username ?? '')
   ]);
-  return { project, cards, tags, canEdit: canEdit(locals.role), username, starred: starred.has(params.slug) };
+  return { project, cards, tags, canEdit: canEdit(locals.role), username, starred: starred.has(params.slug), ...(await loadProjectChrome(params.slug)) };
 }

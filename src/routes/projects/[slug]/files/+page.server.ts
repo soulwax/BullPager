@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { loadProjectChrome } from '$lib/server/projectChrome';
 import { randomBytes } from 'node:crypto';
 import { createProjectFolder, deleteProjectFile, deleteProjectFolder, getBoardProject, getProjectFile, getProjectFileByPath, listProjectActivity, listProjectFiles, listProjectFolders, listStarredProjectSlugs, moveProjectFile, normalizeProjectFilePath, normalizeProjectPath, recordProjectActivity, upsertProjectFile } from '$lib/server/persistence';
 import { copyProjectFileObject, deleteProjectFileObject, getProjectFileObjectUrl, projectFileObjectKey, putProjectFileObject, r2Configured } from '$lib/server/r2';
@@ -44,7 +45,7 @@ export async function load({ params, url, locals }) {
   const requested = url.searchParams.get('file') ?? '';
   const selected = files.find((file) => file.id === requested) ?? files[0] ?? null;
   const starred = await listStarredProjectSlugs(locals.username ?? '');
-  return { project, files, folders, selected, activity: await listProjectActivity(params.slug, 12), canEdit: canEdit(locals.role), username: locals.username ?? 'unknown', role: locals.role ?? '', starred: starred.has(params.slug) };
+  return { project, files, folders, selected, activity: await listProjectActivity(params.slug, 12), canEdit: canEdit(locals.role), username: locals.username ?? 'unknown', role: locals.role ?? '', starred: starred.has(params.slug), ...(await loadProjectChrome(params.slug)) };
 }
 
 export const actions = {

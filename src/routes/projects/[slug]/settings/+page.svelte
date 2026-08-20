@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { appearanceAttributes, appearanceFromSettings, appearanceStyle } from '$lib/boardAppearance';
+  import { projectBackground, projectBackgrounds } from '$lib/projectBackgrounds';
+
   import type { BoardProject } from "$lib/types";
-  import { projectBackgrounds } from "$lib/projectBackgrounds";
-  import { appearanceFromSettings } from "$lib/boardAppearance";
   import { invalidateAll } from "$app/navigation";
   import ProjectHeader from "$lib/components/ProjectHeader.svelte";
   import Check from "@lucide/svelte/icons/check";
@@ -122,6 +123,20 @@
     if (lanes.length > 2)
       lanes = lanes.filter((_, laneIndex) => laneIndex !== index);
   }
+  const chromeBackground = $derived(
+    (data.settings ?? {})[`${data.prefix ?? ''}background`] === 'custom' && data.settings?.[`${data.prefix}background_custom_path`]
+      ? { id: 'custom', label: 'Custom', src: `/projects/${data.project.slug}/files/raw?path=${encodeURIComponent(data.settings?.[`${data.prefix}background_custom_path`] as string)}`, kind: 'photo' as const, credit: 'Uploaded' }
+      : projectBackground((data.settings ?? {})[`${data.prefix ?? ''}background`] ?? 'none')
+  );
+
+  // The board's appearance follows the person onto every project page, so a
+  // themed board does not hand off to default-themed chrome one click later.
+  const chromeCanvas = $derived({
+    src: chromeBackground.src || undefined,
+    color: chromeBackground.color
+  });
+  const chromeAttributes = $derived(appearanceAttributes(appearanceFromSettings(data.settings ?? {}, data.prefix ?? ''), chromeCanvas));
+  const chromeStyle = $derived(appearanceStyle(appearanceFromSettings(data.settings ?? {}, data.prefix ?? ''), chromeCanvas));
 </script>
 
 <svelte:head
@@ -129,7 +144,7 @@
   ></svelte:head
 >
 
-<main class="settings-shell">
+<main class="settings-shell" {...chromeAttributes} style={chromeStyle}>
   <ProjectHeader
     project={data.project}
     active="settings"

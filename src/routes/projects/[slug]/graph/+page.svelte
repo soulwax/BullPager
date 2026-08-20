@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { appearanceAttributes, appearanceFromSettings, appearanceStyle } from '$lib/boardAppearance';
+  import { projectBackground } from '$lib/projectBackgrounds';
+
   import { invalidateAll } from '$app/navigation';
   import type { GraphEdge, GraphNode, GraphNodeKind } from '$lib/types';
   import { edgeAnchor } from '$lib/graphGeometry';
@@ -16,7 +19,9 @@
   import Minus from '@lucide/svelte/icons/minus';
   import Trash2 from '@lucide/svelte/icons/trash-2';
 
-  let { data, form }: { data: { project: { slug: string; name: string }; graph: { settings: { revision: number; snap: boolean; gridSize: number; background: 'midnight' | 'ocean' | 'light' }; nodes: GraphNode[]; edges: GraphEdge[] }; cards: { id: string; title: string; lane: string; priority: Priority; archived: boolean }[]; canEdit: boolean; username: string; starred: boolean; styleRules: GraphStyleRule[] }; form?: { message?: string; error?: string } } = $props();
+  let { data, form }: { data: { project: { slug: string; name: string }; graph: { settings: { revision: number; snap: boolean; gridSize: number; background: 'midnight' | 'ocean' | 'light' }; nodes: GraphNode[]; edges: GraphEdge[] }; cards: { id: string; title: string; lane: string; priority: Priority; archived: boolean }[]; canEdit: boolean; username: string; starred: boolean;
+      settings?: Record<string, string>;
+      prefix?: string; styleRules: GraphStyleRule[] }; form?: { message?: string; error?: string } } = $props();
   let selectedNodeId = $state<string | null>(null);
   let selectedEdgeId = $state<string | null>(null);
   let tool = $state<'select' | 'pan' | 'connect'>('select');
@@ -151,11 +156,22 @@
     zoom = Math.max(.45, Math.min(1.2, Math.min(1500 / Math.max(1, maxX - minX + 120), 800 / Math.max(1, maxY - minY + 120))));
     panX = 80 - minX * zoom; panY = 60 - minY * zoom;
   }
+  // Same chrome the board uses, so the graph is a view of the project rather
+  // than a separate tool with its own look.
+  const chromeBackground = $derived(
+    (data.settings ?? {})[`${data.prefix ?? ''}background`] === 'custom' && data.settings?.[`${data.prefix}background_custom_path`]
+      ? { id: 'custom', label: 'Custom', src: `/projects/${data.project.slug}/files/raw?path=${encodeURIComponent(data.settings?.[`${data.prefix}background_custom_path`] as string)}`, kind: 'photo' as const, credit: 'Uploaded' }
+      : projectBackground((data.settings ?? {})[`${data.prefix ?? ''}background`] ?? 'none')
+  );
+  const chromeCanvas = $derived({ src: chromeBackground.src || undefined, color: chromeBackground.color });
+  const chromeAppearance = $derived(appearanceFromSettings(data.settings ?? {}, data.prefix ?? ''));
+  const chromeAttributes = $derived(appearanceAttributes(chromeAppearance, chromeCanvas));
+  const chromeStyle = $derived(appearanceStyle(chromeAppearance, chromeCanvas));
 </script>
 
 <svelte:head><title>{data.project.name} · Graph mode</title></svelte:head>
 
-<main class={`graph-workspace graph-${data.graph.settings.background}`}>
+<main class={`graph-workspace graph-${data.graph.settings.background}`} {...chromeAttributes} style={chromeStyle}>
   <ProjectHeader project={data.project} active="graph" canEdit={data.canEdit} username={data.username} starred={data.starred} />
   {#if form?.message}<p class="success" role="status">{form.message}</p>{/if}{#if form?.error}<p class="action-errors" role="alert">{form.error}</p>{/if}
   <section class="graph-shell">

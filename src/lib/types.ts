@@ -259,3 +259,29 @@ export type TransitionPreview = {
   sourceHash: string;
   message: string;
 };
+
+/** A wiki page is a markdown file in the project cloud; `path` is where. */
+export type WikiPage = {
+  id: string;
+  projectSlug: string;
+  /** Address within the wiki, e.g. `scaffolding/pages/etc`. */
+  pageId: string;
+  /** The cloud path backing it, e.g. `wiki/scaffolding/pages/etc.md`. */
+  path: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WikiRevision = {
+  id: string;
+  pageId: string;
+  title: string;
+  body: string;
+  editedBy: string;
+  summary: string;
+  createdAt: string;
+};

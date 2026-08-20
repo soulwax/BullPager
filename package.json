@@ -37,6 +37,7 @@
     "@lucide/svelte": "^1.32.0",
     "@neondatabase/serverless": "^1.1.0",
     "@types/dompurify": "^3.0.5",
+    "@upstash/redis": "^1.38.2",
     "diff": "8.0.4",
     "dompurify": "^3.4.13",
     "drizzle-orm": "^0.45.2",

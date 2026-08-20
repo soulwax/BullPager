@@ -209,4 +209,20 @@ export const boardProjectGraphEdges = pgTable('board_project_graph_edges', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow()
 }, (table) => ({ projectIndex: index('board_project_graph_edges_project_idx').on(table.projectSlug) }));
 
-export const schema = { packetTransitions, packetNotes, boardUsers, boardProjects, boardSettings, boardProjectCards, boardProjectTags, boardProjectCardTags, boardProjectCardWatchers, boardProjectViews, boardProjectActivity, boardProjectComments, boardProjectStars, boardProjectCardAttachments, boardProjectFiles, boardProjectGraphs, boardProjectGraphNodes, boardProjectGraphEdges };
+/**
+ * Append-only page history, the same shape as `packet_transitions`: a wiki
+ * without "what changed and who changed it" is a document nobody trusts
+ * enough to correct.
+ */
+export const boardProjectWikiRevisions = pgTable('board_project_wiki_revisions', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  pageId: text('page_id').notNull(),
+  projectSlug: text('project_slug').notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  editedBy: text('edited_by').notNull().default('unknown'),
+  summary: text('summary').notNull().default(''),
+  createdAt: createdAt()
+}, (table) => ({ pageIndex: index('board_project_wiki_revisions_page_idx').on(table.pageId) }));
+
+export const schema = { packetTransitions, packetNotes, boardUsers, boardProjects, boardSettings, boardProjectCards, boardProjectTags, boardProjectCardTags, boardProjectCardWatchers, boardProjectViews, boardProjectActivity, boardProjectComments, boardProjectStars, boardProjectCardAttachments, boardProjectFiles, boardProjectGraphs, boardProjectGraphNodes, boardProjectGraphEdges, boardProjectWikiRevisions };

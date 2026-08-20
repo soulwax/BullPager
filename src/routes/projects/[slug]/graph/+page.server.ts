@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { loadProjectChrome } from '$lib/server/projectChrome';
 import { randomBytes } from 'node:crypto';
 import { createGraphEdge, createGraphNode, deleteGraphEdge, deleteGraphNode, getBoardProject, listProjectCards, listStarredProjectSlugs, loadBoardSettings, loadProjectGraph, saveBoardSettings, saveGraphSettings, updateGraphNode, upsertProjectFile } from '$lib/server/persistence';
 import { projectPrefix } from '$lib/projectState';
@@ -53,7 +54,7 @@ export async function load({ params, locals }) {
   const graph = await loadProjectGraph(params.slug);
   const starred = await listStarredProjectSlugs(locals.username ?? '');
   const styleRules = await loadStyleRules(params.slug);
-  return { project, graph, cards: await listProjectCards(params.slug), canEdit: canEdit(locals.role), username: locals.username ?? 'unknown', starred: starred.has(params.slug), styleRules };
+  return { project, graph, cards: await listProjectCards(params.slug), canEdit: canEdit(locals.role), username: locals.username ?? 'unknown', starred: starred.has(params.slug), styleRules, ...(await loadProjectChrome(params.slug)) };
 }
 
 export const actions = {

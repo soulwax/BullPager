@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { appearanceAttributes, appearanceFromSettings, appearanceStyle } from '$lib/boardAppearance';
+  import { projectBackground } from '$lib/projectBackgrounds';
+
   import { invalidateAll } from "$app/navigation";
   import { onMount } from "svelte";
   import MarkdownEditor from "$lib/components/MarkdownEditor.svelte";
@@ -48,6 +51,8 @@
       canEdit: boolean;
       username: string;
       starred: boolean;
+      settings?: Record<string, string>;
+      prefix?: string;
     };
     form?: { message?: string; error?: string; fileId?: string };
   } = $props();
@@ -476,6 +481,20 @@
       if (data.canEdit) saveForm?.requestSubmit();
     }
   }
+  const chromeBackground = $derived(
+    (data.settings ?? {})[`${data.prefix ?? ''}background`] === 'custom' && data.settings?.[`${data.prefix}background_custom_path`]
+      ? { id: 'custom', label: 'Custom', src: `/projects/${data.project.slug}/files/raw?path=${encodeURIComponent(data.settings?.[`${data.prefix}background_custom_path`] as string)}`, kind: 'photo' as const, credit: 'Uploaded' }
+      : projectBackground((data.settings ?? {})[`${data.prefix ?? ''}background`] ?? 'none')
+  );
+
+  // The board's appearance follows the person onto every project page, so a
+  // themed board does not hand off to default-themed chrome one click later.
+  const chromeCanvas = $derived({
+    src: chromeBackground.src || undefined,
+    color: chromeBackground.color
+  });
+  const chromeAttributes = $derived(appearanceAttributes(appearanceFromSettings(data.settings ?? {}, data.prefix ?? ''), chromeCanvas));
+  const chromeStyle = $derived(appearanceStyle(appearanceFromSettings(data.settings ?? {}, data.prefix ?? ''), chromeCanvas));
 </script>
 
 <svelte:window onkeydown={saveWithShortcut} />
@@ -485,7 +504,7 @@
   <meta name="description" content="Project-scoped Markdown and text files." />
 </svelte:head>
 
-<main class="project-files-page">
+<main class="project-files-page" {...chromeAttributes} style={chromeStyle}>
   <ProjectHeader
     project={data.project}
     active="files"

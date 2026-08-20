@@ -1,10 +1,12 @@
 import { and, desc, eq, gte, ilike, inArray, lt, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, SearchCardResult, TransitionRecord, UserRole } from '$lib/types';
+import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, SearchCardResult, TransitionRecord, UserRole, WikiPage, WikiRevision } from '$lib/types';
 import { defaultProjectTags, slugifyTag, tagColors, tagId, tagPalette } from '$lib/projectTags';
+import { isValidPageId, pageIdFromPath, parseWikiFile, serializeWikiFile, titleFor, wikiPathFor } from '$lib/wikiFiles';
 import { databaseConfigured, db, neonClient } from './db';
-import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectGraphNodes, boardProjectGraphs, boardProjectStars, boardProjectTags, boardProjectViews, boardProjects, boardSessions, boardSettings, boardUsers, loginAttempts, packetNotes, packetTransitions } from './db/schema';
+import { cacheDelete, cached } from './cache';
+import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectWikiRevisions, boardProjectGraphNodes, boardProjectGraphs, boardProjectStars, boardProjectTags, boardProjectViews, boardProjects, boardSessions, boardSettings, boardUsers, loginAttempts, packetNotes, packetTransitions } from './db/schema';
 
 /** Card description/detail length before the sync appends a truncation marker
  * instead of silently cutting the text mid-sentence. */
@@ -227,6 +229,17 @@ async function initializeSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `, rawSql`
+    CREATE TABLE IF NOT EXISTS board_project_wiki_revisions (
+      id BIGSERIAL PRIMARY KEY,
+      page_id TEXT NOT NULL,
+      project_slug TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      edited_by TEXT NOT NULL DEFAULT 'unknown',
+      summary TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `, rawSql`
     CREATE TABLE IF NOT EXISTS board_project_graph_edges (
       id TEXT PRIMARY KEY,
       project_slug TEXT NOT NULL,
@@ -432,8 +445,24 @@ export async function listBoardUsers(): Promise<BoardUser[]> {
 
 /** Per-project card totals for the board list. One grouped query rather than
  * one per project, so the home page cost does not grow with the board count. */
+/** Short enough that a card added on one board shows in the home tile count
+ * almost immediately, long enough to absorb the repeat loads of someone
+ * moving between boards. Card mutations clear it outright via
+ * `invalidateProjectCounts`, so the TTL is only a backstop. */
+export const PROJECT_COUNTS_TTL_SECONDS = 60;
+const PROJECT_COUNTS_KEY = 'projects:counts';
+
+/** Called by every path that changes how many cards a board has. */
+export async function invalidateProjectCounts(): Promise<void> {
+  await cacheDelete(PROJECT_COUNTS_KEY);
+}
+
 export async function listProjectCounts(): Promise<Record<string, { active: number; total: number }>> {
   if (!databaseConfigured()) return {};
+  return cached(PROJECT_COUNTS_KEY, PROJECT_COUNTS_TTL_SECONDS, listProjectCountsUncached);
+}
+
+async function listProjectCountsUncached(): Promise<Record<string, { active: number; total: number }>> {
   await ensureSchema();
   const rows = await requireDatabase()
     .select({
@@ -991,6 +1020,7 @@ export async function deleteCardAttachment(projectSlug: string, id: string) {
 type ProjectCardWrite = Pick<ProjectCard, 'id' | 'projectSlug' | 'title' | 'details' | 'lane' | 'owner' | 'priority' | 'dueDate' | 'dueComplete' | 'startDate' | 'archived' | 'checklist' | 'coverColor'> & { tagIds?: string[] };
 
 export async function createProjectCard(card: ProjectCardWrite) {
+  await invalidateProjectCounts();
   await ensureSchema();
   const { tagIds = [], checklist = [], ...values } = card;
   const database = requireDatabase();
@@ -1013,6 +1043,8 @@ export async function createProjectCard(card: ProjectCardWrite) {
 }
 
 export async function updateProjectCard(card: ProjectCardWrite) {
+  // Only an archive flip changes a tile's active/archived split.
+  await invalidateProjectCounts();
   await ensureSchema();
   const { tagIds = [], checklist = [], ...values } = card;
   const database = requireDatabase();
@@ -1093,6 +1125,7 @@ export async function moveAllCardsInLane(projectSlug: string, fromLane: string, 
 
 /** Archive (or restore) every card currently in one lane. */
 export async function archiveAllCardsInLane(projectSlug: string, lane: string, archived: boolean): Promise<number> {
+  await invalidateProjectCounts();
   await ensureSchema();
   const database = requireDatabase();
   const result = await database.update(boardProjectCards).set({ archived, updatedAt: new Date().toISOString() }).where(and(eq(boardProjectCards.projectSlug, projectSlug), eq(boardProjectCards.lane, lane), eq(boardProjectCards.archived, !archived))).returning({ id: boardProjectCards.id });
@@ -1100,6 +1133,7 @@ export async function archiveAllCardsInLane(projectSlug: string, lane: string, a
 }
 
 export async function deleteProjectCard(projectSlug: string, id: string) {
+  await invalidateProjectCounts();
   await ensureSchema();
   const database = requireDatabase();
   await database.delete(boardProjectCardTags).where(eq(boardProjectCardTags.cardId, id));
@@ -1292,4 +1326,120 @@ export function overlayTransitions(packets: Packet[], transitions: PersistedTran
     if (!transition) return packet;
     return { ...packet, state: transition.nextState, owner: transition.owner || packet.owner, evidence: transition.evidence || packet.evidence, remainder: transition.remainder || packet.remainder };
   });
+}
+
+/* --------------------------------------------------------------------------
+   Wiki — the fourth per-project surface beside the board, cloud, and graph.
+
+   Pages are markdown files in the project's own cloud (`wiki/**.md` in
+   `board_project_files`), not rows in a table only this feature can read. That
+   makes the wiki transparent: the same pages are listed, previewed, edited,
+   and downloaded from the Cloud view, and a file dropped there by hand simply
+   becomes a page. Scoping is strictly per project — the file store is unique
+   on `(project_slug, path)` and every call here passes a slug.
+
+   Revisions stay in their own table because a file has no history of its own,
+   and a wiki nobody can audit is a wiki nobody corrects.
+   ----------------------------------------------------------------------- */
+
+export const WIKI_REVISION_PAGE_SIZE = 25;
+
+function wikiPageFromFile(file: ProjectFile): WikiPage {
+  const pageId = pageIdFromPath(file.path) ?? file.path;
+  const { meta, body } = parseWikiFile(file.content);
+  return {
+    id: file.id,
+    projectSlug: file.projectSlug,
+    pageId,
+    path: file.path,
+    title: titleFor(pageId, meta, body),
+    body,
+    pinned: meta.pinned ?? false,
+    updatedBy: file.createdBy,
+    createdAt: file.createdAt,
+    updatedAt: file.updatedAt
+  };
+}
+
+export async function listWikiPages(projectSlug: string): Promise<WikiPage[]> {
+  const files = await listProjectFiles(projectSlug);
+  return files
+    .filter((file) => pageIdFromPath(file.path) !== null)
+    .map(wikiPageFromFile)
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.title.localeCompare(b.title));
+}
+
+export async function getWikiPage(projectSlug: string, pageId: string): Promise<WikiPage | null> {
+  if (!isValidPageId(pageId)) return null;
+  const file = await getProjectFileByPath(projectSlug, wikiPathFor(pageId));
+  return file ? wikiPageFromFile(file) : null;
+}
+
+/**
+ * Writes the page file and appends its revision.
+ *
+ * These are two statements rather than one transaction because the file write
+ * goes through the cloud's own upsert (which the Cloud view and the wiki must
+ * share, or the two would drift). The revision is appended after a successful
+ * write, so the failure mode is a saved page with one missing history entry —
+ * not a history entry for a page that was never saved.
+ */
+export async function saveWikiPage(input: {
+  projectSlug: string;
+  pageId: string;
+  title: string;
+  body: string;
+  editor: string;
+  summary?: string;
+  pinned?: boolean;
+}): Promise<WikiPage> {
+  if (!isValidPageId(input.pageId)) throw new Error('INVALID_PAGE_ID');
+  await ensureSchema();
+  const path = wikiPathFor(input.pageId);
+  const existing = await getProjectFileByPath(input.projectSlug, path);
+  const content = serializeWikiFile({ title: input.title, pinned: input.pinned, body: input.body });
+  const file = await upsertProjectFile({
+    id: existing?.id ?? `wiki-${input.projectSlug}-${input.pageId.replace(/\//g, '-')}`,
+    projectSlug: input.projectSlug,
+    path,
+    content,
+    mimeType: 'text/markdown',
+    createdBy: input.editor
+  });
+  await requireDatabase().insert(boardProjectWikiRevisions).values({
+    pageId: path,
+    projectSlug: input.projectSlug,
+    title: input.title,
+    body: input.body,
+    editedBy: input.editor,
+    summary: (input.summary ?? '').slice(0, 200)
+  });
+  return wikiPageFromFile(file);
+}
+
+/** Deleting a page removes its file; the revisions outlive it. */
+export async function deleteWikiPage(projectSlug: string, pageId: string): Promise<void> {
+  const file = await getProjectFileByPath(projectSlug, wikiPathFor(pageId));
+  if (!file) return;
+  await deleteProjectFile(projectSlug, file.id);
+}
+
+export async function listWikiRevisions(path: string, limit = WIKI_REVISION_PAGE_SIZE): Promise<WikiRevision[]> {
+  if (!databaseConfigured()) return [];
+  await ensureSchema();
+  const rows = await requireDatabase()
+    .select()
+    .from(boardProjectWikiRevisions)
+    .where(eq(boardProjectWikiRevisions.pageId, path))
+    .orderBy(desc(boardProjectWikiRevisions.createdAt), desc(boardProjectWikiRevisions.id))
+    .limit(limit);
+  return rows.map((row) => ({
+    id: String(row.id),
+    pageId: row.pageId,
+    title: row.title,
+    body: row.body,
+    editedBy: row.editedBy,
+    summary: row.summary,
+    createdAt: row.createdAt
+  }));
 }

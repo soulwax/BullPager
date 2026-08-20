@@ -29,7 +29,7 @@
    `--board-canvas` paints the board when no background image/color is set.
    `--chrome-*` are the header/toolbar colors that sit directly on it. */
 
-.project-workspace[data-board-theme='midnight'] {
+[data-board-theme='midnight'] {
   --panel: #16202c;
   --line: #31414f;
   --muted: #9aa8b8;
@@ -47,7 +47,7 @@
   --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: radial-gradient(circle at 96% 0%, rgb(45 205 255 / .18), transparent 30rem), linear-gradient(135deg, #0c50bb 0%, #126de1 44%, #11b4d1 100%);
 }
-.project-workspace[data-board-theme='ocean'] {
+[data-board-theme='ocean'] {
   --panel: #0f2334;
   --line: #2c4a60;
   --muted: #9cb6c9;
@@ -65,7 +65,7 @@
   --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: radial-gradient(circle at 90% 4%, rgb(64 196 226 / .16), transparent 28rem), linear-gradient(140deg, #06283d 0%, #0d4f6c 48%, #1b7ea3 100%);
 }
-.project-workspace[data-board-theme='slate'] {
+[data-board-theme='slate'] {
   --panel: #1c212a;
   --line: #3a4453;
   --muted: #a3adbb;
@@ -83,7 +83,7 @@
   --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: linear-gradient(150deg, #1b1f26 0%, #2c333d 52%, #414a57 100%);
 }
-.project-workspace[data-board-theme='forest'] {
+[data-board-theme='forest'] {
   --panel: #10231b;
   --line: #2c4d3d;
   --muted: #9dbcac;
@@ -101,7 +101,7 @@
   --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: radial-gradient(circle at 8% 100%, rgb(93 214 160 / .14), transparent 32rem), linear-gradient(145deg, #0d2a1e 0%, #1c5540 50%, #2f7d5b 100%);
 }
-.project-workspace[data-board-theme='nebula'] {
+[data-board-theme='nebula'] {
   --panel: #1e1733;
   --line: #413461;
   --muted: #b0a3cc;
@@ -119,7 +119,7 @@
   --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: radial-gradient(circle at 92% 0%, rgb(190 140 255 / .2), transparent 30rem), linear-gradient(150deg, #241543 0%, #4b2a90 52%, #7a4bd0 100%);
 }
-.project-workspace[data-board-theme='light'] {
+[data-board-theme='light'] {
   --panel: #ffffff;
   --line: #c7d2df;
   --muted: #54637a;
@@ -137,7 +137,7 @@
   --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: linear-gradient(150deg, #dde6f1 0%, #eef3f9 48%, #ffffff 100%);
 }
-.project-workspace[data-board-theme='paper'] {
+[data-board-theme='paper'] {
   --panel: #fffdf8;
   --line: #d8cdb9;
   --muted: #5d5546;
@@ -155,7 +155,7 @@
   --overlay-field-bg: color-mix(in srgb, var(--overlay-bg) 93%, var(--overlay-ink));
   --board-canvas: linear-gradient(150deg, #e9e0d1 0%, #f6f0e6 50%, #fdfaf4 100%);
 }
-.project-workspace[data-board-theme='contrast'] {
+[data-board-theme='contrast'] {
   --panel: #000000;
   --line: #ffffff;
   --muted: #e6e6e6;
@@ -176,14 +176,14 @@
 
 /* Chrome ink follows the canvas, not the theme: a photo or a pale color
    background changes what the header sits on even when the theme has not. */
-.project-workspace[data-canvas-tone='dark'] {
+[data-canvas-tone='dark'] {
   --canvas-ink: #fff;
   --canvas-ink-soft: rgb(255 255 255 / .78);
   --canvas-line: rgb(255 255 255 / .26);
   --canvas-fill: rgb(255 255 255 / .13);
   --canvas-fill-strong: rgb(255 255 255 / .2);
 }
-.project-workspace[data-canvas-tone='light'] {
+[data-canvas-tone='light'] {
   --canvas-ink: #16202e;
   --canvas-ink-soft: rgb(22 32 46 / .72);
   --canvas-line: rgb(22 32 46 / .2);
@@ -194,7 +194,7 @@
 /* --- Surface palettes ----------------------------------------------------
    Each block defines a complete, self-consistent list + card pair. */
 
-.project-workspace[data-card-theme='light'] {
+[data-card-theme='light'] {
   --list-bg: #f1f4f8;
   --list-ink: #172b4d;
   --list-ink-soft: #4a5768;
@@ -211,7 +211,7 @@
   --menu-ink: #172b4d;
 }
 
-.project-workspace[data-card-theme='dark'] {
+[data-card-theme='dark'] {
   --list-bg: #0e141c;
   --list-ink: #e9eff7;
   --list-ink-soft: #a8bacd;
@@ -228,7 +228,7 @@
   --menu-ink: #eef4fb;
 }
 
-.project-workspace[data-card-theme='glass-light'] {
+[data-card-theme='glass-light'] {
   --list-bg: rgb(255 255 255 / calc(var(--glass-opacity, .78) * .9));
   --list-ink: #0e1c30;
   --list-ink-soft: #33415a;
@@ -245,7 +245,7 @@
   --menu-ink: #14243d;
 }
 
-.project-workspace[data-card-theme='glass-dark'] {
+[data-card-theme='glass-dark'] {
   --list-bg: rgb(12 17 24 / calc(var(--glass-opacity, .78) * .94));
   --list-ink: #f2f7fc;
   --list-ink-soft: #b6c6d6;
@@ -264,24 +264,24 @@
 
 /* High contrast raises separators and lifts muted ink toward full ink rather
    than swapping the palette, so a board keeps its chosen look. */
-.project-workspace[data-contrast='high'] {
+[data-contrast='high'] {
   --list-ink-soft: var(--list-ink);
   --card-ink-soft: var(--card-ink);
   --card-ink-faint: var(--card-ink);
   --canvas-ink-soft: var(--canvas-ink);
 }
-.project-workspace[data-contrast='high'][data-card-theme='light'],
-.project-workspace[data-contrast='high'][data-card-theme='glass-light'] {
+[data-contrast='high'][data-card-theme='light'],
+[data-contrast='high'][data-card-theme='glass-light'] {
   --list-line: rgb(9 30 66 / .4);
   --card-line: rgb(9 30 66 / .4);
 }
-.project-workspace[data-contrast='high'][data-card-theme='dark'],
-.project-workspace[data-contrast='high'][data-card-theme='glass-dark'] {
+[data-contrast='high'][data-card-theme='dark'],
+[data-contrast='high'][data-card-theme='glass-dark'] {
   --list-line: rgb(255 255 255 / .4);
   --card-line: rgb(255 255 255 / .4);
 }
-.project-workspace[data-contrast='high'][data-card-theme='glass-light'],
-.project-workspace[data-contrast='high'][data-card-theme='glass-dark'] {
+[data-contrast='high'][data-card-theme='glass-light'],
+[data-contrast='high'][data-card-theme='glass-dark'] {
   /* Frosting costs contrast; high contrast keeps the frost but makes the
      surface itself opaque enough to read against a busy photo. */
   --glass-opacity: .96;
@@ -291,59 +291,59 @@
    `comfortable` and `compact` keep the values the two-step control used, so
    boards saved before the four-step scale look unchanged. */
 
-.project-workspace[data-density='spacious'] {
+[data-density='spacious'] {
   --board-gap: .95rem; --list-pad: .78rem; --list-base-width: 320px;
   --card-pad: .95rem; --card-gap: .68rem; --card-title: .92rem; --card-meta: .68rem;
   --control-h: 2.4rem; --cover-h: .5rem;
 }
-.project-workspace[data-density='comfortable'] {
+[data-density='comfortable'] {
   --board-gap: .7rem; --list-pad: .5rem; --list-base-width: 290px;
   --card-pad: .72rem; --card-gap: .5rem; --card-title: .85rem; --card-meta: .62rem;
   --control-h: 2.2rem; --cover-h: .38rem;
 }
-.project-workspace[data-density='compact'] {
+[data-density='compact'] {
   --board-gap: .5rem; --list-pad: .38rem; --list-base-width: 264px;
   --card-pad: .55rem; --card-gap: .36rem; --card-title: .8rem; --card-meta: .6rem;
   --control-h: 2rem; --cover-h: .32rem;
 }
-.project-workspace[data-density='dense'] {
+[data-density='dense'] {
   --board-gap: .38rem; --list-pad: .28rem; --list-base-width: 240px;
   --card-pad: .42rem; --card-gap: .26rem; --card-title: .76rem; --card-meta: .57rem;
   --control-h: 1.85rem; --cover-h: .26rem;
 }
 
-.project-workspace[data-lane-width='narrow'] { --lane-scale: .86; }
-.project-workspace[data-lane-width='standard'] { --lane-scale: 1; }
-.project-workspace[data-lane-width='wide'] { --lane-scale: 1.22; }
+[data-lane-width='narrow'] { --lane-scale: .86; }
+[data-lane-width='standard'] { --lane-scale: 1; }
+[data-lane-width='wide'] { --lane-scale: 1.22; }
 
-.project-workspace[data-text-scale='small'] { --text-scale: .92; }
-.project-workspace[data-text-scale='normal'] { --text-scale: 1; }
-.project-workspace[data-text-scale='large'] { --text-scale: 1.1; }
+[data-text-scale='small'] { --text-scale: .92; }
+[data-text-scale='normal'] { --text-scale: 1; }
+[data-text-scale='large'] { --text-scale: 1.1; }
 
-.project-workspace[data-radius='sharp'] { --list-radius: .2rem; --card-radius: .15rem; --control-radius: .2rem; }
-.project-workspace[data-radius='soft'] { --list-radius: .58rem; --card-radius: .42rem; --control-radius: .45rem; }
-.project-workspace[data-radius='round'] { --list-radius: 1rem; --card-radius: .8rem; --control-radius: .7rem; }
+[data-radius='sharp'] { --list-radius: .2rem; --card-radius: .15rem; --control-radius: .2rem; }
+[data-radius='soft'] { --list-radius: .58rem; --card-radius: .42rem; --control-radius: .45rem; }
+[data-radius='round'] { --list-radius: 1rem; --card-radius: .8rem; --control-radius: .7rem; }
 
-.project-workspace[data-shadow='flat'] { --card-shadow: none; --card-shadow-hover: none; --list-shadow: none; }
-.project-workspace[data-shadow='soft'] {
+[data-shadow='flat'] { --card-shadow: none; --card-shadow-hover: none; --list-shadow: none; }
+[data-shadow='soft'] {
   --card-shadow: 0 1px 1px rgb(9 30 66 / .16), 0 3px 8px rgb(9 30 66 / .06);
   --card-shadow-hover: 0 4px 12px rgb(9 30 66 / .18);
   --list-shadow: 0 7px 20px rgb(1 36 89 / .14);
 }
-.project-workspace[data-shadow='lifted'] {
+[data-shadow='lifted'] {
   --card-shadow: 0 2px 3px rgb(9 30 66 / .2), 0 10px 22px rgb(9 30 66 / .16);
   --card-shadow-hover: 0 14px 30px rgb(9 30 66 / .26);
   --list-shadow: 0 16px 38px rgb(1 36 89 / .22);
 }
 /* Dark cards need a darker, tighter shadow — a navy drop shadow is invisible
    under a dark card and only muddies its edge. */
-.project-workspace[data-card-theme='dark'][data-shadow='soft'],
-.project-workspace[data-card-theme='glass-dark'][data-shadow='soft'] {
+[data-card-theme='dark'][data-shadow='soft'],
+[data-card-theme='glass-dark'][data-shadow='soft'] {
   --card-shadow: 0 1px 2px rgb(0 0 0 / .38), 0 3px 10px rgb(0 0 0 / .24);
   --card-shadow-hover: 0 6px 16px rgb(0 0 0 / .42);
 }
-.project-workspace[data-card-theme='dark'][data-shadow='lifted'],
-.project-workspace[data-card-theme='glass-dark'][data-shadow='lifted'] {
+[data-card-theme='dark'][data-shadow='lifted'],
+[data-card-theme='glass-dark'][data-shadow='lifted'] {
   --card-shadow: 0 3px 6px rgb(0 0 0 / .45), 0 12px 26px rgb(0 0 0 / .32);
   --card-shadow-hover: 0 16px 34px rgb(0 0 0 / .5);
 }
@@ -352,14 +352,14 @@
    One rule paints the board, whichever source the background came from, so
    there is no longer a separate photo path that forgets to set ink. */
 
-.project-workspace[data-board-theme] {
+[data-board-theme] {
   position: relative;
   isolation: isolate;
   color: var(--canvas-ink);
   font-size: calc(1rem * var(--text-scale, 1));
   background: none;
 }
-.project-workspace[data-board-theme]::before {
+[data-board-theme]::before {
   position: fixed;
   z-index: -2;
   inset: 0;
@@ -372,11 +372,11 @@
      dark body would otherwise show through under dark chrome. */
   background: var(--project-bg-image, none) center / cover no-repeat, var(--board-canvas);
 }
-.project-workspace[data-board-theme]::after { display: none; }
+[data-board-theme]::after { display: none; }
 
 /* A photo cannot be trusted to stay dark across its whole area, so it — and
    only it — keeps a scrim. Flat colors and gradients are already uniform. */
-.project-workspace[data-board-theme].has-project-background::before {
+[data-board-theme].has-project-background::before {
   background: linear-gradient(180deg, rgb(5 10 18 / .5), rgb(5 10 18 / .72)), var(--project-bg-image) center / cover no-repeat, var(--board-canvas);
 }
 
@@ -384,90 +384,90 @@
    Header, toolbar, and the controls that sit on the canvas rather than in a
    list. All of them read the canvas pair, so a light board gets dark chrome. */
 
-.project-workspace[data-board-theme] > .project-header,
-.project-workspace[data-board-theme] .project-header-top h1,
-.project-workspace[data-board-theme] .board-name-button,
-.project-workspace[data-board-theme] .board-switcher,
-.project-workspace[data-board-theme] .board-card-count,
-.project-workspace[data-board-theme] .board-header-actions .quiet-button,
-.project-workspace[data-board-theme] .board-star,
-.project-workspace[data-board-theme] .project-tabs a {
+[data-board-theme] > .project-header,
+[data-board-theme] .project-header-top h1,
+[data-board-theme] .board-name-button,
+[data-board-theme] .board-switcher,
+[data-board-theme] .board-card-count,
+[data-board-theme] .board-header-actions .quiet-button,
+[data-board-theme] .board-star,
+[data-board-theme] .project-tabs a {
   color: var(--canvas-ink);
 }
-.project-workspace[data-board-theme] .project-stats,
-.project-workspace[data-board-theme] .project-toolbar label,
-.project-workspace[data-board-theme] .find-work-menu summary small,
-.project-workspace[data-board-theme] .project-toolbar-copy .save-status,
-.project-workspace[data-board-theme] .workflow-pulse,
-.project-workspace[data-board-theme] .project-tabs a:not(.active) {
+[data-board-theme] .project-stats,
+[data-board-theme] .project-toolbar label,
+[data-board-theme] .find-work-menu summary small,
+[data-board-theme] .project-toolbar-copy .save-status,
+[data-board-theme] .workflow-pulse,
+[data-board-theme] .project-tabs a:not(.active) {
   color: var(--canvas-ink-soft);
 }
-.project-workspace[data-board-theme] .project-stats strong,
-.project-workspace[data-board-theme] .board-name-button:hover,
-.project-workspace[data-board-theme] .project-tabs a:hover { color: var(--canvas-ink); }
-.project-workspace[data-board-theme] .project-header { border-color: var(--canvas-line); }
+[data-board-theme] .project-stats strong,
+[data-board-theme] .board-name-button:hover,
+[data-board-theme] .project-tabs a:hover { color: var(--canvas-ink); }
+[data-board-theme] .project-header { border-color: var(--canvas-line); }
 
-.project-workspace[data-board-theme] .board-switcher,
-.project-workspace[data-board-theme] .board-card-count,
-.project-workspace[data-board-theme] .board-header-actions .quiet-button,
-.project-workspace[data-board-theme] .board-star,
-.project-workspace[data-board-theme] .source-lock-chip {
+[data-board-theme] .board-switcher,
+[data-board-theme] .board-card-count,
+[data-board-theme] .board-header-actions .quiet-button,
+[data-board-theme] .board-star,
+[data-board-theme] .source-lock-chip {
   border-color: var(--canvas-line);
   background: var(--canvas-fill);
 }
-.project-workspace[data-board-theme] .board-switcher:hover,
-.project-workspace[data-board-theme] .board-header-actions .quiet-button:hover,
-.project-workspace[data-board-theme] .board-name-button:hover,
-.project-workspace[data-board-theme] .project-tabs a:hover,
-.project-workspace[data-board-theme] .project-tabs a.active {
+[data-board-theme] .board-switcher:hover,
+[data-board-theme] .board-header-actions .quiet-button:hover,
+[data-board-theme] .board-name-button:hover,
+[data-board-theme] .project-tabs a:hover,
+[data-board-theme] .project-tabs a.active {
   color: var(--canvas-ink);
   border-color: var(--canvas-ink-soft);
   background: var(--canvas-fill-strong);
 }
-.project-workspace[data-board-theme] .board-star.active { color: #ffd76b; }
+[data-board-theme] .board-star.active { color: #ffd76b; }
 
-.project-workspace[data-board-theme] .project-toolbar {
+[data-board-theme] .project-toolbar {
   color: var(--canvas-ink);
   border-color: var(--canvas-line);
   background: var(--canvas-fill);
   backdrop-filter: blur(14px) saturate(1.1);
 }
-.project-workspace[data-board-theme] .project-stats span { border-left-color: var(--canvas-line); }
-.project-workspace[data-board-theme] .find-work-menu > summary,
-.project-workspace[data-board-theme] .project-cloud-button,
-.project-workspace[data-board-theme] .project-controls .quiet-button,
-.project-workspace[data-board-theme] .tag-manager > summary {
+[data-board-theme] .project-stats span { border-left-color: var(--canvas-line); }
+[data-board-theme] .find-work-menu > summary,
+[data-board-theme] .project-cloud-button,
+[data-board-theme] .project-controls .quiet-button,
+[data-board-theme] .tag-manager > summary {
   color: var(--canvas-ink);
   border-color: var(--canvas-line);
   background: var(--canvas-fill);
 }
-.project-workspace[data-board-theme] .find-work-menu > summary:hover,
-.project-workspace[data-board-theme] .project-cloud-button:hover,
-.project-workspace[data-board-theme] .project-controls .quiet-button:hover,
-.project-workspace[data-board-theme] .tag-manager > summary:hover {
+[data-board-theme] .find-work-menu > summary:hover,
+[data-board-theme] .project-cloud-button:hover,
+[data-board-theme] .project-controls .quiet-button:hover,
+[data-board-theme] .tag-manager > summary:hover {
   color: var(--canvas-ink);
   border-color: var(--canvas-ink-soft);
   background: var(--canvas-fill-strong);
 }
 /* Inputs stay on their own opaque surface: a translucent field over a photo is
    the other place text legibility used to collapse. */
-.project-workspace[data-board-theme] .project-controls input,
-.project-workspace[data-board-theme] .project-controls select {
+[data-board-theme] .project-controls input,
+[data-board-theme] .project-controls select {
   color: var(--card-ink);
   border-color: var(--card-line);
   background: var(--card-bg);
 }
-.project-workspace[data-board-theme] .project-controls input::placeholder { color: var(--card-ink-faint); }
-.project-workspace[data-board-theme] .project-controls select option { color: var(--menu-ink); background: var(--menu-bg); }
-.project-workspace[data-board-theme] .project-search-icon { color: var(--card-ink-faint); }
+[data-board-theme] .project-controls input::placeholder { color: var(--card-ink-faint); }
+[data-board-theme] .project-controls select option { color: var(--menu-ink); background: var(--menu-bg); }
+[data-board-theme] .project-search-icon { color: var(--card-ink-faint); }
 
 /* --- Lists ---------------------------------------------------------------- */
 
-.project-workspace[data-board-theme] .project-board {
+[data-board-theme] .project-board {
   gap: var(--board-gap);
   min-height: calc(100vh - 9.5rem);
 }
-.project-workspace[data-board-theme] .project-column {
+[data-board-theme] .project-column {
   flex-basis: calc(var(--list-base-width) * var(--lane-scale, 1));
   width: calc(var(--list-base-width) * var(--lane-scale, 1));
   max-width: calc(var(--list-base-width) * var(--lane-scale, 1));
@@ -480,40 +480,40 @@
   backdrop-filter: var(--surface-blur);
   box-shadow: var(--list-shadow);
 }
-.project-workspace[data-board-theme] .project-column.project-column-backlog {
+[data-board-theme] .project-column.project-column-backlog {
   flex-basis: calc(var(--list-base-width) * var(--lane-scale, 1) + 30px);
   width: calc(var(--list-base-width) * var(--lane-scale, 1) + 30px);
   max-width: calc(var(--list-base-width) * var(--lane-scale, 1) + 30px);
 }
-.project-workspace[data-board-theme] .project-column h2 {
+[data-board-theme] .project-column h2 {
   color: var(--list-ink);
   border-bottom-color: var(--list-line);
   background: transparent;
   font-size: calc(.86rem * var(--text-scale, 1));
 }
-.project-workspace[data-board-theme] .project-column h2 small,
-.project-workspace[data-board-theme] .lane-header-actions .collapse-button,
-.project-workspace[data-board-theme] .lane-header-actions .lane-menu > summary {
+[data-board-theme] .project-column h2 small,
+[data-board-theme] .lane-header-actions .collapse-button,
+[data-board-theme] .lane-header-actions .lane-menu > summary {
   color: var(--list-ink-soft);
   background: transparent;
 }
-.project-workspace[data-board-theme] .lane-header-actions .collapse-button:hover,
-.project-workspace[data-board-theme] .lane-header-actions .lane-menu > summary:hover {
+[data-board-theme] .lane-header-actions .collapse-button:hover,
+[data-board-theme] .lane-header-actions .lane-menu > summary:hover {
   color: var(--list-ink);
   background: var(--card-fill);
 }
-.project-workspace[data-board-theme] .project-column-cards { gap: var(--card-gap); }
-.project-workspace[data-board-theme] .project-column-empty {
+[data-board-theme] .project-column-cards { gap: var(--card-gap); }
+[data-board-theme] .project-column-empty {
   color: var(--list-ink-soft);
   border-color: var(--list-line);
   border-radius: var(--card-radius);
   background: transparent;
 }
-.project-workspace[data-board-theme] .project-column-empty strong,
-.project-workspace[data-board-theme] .project-column-empty p { color: var(--list-ink-soft); }
-.project-workspace[data-board-theme] .project-column-empty strong { color: var(--list-ink); }
+[data-board-theme] .project-column-empty strong,
+[data-board-theme] .project-column-empty p { color: var(--list-ink-soft); }
+[data-board-theme] .project-column-empty strong { color: var(--list-ink); }
 
-.project-workspace[data-board-theme] .add-card-button {
+[data-board-theme] .add-card-button {
   color: var(--list-ink-soft);
   border: 0;
   border-radius: var(--control-radius);
@@ -521,23 +521,23 @@
   min-height: var(--control-h);
   font-size: calc(.73rem * var(--text-scale, 1));
 }
-.project-workspace[data-board-theme] .add-card-button:hover,
-.project-workspace[data-board-theme] .add-card-button:focus-visible {
+[data-board-theme] .add-card-button:hover,
+[data-board-theme] .add-card-button:focus-visible {
   color: var(--list-ink);
   background: var(--card-fill);
 }
 /* "Add another list" sits on the canvas, not inside a list. */
-.project-workspace[data-board-theme] .project-column-add-list {
+[data-board-theme] .project-column-add-list {
   border-color: var(--canvas-line);
   background: var(--canvas-fill);
   box-shadow: none;
 }
-.project-workspace[data-board-theme] .project-column-add-list .add-list-button { color: var(--canvas-ink-soft); }
-.project-workspace[data-board-theme] .project-column-add-list .add-list-button:hover { color: var(--canvas-ink); }
+[data-board-theme] .project-column-add-list .add-list-button { color: var(--canvas-ink-soft); }
+[data-board-theme] .project-column-add-list .add-list-button:hover { color: var(--canvas-ink); }
 
 /* --- Cards ---------------------------------------------------------------- */
 
-.project-workspace[data-board-theme] .project-card {
+[data-board-theme] .project-card {
   min-height: 0;
   padding: var(--card-pad);
   border: 1px solid var(--card-line);
@@ -547,46 +547,46 @@
   backdrop-filter: var(--surface-blur);
   box-shadow: var(--card-shadow);
 }
-.project-workspace[data-board-theme] .project-card-shell .project-card { padding-right: calc(var(--card-pad) + 1.66rem); }
-.project-workspace[data-board-theme] .project-card:not(.dragging):not(.drop-target):hover,
-.project-workspace[data-board-theme] .project-card:not(.dragging):not(.drop-target):focus-visible {
+[data-board-theme] .project-card-shell .project-card { padding-right: calc(var(--card-pad) + 1.66rem); }
+[data-board-theme] .project-card:not(.dragging):not(.drop-target):hover,
+[data-board-theme] .project-card:not(.dragging):not(.drop-target):focus-visible {
   color: var(--card-ink);
   background: var(--card-bg-hover);
   border-color: var(--card-line);
   box-shadow: var(--card-shadow-hover);
   transform: translateY(-1px);
 }
-.project-workspace[data-board-theme] .project-card-heading strong {
+[data-board-theme] .project-card-heading strong {
   color: var(--card-ink);
   font-size: calc(var(--card-title) * var(--text-scale, 1));
   line-height: 1.35;
 }
-.project-workspace[data-board-theme] .project-card > p {
+[data-board-theme] .project-card > p {
   color: var(--card-ink-soft);
   font-size: calc(.75rem * var(--text-scale, 1));
 }
-.project-workspace[data-board-theme] .project-card-meta,
-.project-workspace[data-board-theme] .project-card-meta .card-number,
-.project-workspace[data-board-theme] .checklist-summary {
+[data-board-theme] .project-card-meta,
+[data-board-theme] .project-card-meta .card-number,
+[data-board-theme] .checklist-summary {
   color: var(--card-ink-faint);
   font-size: calc(var(--card-meta) * var(--text-scale, 1));
 }
-.project-workspace[data-board-theme] .project-card-meta > span:not(.drag-hint) + span:not(.drag-hint)::before { color: var(--card-ink-faint); }
-.project-workspace[data-board-theme] .card-quick-menu > summary { color: var(--card-ink-faint); }
-.project-workspace[data-board-theme] .card-quick-menu > summary:hover,
-.project-workspace[data-board-theme] .card-quick-menu[open] > summary {
+[data-board-theme] .project-card-meta > span:not(.drag-hint) + span:not(.drag-hint)::before { color: var(--card-ink-faint); }
+[data-board-theme] .card-quick-menu > summary { color: var(--card-ink-faint); }
+[data-board-theme] .card-quick-menu > summary:hover,
+[data-board-theme] .card-quick-menu[open] > summary {
   color: var(--card-ink);
   background: var(--card-fill);
 }
-.project-workspace[data-board-theme] .card-cover {
+[data-board-theme] .card-cover {
   height: var(--cover-h);
   margin: calc(var(--card-pad) * -1) calc((var(--card-pad) + 1.66rem) * -1) calc(var(--card-pad) * .8) calc(var(--card-pad) * -1);
   border-radius: var(--card-radius) var(--card-radius) 0 0;
 }
-.project-workspace[data-board-theme] .card-cover.card-cover-image { height: 5.5rem; }
-.project-workspace[data-board-theme][data-density='compact'] .card-cover.card-cover-image,
-.project-workspace[data-board-theme][data-density='dense'] .card-cover.card-cover-image { height: 3.5rem; }
-.project-workspace[data-board-theme] .archived-badge {
+[data-board-theme] .card-cover.card-cover-image { height: 5.5rem; }
+[data-board-theme][data-density='compact'] .card-cover.card-cover-image,
+[data-board-theme][data-density='dense'] .card-cover.card-cover-image { height: 3.5rem; }
+[data-board-theme] .archived-badge {
   color: var(--card-ink-faint);
   border-color: var(--card-line);
   background: var(--card-fill);
@@ -594,93 +594,93 @@
 
 /* Priority badges keep their semantic hues but pick a fill that belongs to the
    card's own tone, so an urgent card reads as urgent on light and dark alike. */
-.project-workspace[data-board-theme] .priority-badge {
+[data-board-theme] .priority-badge {
   border-color: transparent;
   color: var(--card-ink-soft);
   background: var(--card-fill);
 }
-.project-workspace[data-card-theme='light'] .priority-badge.priority-high,
-.project-workspace[data-card-theme='glass-light'] .priority-badge.priority-high { color: #8d4212; background: #ffdfba; }
-.project-workspace[data-card-theme='light'] .priority-badge.priority-urgent,
-.project-workspace[data-card-theme='glass-light'] .priority-badge.priority-urgent { color: #ae2e24; background: #ffd5d2; }
-.project-workspace[data-card-theme='dark'] .priority-badge.priority-high,
-.project-workspace[data-card-theme='glass-dark'] .priority-badge.priority-high { color: #ffd28b; background: rgb(255 210 139 / .16); }
-.project-workspace[data-card-theme='dark'] .priority-badge.priority-urgent,
-.project-workspace[data-card-theme='glass-dark'] .priority-badge.priority-urgent { color: #ffb2a3; background: rgb(255 178 163 / .16); }
+[data-card-theme='light'] .priority-badge.priority-high,
+[data-card-theme='glass-light'] .priority-badge.priority-high { color: #8d4212; background: #ffdfba; }
+[data-card-theme='light'] .priority-badge.priority-urgent,
+[data-card-theme='glass-light'] .priority-badge.priority-urgent { color: #ae2e24; background: #ffd5d2; }
+[data-card-theme='dark'] .priority-badge.priority-high,
+[data-card-theme='glass-dark'] .priority-badge.priority-high { color: #ffd28b; background: rgb(255 210 139 / .16); }
+[data-card-theme='dark'] .priority-badge.priority-urgent,
+[data-card-theme='glass-dark'] .priority-badge.priority-urgent { color: #ffb2a3; background: rgb(255 178 163 / .16); }
 
 /* Label pills stay a solid tag color; only the ink flips, because a mid-tone
    tag needs dark text on a light card and light text on a dark one. */
-.project-workspace[data-board-theme] .tag-chip {
+[data-board-theme] .tag-chip {
   border: 0;
   border-radius: calc(var(--card-radius) * .5);
   background: var(--tag-color);
   font-weight: 800;
 }
-.project-workspace[data-card-theme='light'] .tag-chip,
-.project-workspace[data-card-theme='glass-light'] .tag-chip { color: color-mix(in srgb, var(--tag-color) 12%, black 80%); }
-.project-workspace[data-card-theme='dark'] .tag-chip,
-.project-workspace[data-card-theme='glass-dark'] .tag-chip { color: color-mix(in srgb, var(--tag-color) 10%, white 88%); }
+[data-card-theme='light'] .tag-chip,
+[data-card-theme='glass-light'] .tag-chip { color: color-mix(in srgb, var(--tag-color) 12%, black 80%); }
+[data-card-theme='dark'] .tag-chip,
+[data-card-theme='glass-dark'] .tag-chip { color: color-mix(in srgb, var(--tag-color) 10%, white 88%); }
 
 /* --- Popovers and composers ---------------------------------------------- */
 
-.project-workspace[data-board-theme] .lane-menu-body,
-.project-workspace[data-board-theme] .card-quick-menu-body,
-.project-workspace[data-board-theme] .tag-manager-body,
-.project-workspace[data-board-theme] .find-work-body {
+[data-board-theme] .lane-menu-body,
+[data-board-theme] .card-quick-menu-body,
+[data-board-theme] .tag-manager-body,
+[data-board-theme] .find-work-body {
   color: var(--menu-ink);
   border-color: var(--card-line);
   background: var(--menu-bg);
 }
-.project-workspace[data-board-theme] .lane-menu-body button,
-.project-workspace[data-board-theme] .card-quick-menu-body button { color: var(--menu-ink); }
-.project-workspace[data-board-theme] .lane-menu-body button:hover,
-.project-workspace[data-board-theme] .card-quick-menu-body button:hover {
+[data-board-theme] .lane-menu-body button,
+[data-board-theme] .card-quick-menu-body button { color: var(--menu-ink); }
+[data-board-theme] .lane-menu-body button:hover,
+[data-board-theme] .card-quick-menu-body button:hover {
   color: var(--menu-ink);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
-.project-workspace[data-board-theme] .find-work-body p,
-.project-workspace[data-board-theme] .lane-menu-body .lane-menu-label { color: var(--card-ink-faint); }
+[data-board-theme] .find-work-body p,
+[data-board-theme] .lane-menu-body .lane-menu-label { color: var(--card-ink-faint); }
 
-.project-workspace[data-board-theme] .card-composer,
-.project-workspace[data-board-theme] .lane-inline-form {
+[data-board-theme] .card-composer,
+[data-board-theme] .lane-inline-form {
   color: var(--card-ink);
   border-color: color-mix(in srgb, var(--accent) 50%, var(--card-line));
   border-radius: var(--card-radius);
   background: var(--card-bg);
 }
-.project-workspace[data-board-theme] .card-composer label,
-.project-workspace[data-board-theme] .card-composer legend { color: var(--card-ink-soft); }
-.project-workspace[data-board-theme] .card-composer input,
-.project-workspace[data-board-theme] .card-composer select,
-.project-workspace[data-board-theme] .card-composer textarea,
-.project-workspace[data-board-theme] .lane-inline-form input,
-.project-workspace[data-board-theme] .lane-rename-input {
+[data-board-theme] .card-composer label,
+[data-board-theme] .card-composer legend { color: var(--card-ink-soft); }
+[data-board-theme] .card-composer input,
+[data-board-theme] .card-composer select,
+[data-board-theme] .card-composer textarea,
+[data-board-theme] .lane-inline-form input,
+[data-board-theme] .lane-rename-input {
   color: var(--card-ink);
   border-color: var(--card-line);
   border-radius: var(--control-radius);
   background: color-mix(in srgb, var(--card-bg) 88%, var(--card-fill));
 }
-.project-workspace[data-board-theme] .card-composer textarea::placeholder { color: var(--card-ink-faint); }
+[data-board-theme] .card-composer textarea::placeholder { color: var(--card-ink-faint); }
 
 /* Drop targets read as accent-tinted regardless of card tone. */
-.project-workspace[data-board-theme] .project-column.drop-target {
+[data-board-theme] .project-column.drop-target {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 18%, var(--list-bg));
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
 }
-.project-workspace[data-board-theme] .project-card-shell.drop-target .project-card {
+[data-board-theme] .project-card-shell.drop-target .project-card {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent), var(--card-shadow);
 }
 
 /* --- Controls sizing ------------------------------------------------------ */
 
-.project-workspace[data-board-theme] .project-controls input,
-.project-workspace[data-board-theme] .project-controls select,
-.project-workspace[data-board-theme] .project-controls button,
-.project-workspace[data-board-theme] .find-work-menu > summary,
-.project-workspace[data-board-theme] .tag-manager > summary,
-.project-workspace[data-board-theme] .project-cloud-button {
+[data-board-theme] .project-controls input,
+[data-board-theme] .project-controls select,
+[data-board-theme] .project-controls button,
+[data-board-theme] .find-work-menu > summary,
+[data-board-theme] .tag-manager > summary,
+[data-board-theme] .project-cloud-button {
   min-height: var(--control-h);
   border-radius: var(--control-radius);
 }
@@ -690,89 +690,688 @@
    sets background and ink together from the theme's overlay pair, so none of
    them depends on the board canvas they happen to float above. */
 
-.project-workspace[data-board-theme] .card-editor-modal,
-.project-workspace[data-board-theme] .side-panel,
-.project-workspace[data-board-theme] .board-toast,
-.project-workspace[data-board-theme] .shortcut-help-modal,
-.project-workspace[data-board-theme] .tag-manager-body,
-.project-workspace[data-board-theme] .lane-menu-body,
-.project-workspace[data-board-theme] .card-quick-menu-body,
-.project-workspace[data-board-theme] .find-work-body {
+[data-board-theme] .card-editor-modal,
+[data-board-theme] .side-panel,
+[data-board-theme] .board-toast,
+[data-board-theme] .shortcut-help-modal,
+[data-board-theme] .tag-manager-body,
+[data-board-theme] .lane-menu-body,
+[data-board-theme] .card-quick-menu-body,
+[data-board-theme] .find-work-body {
   color: var(--overlay-ink);
   border-color: var(--overlay-line);
   background: var(--overlay-bg);
 }
-.project-workspace[data-board-theme] .card-editor-modal { border-color: color-mix(in srgb, var(--accent) 34%, var(--overlay-line)); }
+[data-board-theme] .card-editor-modal { border-color: color-mix(in srgb, var(--accent) 34%, var(--overlay-line)); }
 
-.project-workspace[data-board-theme] .card-editor-modal h2,
-.project-workspace[data-board-theme] .card-editor-modal h3,
-.project-workspace[data-board-theme] .side-panel h2,
-.project-workspace[data-board-theme] .shortcut-help-modal h2,
-.project-workspace[data-board-theme] .side-panel-archive li strong { color: var(--overlay-ink); }
+[data-board-theme] .card-editor-modal h2,
+[data-board-theme] .card-editor-modal h3,
+[data-board-theme] .side-panel h2,
+[data-board-theme] .shortcut-help-modal h2,
+[data-board-theme] .side-panel-archive li strong { color: var(--overlay-ink); }
 
-.project-workspace[data-board-theme] .card-editor-modal .subtitle,
-.project-workspace[data-board-theme] .card-editor-modal label,
-.project-workspace[data-board-theme] .card-editor-modal legend,
-.project-workspace[data-board-theme] .card-comment-list li p,
-.project-workspace[data-board-theme] .card-comment-list li > div,
-.project-workspace[data-board-theme] .card-comment-list li time,
-.project-workspace[data-board-theme] .comment-empty,
-.project-workspace[data-board-theme] .comment-paste-help,
-.project-workspace[data-board-theme] .card-activity li p,
-.project-workspace[data-board-theme] .card-activity li time,
-.project-workspace[data-board-theme] .side-panel h2 span,
-.project-workspace[data-board-theme] .side-panel-activity p,
-.project-workspace[data-board-theme] .side-panel-activity time,
-.project-workspace[data-board-theme] .side-panel-archive li span,
-.project-workspace[data-board-theme] .shortcut-help-modal .subtitle,
-.project-workspace[data-board-theme] .shortcut-list dd,
-.project-workspace[data-board-theme] .board-toast { color: var(--overlay-ink-soft); }
-.project-workspace[data-board-theme] .board-toast > span { color: var(--overlay-ink); }
+[data-board-theme] .card-editor-modal .subtitle,
+[data-board-theme] .card-editor-modal label,
+[data-board-theme] .card-editor-modal legend,
+[data-board-theme] .card-comment-list li p,
+[data-board-theme] .card-comment-list li > div,
+[data-board-theme] .card-comment-list li time,
+[data-board-theme] .comment-empty,
+[data-board-theme] .comment-paste-help,
+[data-board-theme] .card-activity li p,
+[data-board-theme] .card-activity li time,
+[data-board-theme] .side-panel h2 span,
+[data-board-theme] .side-panel-activity p,
+[data-board-theme] .side-panel-activity time,
+[data-board-theme] .side-panel-archive li span,
+[data-board-theme] .shortcut-help-modal .subtitle,
+[data-board-theme] .shortcut-list dd,
+[data-board-theme] .board-toast { color: var(--overlay-ink-soft); }
+[data-board-theme] .board-toast > span { color: var(--overlay-ink); }
 
 /* Accent-colored text inside an overlay follows the overlay's tone, not the
    board's: #73b6ff on white is roughly 2:1 and unreadable. */
-.project-workspace[data-board-theme] .card-editor-modal .eyebrow,
-.project-workspace[data-board-theme] .card-comment-list li strong,
-.project-workspace[data-board-theme] .card-activity li strong,
-.project-workspace[data-board-theme] .card-editor-modal summary,
-.project-workspace[data-board-theme] .board-toast button,
-.project-workspace[data-board-theme] .shortcut-list dt,
-.project-workspace[data-board-theme] .shortcut-hover-heading,
-.project-workspace[data-board-theme] .side-panel .eyebrow { color: var(--overlay-accent); }
+[data-board-theme] .card-editor-modal .eyebrow,
+[data-board-theme] .card-comment-list li strong,
+[data-board-theme] .card-activity li strong,
+[data-board-theme] .card-editor-modal summary,
+[data-board-theme] .board-toast button,
+[data-board-theme] .shortcut-list dt,
+[data-board-theme] .shortcut-hover-heading,
+[data-board-theme] .side-panel .eyebrow { color: var(--overlay-accent); }
 
-.project-workspace[data-board-theme] .card-editor-modal input,
-.project-workspace[data-board-theme] .card-editor-modal select,
-.project-workspace[data-board-theme] .card-editor-modal textarea,
-.project-workspace[data-board-theme] .side-panel input,
-.project-workspace[data-board-theme] .side-panel textarea,
-.project-workspace[data-board-theme] .description-preview,
-.project-workspace[data-board-theme] .markdown-preview-block,
-.project-workspace[data-board-theme] .card-comment-list li,
-.project-workspace[data-board-theme] .card-attachment-list li,
-.project-workspace[data-board-theme] .side-panel-archive li {
+[data-board-theme] .card-editor-modal input,
+[data-board-theme] .card-editor-modal select,
+[data-board-theme] .card-editor-modal textarea,
+[data-board-theme] .side-panel input,
+[data-board-theme] .side-panel textarea,
+[data-board-theme] .description-preview,
+[data-board-theme] .markdown-preview-block,
+[data-board-theme] .card-comment-list li,
+[data-board-theme] .card-attachment-list li,
+[data-board-theme] .side-panel-archive li {
   color: var(--overlay-ink);
   border-color: var(--overlay-line);
   background: var(--overlay-field-bg);
 }
-.project-workspace[data-board-theme] .card-editor-modal input::placeholder,
-.project-workspace[data-board-theme] .card-editor-modal textarea::placeholder { color: var(--overlay-ink-soft); }
-.project-workspace[data-board-theme] .shortcut-list dt,
-.project-workspace[data-board-theme] .activity-dot { border-color: var(--overlay-line); background: var(--overlay-field-bg); }
-.project-workspace[data-board-theme] .card-editor-modal .quiet-button,
-.project-workspace[data-board-theme] .side-panel .quiet-button {
+[data-board-theme] .card-editor-modal input::placeholder,
+[data-board-theme] .card-editor-modal textarea::placeholder { color: var(--overlay-ink-soft); }
+[data-board-theme] .shortcut-list dt,
+[data-board-theme] .activity-dot { border-color: var(--overlay-line); background: var(--overlay-field-bg); }
+[data-board-theme] .card-editor-modal .quiet-button,
+[data-board-theme] .side-panel .quiet-button {
   color: var(--overlay-ink-soft);
   border-color: var(--overlay-line);
   background: transparent;
 }
-.project-workspace[data-board-theme] .card-editor-modal .quiet-button:hover,
-.project-workspace[data-board-theme] .side-panel .quiet-button:hover {
+[data-board-theme] .card-editor-modal .quiet-button:hover,
+[data-board-theme] .side-panel .quiet-button:hover {
   color: var(--overlay-accent);
   border-color: var(--overlay-accent);
 }
-.project-workspace[data-board-theme] .modal-heading,
-.project-workspace[data-board-theme] .modal-actions,
-.project-workspace[data-board-theme] .card-comments,
-.project-workspace[data-board-theme] .side-panel { border-color: var(--overlay-line); }
+[data-board-theme] .modal-heading,
+[data-board-theme] .modal-actions,
+[data-board-theme] .card-comments,
+[data-board-theme] .side-panel { border-color: var(--overlay-line); }
+
+/* ============================================================================
+   Board chrome — the two bands above the lanes.
+
+   This replaces 159 rules that had accumulated across twelve separate passes
+   in app.css. `.project-controls` alone was declared five times and
+   `.project-toolbar` four, each pass re-specifying padding and layout the
+   previous one had already set, which is why the chrome had grown to five
+   stacked rows costing 274px — 30% of a 900px viewport before a single card.
+
+   The whole thing is now two bands with one job each:
+
+     Band 1  .project-header   who and where — identity, sections, board tools
+     Band 2  .project-toolbar  what you are looking at — find, filter, totals
+
+   Two duplicates were removed rather than restyled: a "Cloud" button that
+   duplicated the Files tab, and a "27 cards" chip that duplicated the "27
+   active" stat beside it.
+
+   Every height here derives from --chrome-row and --chrome-control, so the
+   band rhythm is changed in one place instead of twelve.
+   ========================================================================= */
+
+[data-board-theme] {
+  --chrome-row: 2.35rem;        /* one band's content height */
+  --chrome-control: 2rem;       /* every button/field inside a band */
+  --chrome-gap: .4rem;
+  --chrome-pad-x: .55rem;
+}
+
+/* --- Band 1: identity, sections, board tools ----------------------------- */
+
+[data-board-theme] .project-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--chrome-gap) .6rem;
+  min-height: var(--chrome-row);
+  padding: .3rem var(--chrome-pad-x);
+  margin: 0 0 .35rem;
+  border: 0;
+  color: var(--canvas-ink);
+  background: transparent;
+}
+[data-board-theme] .project-header-top {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--chrome-gap);
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-height: 0;
+}
+[data-board-theme] .project-header h1,
+[data-board-theme] .board-name-button {
+  overflow: hidden;
+  max-width: 34ch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--canvas-ink);
+  background: transparent;
+  box-shadow: none;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-board-theme] .board-name-button:hover {
+  text-decoration: underline;
+  text-underline-offset: .2rem;
+}
+[data-board-theme] .board-rename-form input {
+  min-height: var(--chrome-control);
+  min-width: 14rem;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+/* Icon-only controls share one square so the row never gains height from a
+   control that happens to carry a longer label. */
+[data-board-theme] .board-switcher,
+[data-board-theme] .board-star {
+  display: grid;
+  width: var(--chrome-control);
+  height: var(--chrome-control);
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: .4rem;
+  color: var(--canvas-ink-soft);
+  background: transparent;
+  box-shadow: none;
+}
+[data-board-theme] .board-switcher:hover,
+[data-board-theme] .board-star:hover {
+  color: var(--canvas-ink);
+  border-color: var(--canvas-line);
+  background: var(--canvas-fill);
+  transform: none;
+}
+[data-board-theme] .board-star.active { color: #ffd76b; }
+
+[data-board-theme] .source-lock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  margin: 0;
+  padding: .1rem .42rem;
+  border: 1px solid var(--canvas-line);
+  border-radius: 99px;
+  color: var(--canvas-ink-soft);
+  background: var(--canvas-fill);
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Sections read as a segmented control, not as links floating in a bar: the
+   active tab is the only filled one, so "where am I" is answered by shape. */
+[data-board-theme] .project-tabs {
+  display: flex;
+  flex: 0 1 auto;
+  gap: .12rem;
+  min-width: 0;
+  margin-left: .35rem;
+  padding: .12rem;
+  border: 1px solid var(--canvas-line);
+  border-radius: .48rem;
+  background: var(--canvas-fill);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+[data-board-theme] .project-tabs::-webkit-scrollbar { display: none; }
+[data-board-theme] .project-tabs a {
+  flex: 0 0 auto;
+  padding: .25rem .5rem;
+  border-radius: .36rem;
+  color: var(--canvas-ink-soft);
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+}
+[data-board-theme] .project-tabs a:hover { color: var(--canvas-ink); background: var(--canvas-fill-strong); }
+[data-board-theme] .project-tabs a.active {
+  color: var(--card-ink);
+  background: var(--card-bg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / .18);
+}
+
+[data-board-theme] .project-header-extra {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--chrome-gap);
+  margin-left: auto;
+}
+[data-board-theme] .board-header-actions {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  margin: 0;
+}
+[data-board-theme] .board-header-actions .quiet-button {
+  min-height: var(--chrome-control);
+  padding: .28rem .5rem;
+  border-color: var(--canvas-line);
+  border-radius: .4rem;
+  color: var(--canvas-ink);
+  background: var(--canvas-fill);
+  font-size: .69rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+[data-board-theme] .board-header-actions .quiet-button:hover,
+[data-board-theme] .board-header-actions .quiet-button.active {
+  border-color: var(--canvas-ink-soft);
+  background: var(--canvas-fill-strong);
+}
+[data-board-theme] .board-header-actions .icon-only { padding-inline: 0; width: var(--chrome-control); }
+
+/* --- Band 2: find, filter, totals ---------------------------------------- */
+
+[data-board-theme] .project-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--chrome-gap) .5rem;
+  min-height: var(--chrome-row);
+  padding: .3rem var(--chrome-pad-x);
+  margin: 0 0 .5rem;
+  border: 1px solid var(--canvas-line);
+  border-radius: .5rem;
+  color: var(--canvas-ink);
+  background: var(--canvas-fill);
+  backdrop-filter: blur(14px) saturate(1.1);
+}
+/* Visual order only. The totals contain no focusable element, so moving them
+   past the controls changes nothing about tab order — and "totals, then the
+   controls that change them" is a sensible screen-reader reading order. */
+[data-board-theme] .project-toolbar-copy { order: 1; display: flex; align-items: center; gap: var(--chrome-gap); min-width: max-content; }
+[data-board-theme] .project-controls { order: 2; display: flex; flex: 1 1 22rem; flex-wrap: wrap; align-items: center; gap: .3rem; min-width: 0; }
+[data-board-theme] .toolbar-summary { order: 3; display: flex; align-items: center; gap: .5rem; margin-left: auto; min-width: max-content; }
+
+[data-board-theme] .project-controls label {
+  display: flex;
+  align-items: center;
+  min-height: var(--chrome-control);
+  margin: 0;
+  gap: 0;
+}
+[data-board-theme] .project-controls .project-search { position: relative; flex: 1 1 16rem; min-width: 9rem; }
+[data-board-theme] .project-search-icon { position: absolute; top: 50%; left: .5rem; width: .9rem; height: .9rem; color: var(--card-ink-faint); transform: translateY(-50%); pointer-events: none; }
+[data-board-theme] .project-controls .project-search input { width: 100%; padding-left: 1.75rem; }
+[data-board-theme] .project-controls input,
+[data-board-theme] .project-controls select,
+[data-board-theme] .project-controls .quiet-button,
+[data-board-theme] .tag-manager > summary,
+[data-board-theme] .find-work-menu > summary {
+  min-height: var(--chrome-control);
+  padding-block: .2rem;
+  padding-inline: .5rem;
+  border-radius: .4rem;
+  font-size: .72rem;
+}
+/* One material for the whole strip. The inputs have to be opaque to stay
+   legible over a photo background, so the buttons match them rather than
+   staying translucent — otherwise a single row reads as two materials. */
+[data-board-theme] .project-controls .quiet-button,
+[data-board-theme] .tag-manager > summary,
+[data-board-theme] .find-work-menu > summary {
+  border: 1px solid var(--card-line);
+  color: var(--card-ink);
+  background: var(--card-bg);
+  box-shadow: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+[data-board-theme] .project-controls .quiet-button:hover,
+[data-board-theme] .tag-manager > summary:hover,
+[data-board-theme] .find-work-menu > summary:hover,
+[data-board-theme] .find-work-menu[open] > summary,
+[data-board-theme] .tag-manager[open] > summary {
+  color: var(--card-ink);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--card-line));
+  background: var(--card-bg-hover);
+  transform: none;
+}
+/* An engaged toggle is the one thing in the strip that should look different. */
+[data-board-theme] .project-controls .quiet-button.active {
+  color: var(--overlay-accent, var(--accent));
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--card-bg));
+}
+[data-board-theme] .find-work-icon,
+[data-board-theme] .find-work-chevron { color: var(--card-ink-faint); }
+
+[data-board-theme] .find-work-menu { position: relative; z-index: 30; }
+[data-board-theme] .find-work-menu > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  cursor: pointer;
+  list-style: none;
+}
+[data-board-theme] .find-work-menu > summary::-webkit-details-marker { display: none; }
+[data-board-theme] .find-work-icon { width: .9rem; height: .9rem; }
+[data-board-theme] .find-work-chevron { width: .8rem; height: .8rem; transition: transform .16s ease; }
+
+[data-board-theme] .find-work-menu[open] .find-work-chevron { transform: rotate(180deg); }
+[data-board-theme] .find-work-body {
+  position: absolute;
+  top: calc(100% + .35rem);
+  left: 0;
+  z-index: 40;
+  width: min(19rem, calc(100vw - 2rem));
+  padding: .7rem;
+  border: 1px solid var(--card-line);
+  border-radius: .55rem;
+  background: var(--menu-bg);
+  box-shadow: var(--shadow-lg, 0 18px 44px rgb(0 0 0 / .34));
+}
+[data-board-theme] .find-work-body p { margin: 0 0 .5rem; color: var(--card-ink-faint); font-size: .69rem; line-height: 1.35; }
+[data-board-theme] .find-work-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem; }
+[data-board-theme] .find-work-actions button { min-height: var(--chrome-control); font-size: .69rem; }
+[data-board-theme] .find-work-actions button.active { border-color: var(--accent); color: var(--overlay-accent, var(--accent)); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+/* Totals are read, never clicked: one quiet tabular strip, no chrome per item. */
+[data-board-theme] .project-stats,
+[data-board-theme] .workflow-pulse {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  color: var(--canvas-ink-soft);
+  font-size: .68rem;
+  font-variant-numeric: tabular-nums;
+}
+[data-board-theme] .project-stats span,
+[data-board-theme] .workflow-state {
+  padding: 0 .45rem;
+  border: 0;
+  border-left: 1px solid var(--canvas-line);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  white-space: nowrap;
+}
+[data-board-theme] .project-stats span:first-child { border-left: 0; }
+[data-board-theme] .project-stats strong,
+[data-board-theme] .workflow-state strong { margin-right: .18rem; color: var(--canvas-ink); font-weight: 800; }
+[data-board-theme] .workflow-blocked { color: #ffb2a3; }
+[data-board-theme] .workflow-partial { color: #ffd28b; }
+[data-board-theme] .save-status { color: var(--canvas-ink-soft); font-size: .68rem; white-space: nowrap; }
+
+/* --- Shared page rhythm --------------------------------------------------
+   `main`'s base padding is 2.5rem, which the board overrides and the other
+   project pages did not — so backlog, files, graph, and settings each began
+   40px lower than the board for no reason anyone chose. Carrying the
+   appearance attributes now also means carrying the board's rhythm. */
+main[data-board-theme] {
+  padding-top: .55rem;
+  padding-bottom: 2.5rem;
+}
+main[data-board-theme] > .page-intro { margin: -.1rem 0 .6rem; }
+
+/* Filter strips on the sibling pages are the same kind of thing as the
+   board's toolbar, so they get the same one-row treatment and the same
+   control heights rather than a second, taller idiom. */
+[data-board-theme] .backlog-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--chrome-gap) .5rem;
+  min-height: var(--chrome-row);
+  padding: .3rem var(--chrome-pad-x);
+  margin-bottom: .6rem;
+  border: 1px solid var(--canvas-line);
+  border-radius: .5rem;
+  color: var(--canvas-ink);
+  background: var(--canvas-fill);
+}
+[data-board-theme] .backlog-toolbar > label {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  min-height: var(--chrome-control);
+  margin: 0;
+  color: var(--canvas-ink-soft);
+  font-size: .7rem;
+  white-space: nowrap;
+}
+[data-board-theme] .backlog-toolbar > label:first-child { flex: 1 1 18rem; min-width: 9rem; }
+/* Checkboxes are excluded: a min-width meant for a text field turns a
+   checkbox into a 7rem grey slab. */
+[data-board-theme] .backlog-toolbar input:not([type='checkbox']),
+[data-board-theme] .backlog-toolbar select {
+  min-height: var(--chrome-control);
+  min-width: 7rem;
+  padding-block: .2rem;
+  padding-inline: .5rem;
+  border: 1px solid var(--card-line);
+  border-radius: .4rem;
+  color: var(--card-ink);
+  background: var(--card-bg);
+  font-size: .72rem;
+}
+[data-board-theme] .backlog-toolbar > label:first-child input { width: 100%; }
+[data-board-theme] .backlog-toolbar input[type='checkbox'] {
+  width: 1rem;
+  min-width: 0;
+  height: 1rem;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+[data-board-theme] .backlog-toolbar > label.check { gap: .35rem; }
+[data-board-theme] .backlog-count { margin-left: auto; padding: 0; color: var(--canvas-ink-soft); font-size: .68rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* --- Wiki ----------------------------------------------------------------
+   The fourth per-project surface. It reads from the same paired tokens as the
+   board, so a themed project themes its wiki too, and a red link is the one
+   place the palette deliberately breaks pattern. */
+
+.wiki-page { display: grid; gap: 0 1.2rem; align-content: start; }
+.wiki-page-single { grid-template-columns: minmax(0, 1fr) minmax(200px, 15rem); }
+.wiki-page-single > .project-header,
+.wiki-page-single > .action-errors,
+.wiki-page-single > .success { grid-column: 1 / -1; }
+
+.wiki-article {
+  min-width: 0;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--card-line);
+  border-radius: var(--card-radius, .5rem);
+  color: var(--card-ink);
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+}
+.wiki-article-head { padding-bottom: .5rem; margin-bottom: .8rem; border-bottom: 1px solid var(--card-line); }
+.wiki-article-head h1 { margin: 0 0 .15rem; color: var(--card-ink); font-size: 1.45rem; letter-spacing: -.025em; }
+.wiki-article-meta { margin: 0; color: var(--card-ink-faint); font-size: .7rem; }
+.wiki-body { padding: 0; border: 0; background: transparent; color: var(--card-ink); font-size: .88rem; line-height: 1.6; }
+.wiki-body :global(h1), .wiki-body :global(h2), .wiki-body :global(h3) { margin: 1.2rem 0 .4rem; color: var(--card-ink); letter-spacing: -.02em; }
+.wiki-body :global(h2) { font-size: 1.1rem; }
+.wiki-body :global(h3) { font-size: .95rem; }
+.wiki-body :global(p) { margin: 0 0 .7rem; }
+.wiki-body :global(ul), .wiki-body :global(ol) { margin: 0 0 .7rem; padding-left: 1.2rem; }
+.wiki-body :global(li) { margin-bottom: .25rem; }
+.wiki-body :global(pre) { padding: .7rem; overflow-x: auto; border: 1px solid var(--card-line); border-radius: .4rem; background: color-mix(in srgb, var(--card-bg) 88%, var(--card-fill)); font-size: .78rem; }
+.wiki-body :global(blockquote) { margin: 0 0 .7rem; padding-left: .8rem; border-left: 3px solid var(--card-line); color: var(--card-ink-soft); }
+.wiki-body :global(table) { width: 100%; border-collapse: collapse; margin-bottom: .7rem; font-size: .8rem; }
+.wiki-body :global(th), .wiki-body :global(td) { padding: .35rem .5rem; border: 1px solid var(--card-line); text-align: left; }
+
+/* A live link is accent; a link to a page nobody has written is dashed and
+   warm. The difference has to be visible at a glance — spotting the gaps is
+   what makes a wiki grow. */
+.wiki-link { color: var(--overlay-accent, var(--accent)); font-weight: 650; text-decoration: none; }
+.wiki-link:hover { text-decoration: underline; text-underline-offset: .18rem; }
+.wiki-link-missing {
+  color: var(--warn-text, #d98a3a);
+  border-bottom: 1px dashed currentColor;
+}
+.wiki-link-missing:hover { text-decoration: none; border-bottom-style: solid; }
+
+.wiki-editor { display: grid; gap: .6rem; }
+.wiki-editor label { display: grid; gap: .25rem; color: var(--card-ink-soft); font-size: .72rem; font-weight: 700; }
+.wiki-editor input, .wiki-editor textarea {
+  width: 100%;
+  padding: .45rem .6rem;
+  border: 1px solid var(--card-line);
+  border-radius: .42rem;
+  color: var(--card-ink);
+  background: color-mix(in srgb, var(--card-bg) 90%, var(--card-fill));
+  font-size: .85rem;
+}
+.wiki-editor textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; line-height: 1.55; resize: vertical; }
+
+.wiki-aside { display: grid; gap: .8rem; align-content: start; min-width: 0; }
+.wiki-aside section {
+  padding: .7rem .8rem;
+  border: 1px solid var(--card-line);
+  border-radius: var(--card-radius, .5rem);
+  color: var(--card-ink);
+  background: color-mix(in srgb, var(--card-bg) 82%, transparent);
+}
+.wiki-aside h2 { display: flex; align-items: center; gap: .35rem; margin: 0 0 .45rem; color: var(--card-ink-soft); font-size: .66rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.wiki-aside h2 :global(svg) { width: .85rem; height: .85rem; }
+.wiki-aside .empty { margin: 0; color: var(--card-ink-faint); font-size: .72rem; line-height: 1.4; }
+.wiki-link-list { display: grid; gap: .28rem; padding: 0; margin: 0; list-style: none; font-size: .78rem; }
+.wiki-history { display: grid; gap: .5rem; padding: 0 0 0 .9rem; margin: 0; font-size: .72rem; }
+.wiki-history strong { color: var(--card-ink); }
+.wiki-history time { margin-left: .35rem; color: var(--card-ink-faint); font-size: .66rem; }
+.wiki-history p { margin: .1rem 0 0; color: var(--card-ink-soft); }
+.wiki-count { padding: 0 .28rem; border-radius: 99px; background: var(--canvas-fill-strong); font-size: .62rem; font-variant-numeric: tabular-nums; }
+
+.wiki-composer {
+  display: grid;
+  gap: .55rem;
+  padding: .8rem .9rem;
+  margin-bottom: .8rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--card-line));
+  border-radius: var(--card-radius, .5rem);
+  color: var(--card-ink);
+  background: var(--card-bg);
+}
+.wiki-composer label { display: grid; gap: .25rem; color: var(--card-ink-soft); font-size: .72rem; font-weight: 700; }
+.wiki-composer input, .wiki-composer textarea {
+  width: 100%;
+  padding: .45rem .6rem;
+  border: 1px solid var(--card-line);
+  border-radius: .42rem;
+  color: var(--card-ink);
+  background: color-mix(in srgb, var(--card-bg) 90%, var(--card-fill));
+  font-size: .85rem;
+}
+
+.wiki-section { margin-bottom: 1.1rem; }
+.wiki-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: .55rem; padding: 0; margin: 0; list-style: none; }
+.wiki-item {
+  display: grid;
+  gap: .3rem;
+  padding: .65rem .75rem;
+  border: 1px solid var(--card-line);
+  border-radius: var(--card-radius, .5rem);
+  color: var(--card-ink);
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+}
+.wiki-item:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--card-line)); }
+.wiki-item > a { display: flex; gap: .5rem; align-items: start; min-width: 0; color: inherit; text-decoration: none; }
+.wiki-item-icon { display: grid; width: 1.6rem; height: 1.6rem; flex: 0 0 auto; place-items: center; border-radius: .35rem; color: var(--overlay-accent, var(--accent)); background: var(--card-fill); }
+.wiki-item-icon :global(svg) { width: .9rem; height: .9rem; }
+.wiki-item-copy { display: grid; gap: .12rem; min-width: 0; }
+.wiki-item-copy strong { font-size: .85rem; }
+.wiki-item-copy small { color: var(--card-ink-soft); font-size: .71rem; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.wiki-item-meta { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0; color: var(--card-ink-faint); font-size: .64rem; }
+/* The backing file is shown, not hidden: a wiki stored as markdown in the
+   cloud should say so, and let you jump straight to it. */
+.wiki-item-file { color: var(--card-ink-faint); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .62rem; text-decoration: none; }
+.wiki-item-file:hover { color: var(--overlay-accent, var(--accent)); text-decoration: underline; }
+
+.wiki-wanted { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0; margin: 0; list-style: none; }
+.wiki-wanted li { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .5rem; border: 1px dashed var(--card-line); border-radius: 99px; background: color-mix(in srgb, var(--card-bg) 70%, transparent); font-size: .72rem; }
+.wiki-wanted li :global(svg) { width: .85rem; height: .85rem; }
+.wiki-wanted li > span { color: var(--card-ink-faint); font-size: .64rem; }
+
+.wiki-empty {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 1.4rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--canvas-line));
+  border-radius: .7rem;
+  color: var(--canvas-ink);
+  background: var(--canvas-fill);
+}
+.wiki-empty h2 { margin: 0 0 .35rem; font-size: 1.2rem; }
+.wiki-empty p:not(.eyebrow):not(.empty) { max-width: 52ch; margin: 0; color: var(--canvas-ink-soft); font-size: .82rem; line-height: 1.5; }
+
+@media (max-width: 900px) {
+  .wiki-page-single { grid-template-columns: minmax(0, 1fr); }
+  .wiki-empty { align-items: start; flex-direction: column; gap: .8rem; }
+}
+
+/* --- Narrow screens ------------------------------------------------------
+   Each step gives up exactly one thing, in the order it is least missed, and
+   each is deliberate: left to wrap on its own, the bands ended up eight rows
+   tall on a phone with every filter alone on a full-width line.
+   Controls never shrink below a comfortable touch target. */
+
+/* 1. Tabs claim their own line rather than wrapping raggedly mid-list. The
+      strip scrolls horizontally, so it stays exactly one row however many
+      sections a project has. */
+@media (max-width: 1240px) {
+  [data-board-theme] .project-tabs { order: 3; flex-basis: 100%; margin-left: 0; }
+  [data-board-theme] .project-header-extra { margin-left: auto; }
+}
+
+/* 2. Totals drop below the controls that change them. */
+@media (max-width: 1000px) {
+  [data-board-theme] .toolbar-summary { order: 4; flex-basis: 100%; margin-left: 0; justify-content: flex-start; }
+}
+
+/* 3. Search takes a full line — it is the control reached for most — and the
+      rest keep their natural widths and pack as many per line as fit. An
+      earlier attempt forced them into two equal columns, which made every
+      control wider than its label needed and cost *more* rows, not fewer. */
+@media (max-width: 700px) {
+  [data-board-theme] .project-toolbar-copy,
+  [data-board-theme] .project-controls { flex-basis: 100%; }
+  [data-board-theme] .project-controls .project-search { flex: 0 0 100%; }
+  [data-board-theme] .project-controls > label:not(.project-search),
+  [data-board-theme] .project-controls > .quiet-button,
+  [data-board-theme] .project-controls > .tag-manager { flex: 0 1 auto; min-width: 0; }
+  [data-board-theme] .project-controls select { max-width: 100%; }
+}
+
+/* 3b. Below phone width the natural widths stop paying: at 420px a control
+       row fits barely one and a half of them, so forcing exact pairs is
+       measurably shorter (255px of toolbar against 325px). Measured, not
+       assumed — the two rules swap at the width where they actually cross. */
+@media (max-width: 480px) {
+  [data-board-theme] .project-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .35rem;
+  }
+  [data-board-theme] .project-controls .project-search { grid-column: 1 / -1; }
+  [data-board-theme] .project-controls > label:not(.project-search),
+  [data-board-theme] .project-controls > .quiet-button,
+  [data-board-theme] .project-controls > .tag-manager { width: 100%; min-width: 0; }
+  [data-board-theme] .project-controls select { width: 100%; }
+  [data-board-theme] .tag-manager > summary,
+  [data-board-theme] .find-work-menu > summary { width: 100%; justify-content: center; }
+  [data-board-theme] .find-work-menu { width: 100%; }
+}
+
+/* 4. The board name yields width before anything else does. */
+@media (max-width: 560px) {
+  [data-board-theme] .project-header h1,
+  [data-board-theme] .board-name-button { max-width: 14ch; }
+  [data-board-theme] .source-lock-chip { display: none; }
+}
 
 /* ============================================================================
    Quick appearance panel.
@@ -891,5 +1490,5 @@
   .appearance-themes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .project-workspace[data-board-theme] .project-card:hover { transform: none; }
+  [data-board-theme] .project-card:hover { transform: none; }
 }

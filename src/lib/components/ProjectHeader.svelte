@@ -23,7 +23,7 @@
   import Lock from '@lucide/svelte/icons/lock';
   import type { Snippet } from 'svelte';
 
-  export type ProjectTab = 'board' | 'backlog' | 'files' | 'graph' | 'automation' | 'settings';
+  export type ProjectTab = 'board' | 'backlog' | 'wiki' | 'files' | 'graph' | 'automation' | 'settings';
 
   let {
     project,
@@ -90,6 +90,7 @@
   const tabs = $derived<{ id: ProjectTab; label: string; href: string; editorOnly?: boolean }[]>([
     { id: 'board', label: 'Board', href: `/projects/${slug}` },
     { id: 'backlog', label: 'Backlog', href: `/projects/${slug}/backlog` },
+    { id: 'wiki', label: 'Wiki', href: `/projects/${slug}/wiki` },
     { id: 'files', label: 'Files', href: `/projects/${slug}/files` },
     { id: 'graph', label: 'Graph', href: `/projects/${slug}/graph` },
     { id: 'automation', label: 'Automation', href: `/projects/${slug}/automation`, editorOnly: true },
@@ -137,13 +138,13 @@
     {#if sourceOwned}
       <span class="source-lock-chip" title="Title, description, checklist text, owner, priority, and cover are synced from UNITY_PLAN.md. Lane, dates, comments, attachments, and checklist ticks stay editable here."><Lock /> synced from plan</span>
     {/if}
+    <nav class="project-tabs" aria-label="Project sections">
+      {#each tabs as tab}
+        {#if !tab.editorOnly || canEdit}
+          <a class:active={active === tab.id} href={tab.href}>{tab.label}</a>
+        {/if}
+      {/each}
+    </nav>
     {#if extra}<div class="project-header-extra">{@render extra()}</div>{/if}
   </div>
-  <nav class="project-tabs" aria-label="Project sections">
-    {#each tabs as tab}
-      {#if !tab.editorOnly || canEdit}
-        <a class:active={active === tab.id} href={tab.href}>{tab.label}</a>
-      {/if}
-    {/each}
-  </nav>
 </header>
