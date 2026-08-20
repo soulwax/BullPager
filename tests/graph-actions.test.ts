@@ -7,7 +7,9 @@ const persistence = vi.hoisted(() => ({
   deleteGraphNode: vi.fn(),
   getBoardProject: vi.fn(),
   listProjectCards: vi.fn(),
+  loadBoardSettings: vi.fn(),
   loadProjectGraph: vi.fn(),
+  saveBoardSettings: vi.fn(),
   saveGraphSettings: vi.fn(),
   updateGraphNode: vi.fn(),
   upsertProjectFile: vi.fn()
@@ -115,5 +117,95 @@ describe('graph cloud backup (writes a snapshot after every successful mutation)
     persistence.upsertProjectFile.mockRejectedValue(new Error('r2 unavailable'));
     const result = await actions.createNode({ request: request({ kind: 'note', title: 'Decision' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
     expect(result).toEqual({ message: 'Graph object created.' });
+  });
+});
+
+const existingRuleSettings = { 'project_demo_graph_style_rules': JSON.stringify([{ id: 'style-1', name: 'Urgent', enabled: true, condition: { type: 'linked-card-priority', priority: 'urgent' }, color: '#cf513f' }]) };
+
+describe('graph style rule actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    persistence.loadBoardSettings.mockResolvedValue({});
+    persistence.saveBoardSettings.mockResolvedValue(undefined);
+  });
+
+  describe('saveStyleRule', () => {
+    it('rejects a viewer', async () => {
+      const result = await actions.saveStyleRule({ request: request({ name: 'x', conditionType: 'linked-card-archived', color: '#000000' }), locals: { role: 'viewer', username: 'sam' }, params: { slug: 'demo' } } as never);
+      expect(result).toMatchObject({ status: 403 });
+      expect(persistence.saveBoardSettings).not.toHaveBeenCalled();
+    });
+
+    it('creates a node-kind rule and persists it under the project prefix', async () => {
+      const result = await actions.saveStyleRule({ request: request({ name: 'Groups', conditionType: 'node-kind', kind: 'group', color: '#9b8afb' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+      expect(result).toEqual({ message: 'Style rule saved.' });
+      const saved = JSON.parse(persistence.saveBoardSettings.mock.calls[0][0]['project_demo_graph_style_rules']);
+      expect(saved).toEqual([{ id: expect.any(String), name: 'Groups', enabled: true, condition: { type: 'node-kind', kind: 'group' }, color: '#9b8afb' }]);
+    });
+
+    it('creates a linked-card-priority rule', async () => {
+      await actions.saveStyleRule({ request: request({ name: 'Urgent', conditionType: 'linked-card-priority', priority: 'urgent', color: '#cf513f' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+      const saved = JSON.parse(persistence.saveBoardSettings.mock.calls[0][0]['project_demo_graph_style_rules']);
+      expect(saved[0].condition).toEqual({ type: 'linked-card-priority', priority: 'urgent' });
+    });
+
+    it('upserts by id — saving an existing rule id replaces it instead of duplicating', async () => {
+      persistence.loadBoardSettings.mockResolvedValue(existingRuleSettings);
+      await actions.saveStyleRule({ request: request({ id: 'style-1', name: 'Renamed', conditionType: 'linked-card-archived', color: '#5e6c84' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+      const saved = JSON.parse(persistence.saveBoardSettings.mock.calls[0][0]['project_demo_graph_style_rules']);
+      expect(saved).toHaveLength(1);
+      expect(saved[0]).toMatchObject({ id: 'style-1', name: 'Renamed' });
+    });
+
+    it('rejects a rule with no name or an invalid color', async () => {
+      const noName = await actions.saveStyleRule({ request: request({ name: '', conditionType: 'linked-card-archived', color: '#000000' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+      const badColor = await actions.saveStyleRule({ request: request({ name: 'x', conditionType: 'linked-card-archived', color: 'red' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+      expect(noName).toMatchObject({ status: 400 });
+      expect(badColor).toMatchObject({ status: 400 });
+      expect(persistence.saveBoardSettings).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('toggleStyleRule', () => {
+    it('rejects a viewer', async () => {
+      persistence.loadBoardSettings.mockResolvedValue(existingRuleSettings);
+      const result = await actions.toggleStyleRule({ request: request({ id: 'style-1', enabled: 'false' }), locals: { role: 'viewer', username: 'sam' }, params: { slug: 'demo' } } as never);
+      expect(result).toMatchObject({ status: 403 });
+    });
+
+    it('flips enabled and leaves the rest of the rule untouched', async () => {
+      persistence.loadBoardSettings.mockResolvedValue(existingRuleSettings);
+      const result = await actions.toggleStyleRule({ request: request({ id: 'style-1', enabled: 'false' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+      expect(result).toEqual({ message: 'Rule disabled.' });
+      const saved = JSON.parse(persistence.saveBoardSettings.mock.calls[0][0]['project_demo_graph_style_rules']);
+      expect(saved[0]).toMatchObject({ id: 'style-1', name: 'Urgent', enabled: false });
+    });
+
+    it('rejects an unknown rule id', async () => {
+      persistence.loadBoardSettings.mockResolvedValue(existingRuleSettings);
+      const result = await actions.toggleStyleRule({ request: request({ id: 'nope', enabled: 'false' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+      expect(result).toMatchObject({ status: 400 });
+    });
+  });
+
+  describe('deleteStyleRule', () => {
+    it('rejects a viewer', async () => {
+      persistence.loadBoardSettings.mockResolvedValue(existingRuleSettings);
+      const result = await actions.deleteStyleRule({ request: request({ id: 'style-1' }), locals: { role: 'viewer', username: 'sam' }, params: { slug: 'demo' } } as never);
+      expect(result).toMatchObject({ status: 403 });
+    });
+
+    it('removes the rule', async () => {
+      persistence.loadBoardSettings.mockResolvedValue(existingRuleSettings);
+      const result = await actions.deleteStyleRule({ request: request({ id: 'style-1' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+      expect(result).toEqual({ message: 'Style rule removed.' });
+      expect(persistence.saveBoardSettings).toHaveBeenCalledWith({ 'project_demo_graph_style_rules': '[]' });
+    });
+
+    it('rejects deleting a rule that does not exist', async () => {
+      persistence.loadBoardSettings.mockResolvedValue(existingRuleSettings);
+      const result = await actions.deleteStyleRule({ request: request({ id: 'nope' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+      expect(result).toMatchObject({ status: 400 });
+    });
   });
 });

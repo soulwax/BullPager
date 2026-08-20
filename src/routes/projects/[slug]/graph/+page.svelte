@@ -2,14 +2,25 @@
   import { invalidateAll } from '$app/navigation';
   import type { GraphEdge, GraphNode, GraphNodeKind } from '$lib/types';
   import ProjectHeader from '$lib/components/ProjectHeader.svelte';
+  import {
+    conditionTypes,
+    describeCondition,
+    nodeKinds,
+    priorities,
+    resolveNodeColor,
+    type GraphStyleRule,
+    type Priority
+  } from '$lib/graphStyles';
   import Plus from '@lucide/svelte/icons/plus';
   import Minus from '@lucide/svelte/icons/minus';
+  import Trash2 from '@lucide/svelte/icons/trash-2';
 
-  let { data, form }: { data: { project: { slug: string; name: string }; graph: { settings: { revision: number; snap: boolean; gridSize: number; background: 'midnight' | 'ocean' | 'light' }; nodes: GraphNode[]; edges: GraphEdge[] }; cards: { id: string; title: string; lane: string }[]; canEdit: boolean; username: string; starred: boolean }; form?: { message?: string; error?: string } } = $props();
+  let { data, form }: { data: { project: { slug: string; name: string }; graph: { settings: { revision: number; snap: boolean; gridSize: number; background: 'midnight' | 'ocean' | 'light' }; nodes: GraphNode[]; edges: GraphEdge[] }; cards: { id: string; title: string; lane: string; priority: Priority; archived: boolean }[]; canEdit: boolean; username: string; starred: boolean; styleRules: GraphStyleRule[] }; form?: { message?: string; error?: string } } = $props();
   let selectedNodeId = $state<string | null>(null);
   let selectedEdgeId = $state<string | null>(null);
   let tool = $state<'select' | 'pan' | 'connect'>('select');
   let showCreate = $state(false);
+  let showStyleRules = $state(false);
   let zoom = $state(1);
   let panX = $state(0);
   let panY = $state(0);
@@ -19,6 +30,16 @@
   const selectedEdge = $derived(data.graph.edges.find((edge) => edge.id === selectedEdgeId) ?? null);
   const activeNodes = $derived(data.graph.nodes.filter((node) => !node.archived));
   const nodeById = $derived(new Map(data.graph.nodes.map((node) => [node.id, node])));
+  const cardById = $derived(new Map(data.cards.map((card) => [card.id, card])));
+  function nodeColor(node: GraphNode) {
+    return resolveNodeColor(node, node.color, data.styleRules, cardById);
+  }
+
+  let newRuleName = $state('');
+  let newRuleConditionType = $state<GraphStyleRule['condition']['type']>('linked-card-priority');
+  let newRuleKind = $state<GraphNodeKind>('card');
+  let newRulePriority = $state<Priority>('urgent');
+  let newRuleColor = $state('#cf513f');
 
   function point(event: PointerEvent) {
     const svg = event.currentTarget as SVGSVGElement;
@@ -97,13 +118,49 @@
           {#if source && target}<line class:selected={selectedEdgeId === edge.id} class="graph-edge" role="button" tabindex="0" aria-label={`${edge.kind.replace('_', ' ')} connection`} x1={source.x + source.width / 2} y1={source.y + source.height / 2} x2={target.x + target.width / 2} y2={target.y + target.height / 2} marker-end="url(#graph-arrow)" onclick={(event) => { event.stopPropagation(); selectedEdgeId = edge.id; selectedNodeId = null; }} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { selectedEdgeId = edge.id; selectedNodeId = null; } }} /><text class="graph-edge-label" x={(source.x + target.x + source.width / 2 + target.width / 2) / 2} y={(source.y + target.y + source.height / 2 + target.height / 2) / 2}>{edge.label || edge.kind.replace('_', ' ')}</text>{/if}
         {/each}
         {#each activeNodes as node}
-          <g class:selected={selectedNodeId === node.id} class={`graph-node graph-node-${node.kind}`} transform={`translate(${node.x},${node.y})`} role="button" tabindex="0" aria-label={`${node.kind}: ${node.title}`} aria-pressed={selectedNodeId === node.id} onpointerdown={(event) => selectNode(node, event)} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') selectedNodeId = node.id; }}><rect width={node.width} height={node.height} rx="12" style={`--node-color: ${node.color}`} /><text class="graph-node-kind" x="16" y="24">{node.kind}{node.cardId ? ' · linked card' : ''}</text><text class="graph-node-title" x="16" y="52">{node.title}</text>{#if node.body && !node.collapsed}<foreignObject x="16" y="66" width={node.width - 32} height={node.height - 76}><p xmlns="http://www.w3.org/1999/xhtml">{node.body}</p></foreignObject>{/if}</g>
+          <g class:selected={selectedNodeId === node.id} class={`graph-node graph-node-${node.kind}`} transform={`translate(${node.x},${node.y})`} role="button" tabindex="0" aria-label={`${node.kind}: ${node.title}`} aria-pressed={selectedNodeId === node.id} onpointerdown={(event) => selectNode(node, event)} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') selectedNodeId = node.id; }}><rect width={node.width} height={node.height} rx="12" style={`--node-color: ${nodeColor(node)}`} /><text class="graph-node-kind" x="16" y="24">{node.kind}{node.cardId ? ' · linked card' : ''}</text><text class="graph-node-title" x="16" y="52">{node.title}</text>{#if node.body && !node.collapsed}<foreignObject x="16" y="66" width={node.width - 32} height={node.height - 76}><p xmlns="http://www.w3.org/1999/xhtml">{node.body}</p></foreignObject>{/if}</g>
         {/each}
       </g>
     </svg>{#if !activeNodes.length}<div class="graph-empty"><p class="eyebrow">EMPTY GRAPH</p><h2>Start with one idea.</h2><p>Add a note, group a phase, or link a card to make the relationships visible.</p><button type="button" onclick={() => { showCreate = true; }}>Add first object</button></div>{/if}</div>
     <aside class="graph-inspector" aria-label="Graph inspector">
       {#if selectedNode && data.canEdit}<p class="eyebrow">SELECTED {selectedNode.kind.toUpperCase()}</p><h2>{selectedNode.title}</h2><form method="POST" action="?/updateNode" class="graph-inspector-form"><input type="hidden" name="id" value={selectedNode.id} /><input type="hidden" name="revision" value={data.graph.settings.revision} /><label>Title <input name="title" value={selectedNode.title} maxlength="160" required /></label><label>Notes <textarea name="body" rows="6" maxlength="4000">{selectedNode.body}</textarea></label><label>Color <input name="color" type="color" value={selectedNode.color} /></label><label class="check"><input type="checkbox" name="collapsed" checked={selectedNode.collapsed} /> Collapse body</label><button type="submit">Save object</button></form><form method="POST" action="?/deleteNode" onsubmit={(event) => { if (!confirm('Remove this graph object?')) event.preventDefault(); }}><input type="hidden" name="id" value={selectedNode.id} /><input type="hidden" name="revision" value={data.graph.settings.revision} /><button type="submit" class="quiet-button danger">Remove object</button></form>{:else if selectedEdge && data.canEdit}<p class="eyebrow">SELECTED CONNECTION</p><h2>{selectedEdge.kind.replace('_', ' ')}</h2><p class="subtitle">{selectedEdge.sourceNodeId} → {selectedEdge.targetNodeId}</p><form method="POST" action="?/deleteEdge"><input type="hidden" name="id" value={selectedEdge.id} /><input type="hidden" name="revision" value={data.graph.settings.revision} /><button type="submit" class="quiet-button danger">Remove connection</button></form>{:else}<p class="eyebrow">GRAPH GUIDE</p><h2>Make the structure visible.</h2><p class="subtitle">Select an object to edit it. Use Connect, then click two nodes to add a relationship. Drag the canvas with Pan or the middle mouse button.</p>{/if}
-      {#if data.canEdit}<details class="graph-settings"><summary>Canvas settings</summary><form method="POST" action="?/saveSettings"><input type="hidden" name="revision" value={data.graph.settings.revision} /><label class="check"><input type="checkbox" name="snap" checked={data.graph.settings.snap} /> Snap to grid</label><label>Grid size <input name="gridSize" type="number" min="4" max="64" value={data.graph.settings.gridSize} /></label><label>Background <select name="background"><option value="midnight" selected={data.graph.settings.background === 'midnight'}>Midnight</option><option value="ocean" selected={data.graph.settings.background === 'ocean'}>Ocean</option><option value="light" selected={data.graph.settings.background === 'light'}>Light</option></select></label><button type="submit">Save canvas</button></form></details>{/if}
+      {#if data.canEdit}<details class="graph-settings"><summary>Canvas settings</summary><form method="POST" action="?/saveSettings"><input type="hidden" name="revision" value={data.graph.settings.revision} /><label class="check"><input type="checkbox" name="snap" checked={data.graph.settings.snap} /> Snap to grid</label><label>Grid size <input name="gridSize" type="number" min="4" max="64" value={data.graph.settings.gridSize} /></label><label>Background <select name="background"><option value="midnight" selected={data.graph.settings.background === 'midnight'}>Midnight</option><option value="ocean" selected={data.graph.settings.background === 'ocean'}>Ocean</option><option value="light" selected={data.graph.settings.background === 'light'}>Light</option></select></label><button type="submit">Save canvas</button></form></details>
+        <details class="graph-settings" bind:open={showStyleRules}>
+          <summary>Style rules{#if data.styleRules.length} ({data.styleRules.length}){/if}</summary>
+          {#if data.styleRules.length}
+            <ul class="graph-style-rule-list">
+              {#each data.styleRules as rule (rule.id)}
+                <li class:disabled={!rule.enabled}>
+                  <span class="graph-style-swatch" style={`--swatch-color: ${rule.color}`} aria-hidden="true"></span>
+                  <span class="graph-style-rule-copy"><strong>{rule.name}</strong><small>When {describeCondition(rule.condition)}</small></span>
+                  {#if data.canEdit}
+                    <div class="graph-style-rule-actions">
+                      <form method="POST" action="?/toggleStyleRule"><input type="hidden" name="id" value={rule.id} /><input type="hidden" name="enabled" value={String(!rule.enabled)} /><button type="submit" class="quiet-button">{rule.enabled ? 'Disable' : 'Enable'}</button></form>
+                      <form method="POST" action="?/deleteStyleRule" onsubmit={(event) => { if (!confirm(`Delete the rule "${rule.name}"?`)) event.preventDefault(); }}><input type="hidden" name="id" value={rule.id} /><button type="submit" class="quiet-button danger icon-only" aria-label={`Delete ${rule.name}`}><Trash2 /></button></form>
+                    </div>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="comment-empty">No style rules yet. A card-linked object can color itself automatically from the card's own priority — try "Linked card's priority is urgent."</p>
+          {/if}
+          {#if data.canEdit}
+            <form method="POST" action="?/saveStyleRule" class="graph-style-rule-form">
+              <input name="name" bind:value={newRuleName} maxlength="80" placeholder="Rule name" required />
+              <select name="conditionType" bind:value={newRuleConditionType}>
+                {#each conditionTypes as option}<option value={option.id}>{option.label}</option>{/each}
+              </select>
+              {#if newRuleConditionType === 'node-kind'}
+                <select name="kind" bind:value={newRuleKind}>{#each nodeKinds as kind}<option value={kind}>{kind}</option>{/each}</select>
+              {:else if newRuleConditionType === 'linked-card-priority'}
+                <select name="priority" bind:value={newRulePriority}>{#each priorities as priority}<option value={priority}>{priority}</option>{/each}</select>
+              {/if}
+              <input name="color" type="color" bind:value={newRuleColor} aria-label="Rule color" />
+              <button type="submit">Add rule</button>
+            </form>
+          {/if}
+        </details>{/if}
     </aside>
   </section>
 </main>

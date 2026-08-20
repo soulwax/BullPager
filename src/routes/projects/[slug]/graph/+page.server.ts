@@ -1,7 +1,21 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { createGraphEdge, createGraphNode, deleteGraphEdge, deleteGraphNode, getBoardProject, listProjectCards, listStarredProjectSlugs, loadProjectGraph, saveGraphSettings, updateGraphNode, upsertProjectFile } from '$lib/server/persistence';
+import { createGraphEdge, createGraphNode, deleteGraphEdge, deleteGraphNode, getBoardProject, listProjectCards, listStarredProjectSlugs, loadBoardSettings, loadProjectGraph, saveBoardSettings, saveGraphSettings, updateGraphNode, upsertProjectFile } from '$lib/server/persistence';
+import { projectPrefix } from '$lib/projectState';
+import { sanitizeGraphStyleRule, sanitizeGraphStyleRules, type GraphStyleRule } from '$lib/graphStyles';
 import type { GraphEdgeKind, GraphNodeKind } from '$lib/types';
+
+async function loadStyleRules(slug: string): Promise<GraphStyleRule[]> {
+  const settings = await loadBoardSettings();
+  try {
+    return sanitizeGraphStyleRules(JSON.parse(settings[`${projectPrefix(slug)}graph_style_rules`] ?? '[]'));
+  } catch {
+    return [];
+  }
+}
+function saveStyleRules(slug: string, rules: GraphStyleRule[]) {
+  return saveBoardSettings({ [`${projectPrefix(slug)}graph_style_rules`]: JSON.stringify(rules) });
+}
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
 const failure = (error: unknown) => {
@@ -38,7 +52,8 @@ export async function load({ params, locals }) {
   if (!project) throw redirect(303, '/settings');
   const graph = await loadProjectGraph(params.slug);
   const starred = await listStarredProjectSlugs(locals.username ?? '');
-  return { project, graph, cards: await listProjectCards(params.slug), canEdit: canEdit(locals.role), username: locals.username ?? 'unknown', starred: starred.has(params.slug) };
+  const styleRules = await loadStyleRules(params.slug);
+  return { project, graph, cards: await listProjectCards(params.slug), canEdit: canEdit(locals.role), username: locals.username ?? 'unknown', starred: starred.has(params.slug), styleRules };
 }
 
 export const actions = {
@@ -119,5 +134,48 @@ export const actions = {
     try { await saveGraphSettings(params.slug, { snap: form.get('snap') === 'on', gridSize: Number(form.get('gridSize') ?? 8), background: background as 'midnight' | 'ocean' | 'light' }, Number(form.get('revision') ?? 0) || undefined); } catch (error) { return failure(error); }
     await backupGraphSnapshot(params.slug, locals.username ?? 'unknown');
     return { message: 'Graph settings saved.' };
+  },
+  saveStyleRule: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to edit style rules.' });
+    const form = await request.formData();
+    const id = String(form.get('id') ?? '').trim();
+    const name = String(form.get('name') ?? '').trim();
+    const conditionType = String(form.get('conditionType') ?? '');
+    const color = String(form.get('color') ?? '');
+    const condition =
+      conditionType === 'node-kind' ? { type: 'node-kind' as const, kind: form.get('kind') }
+      : conditionType === 'linked-card-priority' ? { type: 'linked-card-priority' as const, priority: form.get('priority') }
+      : conditionType === 'linked-card-archived' ? { type: 'linked-card-archived' as const }
+      : null;
+    const rule = sanitizeGraphStyleRule({ id: id || undefined, name, enabled: true, condition, color });
+    if (!rule) return fail(400, { error: 'Choose a name, a valid condition, and a color.' });
+    const rules = await loadStyleRules(params.slug);
+    try {
+      await saveStyleRules(params.slug, [...rules.filter((existing) => existing.id !== rule.id), rule]);
+    } catch (error) { return failure(error); }
+    return { message: 'Style rule saved.' };
+  },
+  toggleStyleRule: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to edit style rules.' });
+    const form = await request.formData();
+    const id = String(form.get('id') ?? '').trim();
+    const enabled = String(form.get('enabled') ?? 'true') === 'true';
+    const rules = await loadStyleRules(params.slug);
+    if (!rules.some((rule) => rule.id === id)) return fail(400, { error: 'Choose a valid style rule.' });
+    try {
+      await saveStyleRules(params.slug, rules.map((rule) => (rule.id === id ? { ...rule, enabled } : rule)));
+    } catch (error) { return failure(error); }
+    return { message: enabled ? 'Rule enabled.' : 'Rule disabled.' };
+  },
+  deleteStyleRule: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to edit style rules.' });
+    const id = String((await request.formData()).get('id') ?? '').trim();
+    const rules = await loadStyleRules(params.slug);
+    const next = rules.filter((rule) => rule.id !== id);
+    if (next.length === rules.length) return fail(400, { error: 'Choose a valid style rule.' });
+    try {
+      await saveStyleRules(params.slug, next);
+    } catch (error) { return failure(error); }
+    return { message: 'Style rule removed.' };
   }
 };
