@@ -1,10 +1,11 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import type { GraphEdge, GraphNode, GraphNodeKind } from '$lib/types';
+  import ProjectHeader from '$lib/components/ProjectHeader.svelte';
   import Plus from '@lucide/svelte/icons/plus';
   import Minus from '@lucide/svelte/icons/minus';
 
-  let { data, form }: { data: { project: { slug: string; name: string }; graph: { settings: { revision: number; snap: boolean; gridSize: number; background: 'midnight' | 'ocean' | 'light' }; nodes: GraphNode[]; edges: GraphEdge[] }; cards: { id: string; title: string; lane: string }[]; canEdit: boolean; username: string }; form?: { message?: string; error?: string } } = $props();
+  let { data, form }: { data: { project: { slug: string; name: string }; graph: { settings: { revision: number; snap: boolean; gridSize: number; background: 'midnight' | 'ocean' | 'light' }; nodes: GraphNode[]; edges: GraphEdge[] }; cards: { id: string; title: string; lane: string }[]; canEdit: boolean; username: string; starred: boolean }; form?: { message?: string; error?: string } } = $props();
   let selectedNodeId = $state<string | null>(null);
   let selectedEdgeId = $state<string | null>(null);
   let tool = $state<'select' | 'pan' | 'connect'>('select');
@@ -82,7 +83,7 @@
 <svelte:head><title>{data.project.name} · Graph mode</title></svelte:head>
 
 <main class={`graph-workspace graph-${data.graph.settings.background}`}>
-  <header class="graph-header"><div><p class="eyebrow">PROJECT GRAPH</p><h1>{data.project.name}</h1><p class="subtitle">Map relationships, decisions, and dependencies beside the Kanban board.</p></div><div class="graph-mode-switch"><a class="quiet-button" href={`/projects/${data.project.slug}`}>Board</a><a class="quiet-button active" href={`/projects/${data.project.slug}/graph`}>Graph</a><a class="quiet-button" href={`/projects/${data.project.slug}/settings`}>Settings</a></div></header>
+  <ProjectHeader project={data.project} active="graph" canEdit={data.canEdit} username={data.username} starred={data.starred} />
   {#if form?.message}<p class="success" role="status">{form.message}</p>{/if}{#if form?.error}<p class="action-errors" role="alert">{form.error}</p>{/if}
   <section class="graph-shell">
     <div class="graph-toolbar" aria-label="Graph tools"><div class="graph-tool-group"><button class:active={tool === 'select'} type="button" onclick={() => { tool = 'select'; }}>Select</button><button class:active={tool === 'pan'} type="button" onclick={() => { tool = 'pan'; }}>Pan</button><button class:active={tool === 'connect'} type="button" onclick={() => { tool = 'connect'; selectedNodeId = null; }}>Connect</button></div><button type="button" onclick={() => { showCreate = !showCreate; }}><Plus /> Add object</button><button type="button" class="quiet-button icon-only" aria-label="Zoom in" onclick={() => { zoom = Math.min(2, zoom + .1); }}><Plus /></button><span class="zoom-label">{Math.round(zoom * 100)}%</span><button type="button" class="quiet-button icon-only" aria-label="Zoom out" onclick={() => { zoom = Math.max(.35, zoom - .1); }}><Minus /></button><button type="button" class="quiet-button" onclick={fitGraph}>Fit</button><span class="graph-count">{activeNodes.length} objects · {data.graph.edges.length} connections</span></div>

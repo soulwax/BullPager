@@ -26,6 +26,7 @@
     type BoardAppearance,
   } from "$lib/boardAppearance";
   import BoardAppearanceDialog from "$lib/components/BoardAppearanceDialog.svelte";
+  import ProjectHeader from "$lib/components/ProjectHeader.svelte";
   import Avatar from "$lib/components/Avatar.svelte";
   import { invalidateAll } from "$app/navigation";
   import { marked } from "marked";
@@ -38,20 +39,14 @@
   import FileIcon from "@lucide/svelte/icons/file";
   import FileText from "@lucide/svelte/icons/file-text";
   import History from "@lucide/svelte/icons/history";
-  import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import Lock from "@lucide/svelte/icons/lock";
   import MessageSquare from "@lucide/svelte/icons/message-square";
   import Minus from "@lucide/svelte/icons/minus";
   import MoreHorizontal from "@lucide/svelte/icons/more-horizontal";
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Plus from "@lucide/svelte/icons/plus";
-  import Rows3 from "@lucide/svelte/icons/rows-3";
-  import Zap from "@lucide/svelte/icons/zap";
   import Palette from "@lucide/svelte/icons/palette";
   import Search from "@lucide/svelte/icons/search";
-  import Settings from "@lucide/svelte/icons/settings";
-  import Star from "@lucide/svelte/icons/star";
-  import Waypoints from "@lucide/svelte/icons/waypoints";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import X from "@lucide/svelte/icons/x";
@@ -216,12 +211,6 @@
   let addListDraft = $state("");
   let showArchiveBrowser = $state(false);
   let showActivityPanel = $state(false);
-  let renamingBoard = $state(false);
-  let boardNameDraft = $state("");
-  let starred = $state(false);
-  $effect(() => {
-    starred = data.starred;
-  });
 
   onMount(() => {
     void import("dompurify").then((module) => {
@@ -623,34 +612,6 @@
     const result = await postAction("?/setWipLimit", body);
     if (!result.ok) {
       showToast("Could not set the limit.");
-      return;
-    }
-    await invalidateAll();
-  }
-
-  async function submitRenameBoard() {
-    const name = boardNameDraft.trim();
-    renamingBoard = false;
-    if (!name || name === data.project.name) return;
-    const body = new FormData();
-    body.set("name", name);
-    const result = await postAction("?/renameBoard", body);
-    if (!result.ok) {
-      showToast("Could not rename the board.");
-      return;
-    }
-    await invalidateAll();
-  }
-
-  async function toggleBoardStar() {
-    const next = !starred;
-    starred = next;
-    const body = new FormData();
-    body.set("starred", String(next));
-    const result = await postAction("?/toggleStar", body);
-    if (!result.ok) {
-      starred = !next;
-      showToast("Could not update the star.");
       return;
     }
     await invalidateAll();
@@ -1141,87 +1102,35 @@
           >{member.role}</option
         >{/each}</datalist
     >{/if}
-  <header class="topbar project-board-header">
-    <div class="board-title-group">
-      <a class="board-switcher" href="/" aria-label="All boards"
-        ><LayoutGrid /><span>Board</span></a
-      ><span class="board-divider" aria-hidden="true"
-      ></span>{#if data.username}<button
-          type="button"
-          class="star-toggle board-star"
-          class:active={starred}
-          aria-pressed={starred}
-          aria-label={starred ? "Unstar this board" : "Star this board"}
-          onclick={toggleBoardStar}
-          ><Star fill={starred ? "currentColor" : "none"} /></button
-        >{/if}
-      <div>
-        <p class="eyebrow">{data.project.visibility} workspace</p>
-        {#if renamingBoard}<form
-            class="board-rename-form"
-            onsubmit={(event) => {
-              event.preventDefault();
-              void submitRenameBoard();
-            }}
-          >
-            <input
-              bind:value={boardNameDraft}
-              maxlength="120"
-              aria-label="Board name"
-              use:focusOnMount
-              onblur={submitRenameBoard}
-              onkeydown={(event) => {
-                if (event.key === "Escape") renamingBoard = false;
-              }}
-            />
-          </form>{:else}<h1>
-            {#if data.canEdit}<button
-                type="button"
-                class="board-name-button"
-                onclick={() => {
-                  boardNameDraft = data.project.name;
-                  renamingBoard = true;
-                }}
-                title="Click to rename this board">{data.project.name}</button
-              >{:else}{data.project.name}{/if}{#if data.sourceOwned}<span
-                class="source-lock-chip"
-                title="Title, description, checklist text, owner, priority, and cover are synced from UNITY_PLAN.md. Lane, dates, comments, attachments, and checklist ticks stay editable here."
-                ><Lock /> synced from plan</span
-              >{/if}
-          </h1>{/if}
-      </div>
+  <ProjectHeader
+    project={data.project}
+    active="board"
+    canEdit={data.canEdit}
+    sourceOwned={data.sourceOwned}
+    username={data.username}
+    starred={data.starred}
+  >
+    {#snippet extra()}
       <span class="board-card-count"
         >{boardCards.length} {boardCards.length === 1 ? "card" : "cards"}</span
       >
-    </div>
-    <div class="top-links board-header-actions">
-      <button
-        type="button"
-        class="quiet-button"
-        class:active={showActivityPanel}
-        onclick={() => {
-          showActivityPanel = !showActivityPanel;
-          showArchiveBrowser = false;
-        }}><History /> Activity</button
-      ><button
-        type="button"
-        class="quiet-button"
-        class:active={showArchiveBrowser}
-        onclick={() => {
-          showArchiveBrowser = !showArchiveBrowser;
-          showActivityPanel = false;
-        }}><Archive /> Archive</button
-      ><a class="quiet-button" href={`/projects/${data.project.slug}/backlog`}
-        ><Rows3 /> Backlog</a
-      ><a class="board-cloud-link" href={`/projects/${data.project.slug}/files`}
-        ><Cloud /> Cloud</a
-      ><a class="quiet-button" href={`/projects/${data.project.slug}/graph`}
-        ><Waypoints /> Graph</a
-      >{#if data.canEdit}<a
-          class="quiet-button icon-only"
-          href={`/projects/${data.project.slug}/automation`}
-          aria-label="Board automation"
-          title="Board automation"><Zap /></a
+      <div class="top-links board-header-actions">
+        <button
+          type="button"
+          class="quiet-button"
+          class:active={showActivityPanel}
+          onclick={() => {
+            showActivityPanel = !showActivityPanel;
+            showArchiveBrowser = false;
+          }}><History /> Activity</button
+        ><button
+          type="button"
+          class="quiet-button"
+          class:active={showArchiveBrowser}
+          onclick={() => {
+            showArchiveBrowser = !showArchiveBrowser;
+            showActivityPanel = false;
+          }}><Archive /> Archive</button
         ><button
           type="button"
           class="quiet-button icon-only"
@@ -1233,13 +1142,10 @@
           onclick={() => {
             showAppearance = !showAppearance;
           }}><Palette /></button
-        >{/if}<a
-        class="quiet-button icon-only"
-        href={`/projects/${data.project.slug}/settings`}
-        aria-label="Project settings"><Settings /></a
-      >
-    </div>
-  </header>
+        >
+      </div>
+    {/snippet}
+  </ProjectHeader>
 
   {#if showAppearance && data.canEdit}
     <BoardAppearanceDialog

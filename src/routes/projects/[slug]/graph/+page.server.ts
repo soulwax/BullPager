@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { createGraphEdge, createGraphNode, deleteGraphEdge, deleteGraphNode, getBoardProject, listProjectCards, loadProjectGraph, saveGraphSettings, updateGraphNode } from '$lib/server/persistence';
+import { createGraphEdge, createGraphNode, deleteGraphEdge, deleteGraphNode, getBoardProject, listProjectCards, listStarredProjectSlugs, loadProjectGraph, saveGraphSettings, updateGraphNode } from '$lib/server/persistence';
 import type { GraphEdgeKind, GraphNodeKind } from '$lib/types';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
@@ -14,7 +14,8 @@ export async function load({ params, locals }) {
   const project = await getBoardProject(params.slug);
   if (!project) throw redirect(303, '/settings');
   const graph = await loadProjectGraph(params.slug);
-  return { project, graph, cards: await listProjectCards(params.slug), canEdit: canEdit(locals.role), username: locals.username ?? 'unknown' };
+  const starred = await listStarredProjectSlugs(locals.username ?? '');
+  return { project, graph, cards: await listProjectCards(params.slug), canEdit: canEdit(locals.role), username: locals.username ?? 'unknown', starred: starred.has(params.slug) };
 }
 
 export const actions = {

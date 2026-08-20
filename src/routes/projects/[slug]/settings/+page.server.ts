@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { deleteProjectFile, getBoardProject, getProjectFileByPath, loadBoardSettings, normalizeProjectFilePath, recordProjectActivity, renameProjectLanes, saveBoardSettings, upsertProjectFile } from '$lib/server/persistence';
+import { deleteProjectFile, getBoardProject, getProjectFileByPath, listStarredProjectSlugs, loadBoardSettings, normalizeProjectFilePath, recordProjectActivity, renameProjectLanes, saveBoardSettings, upsertProjectFile } from '$lib/server/persistence';
 import { deleteProjectFileObject, putProjectFileObject, projectFileObjectKey, r2Configured } from '$lib/server/r2';
 import { lanesFromSettings } from '$lib/projectState';
 
@@ -16,7 +16,8 @@ export async function load({ params, locals, url }) {
   if (!project) throw redirect(303, '/settings');
   const settings = await loadBoardSettings();
   const prefix = `project_${params.slug}_`;
-  return { slug: params.slug, project, prefix, created: url.searchParams.get('created') === '1', settings: Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith(prefix))) };
+  const starred = await listStarredProjectSlugs(locals.username ?? '');
+  return { slug: params.slug, project, prefix, created: url.searchParams.get('created') === '1', settings: Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith(prefix))), username: locals.username ?? 'unknown', starred: starred.has(params.slug) };
 }
 
 export const actions = {

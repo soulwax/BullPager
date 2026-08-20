@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { getBoardProject, listProjectTags, loadBoardSettings, recordProjectActivity, saveBoardSettings } from '$lib/server/persistence';
+import { getBoardProject, listProjectTags, listStarredProjectSlugs, loadBoardSettings, recordProjectActivity, saveBoardSettings } from '$lib/server/persistence';
 import { lanesFromSettings, projectPrefix } from '$lib/projectState';
 import { sanitizeAutomationRule, sanitizeAutomationRules, type AutomationRule } from '$lib/automation';
 
@@ -29,7 +29,8 @@ export async function load({ params, locals }) {
   if (!project) throw redirect(303, '/projects');
   const { rules, lanes } = await loadRules(params.slug);
   const tags = await listProjectTags(params.slug);
-  return { project, rules, lanes, tags };
+  const starred = await listStarredProjectSlugs(locals.username ?? '');
+  return { project, rules, lanes, tags, username: locals.username ?? 'unknown', starred: starred.has(params.slug) };
 }
 
 export const actions = {

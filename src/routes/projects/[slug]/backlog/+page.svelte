@@ -1,12 +1,20 @@
 <script lang="ts">
   import type { BoardProject, ProjectCard, ProjectTag } from "$lib/types";
+  import ProjectHeader from "$lib/components/ProjectHeader.svelte";
   import Check from "@lucide/svelte/icons/check";
   import Circle from "@lucide/svelte/icons/circle";
 
   let {
     data,
   }: {
-    data: { project: BoardProject; cards: ProjectCard[]; tags: ProjectTag[] };
+    data: {
+      project: BoardProject;
+      cards: ProjectCard[];
+      tags: ProjectTag[];
+      canEdit: boolean;
+      username: string;
+      starred: boolean;
+    };
   } = $props();
   let query = $state("");
   let lane = $state("all");
@@ -40,23 +48,17 @@
 >
 
 <main class="backlog-page">
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">DETAILED BACKLOG</p>
-      <h1>{data.project.name}</h1>
-      <p class="subtitle">
-        Every saved card in one readable list. Use the board for movement; use
-        this view for planning and review.
-      </p>
-    </div>
-    <div class="top-links">
-      <a class="quiet-button" href={`/projects/${data.project.slug}`}
-        >Open board</a
-      ><a class="quiet-button" href={`/projects/${data.project.slug}/files`}
-        >Cloud</a
-      >
-    </div>
-  </header>
+  <ProjectHeader
+    project={data.project}
+    active="backlog"
+    canEdit={data.canEdit}
+    username={data.username}
+    starred={data.starred}
+  />
+  <p class="subtitle page-intro">
+    Every saved card in one readable list. Use the board for movement; use
+    this view for planning and review.
+  </p>
 
   <section class="backlog-toolbar" aria-label="Backlog filters">
     <label

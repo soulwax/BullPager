@@ -9,6 +9,7 @@
     type Priority,
   } from "$lib/automation";
   import type { BoardProject, ProjectTag } from "$lib/types";
+  import ProjectHeader from "$lib/components/ProjectHeader.svelte";
   import Zap from "@lucide/svelte/icons/zap";
   import Trash2 from "@lucide/svelte/icons/trash-2";
 
@@ -21,6 +22,8 @@
       rules: import("$lib/automation").AutomationRule[];
       lanes: string[];
       tags: ProjectTag[];
+      username: string;
+      starred: boolean;
     };
     form?: { message?: string; error?: string };
   } = $props();
@@ -87,23 +90,18 @@
 >
 
 <main class="settings-shell">
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">BOARD AUTOMATION</p>
-      <h1>{data.project.name}</h1>
-      <p class="subtitle">
-        Rules that react to what already happened on the board — the same idea
-        as Trello's own Butler. One trigger, up to six actions, applied
-        automatically the next time a card matches.
-      </p>
-    </div>
-    <div class="top-links">
-      <a
-        class="quiet-button settings-back"
-        href={`/projects/${data.project.slug}`}>Back to board</a
-      >
-    </div>
-  </header>
+  <ProjectHeader
+    project={data.project}
+    active="automation"
+    canEdit={true}
+    username={data.username}
+    starred={data.starred}
+  />
+  <p class="subtitle page-intro">
+    Rules that react to what already happened on the board — the same idea as
+    Trello's own Butler. One trigger, up to six actions, applied automatically
+    the next time a card matches.
+  </p>
 
   {#if form?.message}<p class="success" role="status">{form.message}</p>{/if}
   {#if form?.error}<p class="action-errors" role="alert">{form.error}</p>{/if}

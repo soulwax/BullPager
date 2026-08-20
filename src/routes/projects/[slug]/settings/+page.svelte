@@ -3,6 +3,7 @@
   import { projectBackgrounds } from "$lib/projectBackgrounds";
   import { appearanceFromSettings } from "$lib/boardAppearance";
   import { invalidateAll } from "$app/navigation";
+  import ProjectHeader from "$lib/components/ProjectHeader.svelte";
   import Check from "@lucide/svelte/icons/check";
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
@@ -17,6 +18,8 @@
       project: BoardProject;
       settings: Record<string, string>;
       created?: boolean;
+      username: string;
+      starred: boolean;
     };
     form?: { message?: string; error?: string };
   } = $props();
@@ -127,24 +130,19 @@
 >
 
 <main class="settings-shell">
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">PROJECT SETTINGS</p>
-      <h1>{data.project.name}</h1>
-      <p class="subtitle">
-        Tune the workflow and defaults for this project only. Theme, card
-        style, density, and the rest of the board's look live on the board
-        itself — press <kbd>V</kbd> or use the palette button in the board header
-        — and apply instantly there, no save button.
-      </p>
-    </div>
-    <div class="top-links">
-      <a class="quiet-button settings-back" href="/">All boards</a><a
-        class="quiet-button settings-back"
-        href={`/projects/${data.slug}`}>Back to board</a
-      >
-    </div>
-  </header>
+  <ProjectHeader
+    project={data.project}
+    active="settings"
+    canEdit={true}
+    username={data.username}
+    starred={data.starred}
+  />
+  <p class="subtitle page-intro">
+    Tune the workflow and defaults for this project only. Theme, card style,
+    density, and the rest of the board's look live on the board itself —
+    press <kbd>V</kbd> or use the palette button — and apply instantly there,
+    no save button.
+  </p>
 
   {#if data.created}<p class="success" role="status">
       Project created. Review the defaults below before inviting collaborators.

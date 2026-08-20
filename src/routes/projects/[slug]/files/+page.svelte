@@ -2,6 +2,7 @@
   import { invalidateAll } from "$app/navigation";
   import { onMount } from "svelte";
   import MarkdownEditor from "$lib/components/MarkdownEditor.svelte";
+  import ProjectHeader from "$lib/components/ProjectHeader.svelte";
   import type {
     BoardProject,
     ProjectActivity,
@@ -46,6 +47,7 @@
       activity: ProjectActivity[];
       canEdit: boolean;
       username: string;
+      starred: boolean;
     };
     form?: { message?: string; error?: string; fileId?: string };
   } = $props();
@@ -484,25 +486,19 @@
 </svelte:head>
 
 <main class="project-files-page">
-  <header class="topbar files-topbar">
-    <div>
-      <p class="eyebrow">PROJECT FILES</p>
-      <h1>{data.project.name}</h1>
-      <p class="subtitle">
-        A durable, focused place for Markdown notes, briefs, and lightweight
-        project text.
-      </p>
-    </div>
-    <div class="top-links">
+  <ProjectHeader
+    project={data.project}
+    active="files"
+    canEdit={data.canEdit}
+    username={data.username}
+    starred={data.starred}
+  >
+    {#snippet extra()}
       <button type="button" class="quiet-button" onclick={exportManifest}
         >Export manifest</button
-      ><a class="quiet-button" href={`/projects/${data.project.slug}`}
-        >Back to board</a
-      ><a class="quiet-button" href={`/projects/${data.project.slug}/graph`}
-        >Graph mode</a
       >
-    </div>
-  </header>
+    {/snippet}
+  </ProjectHeader>
 
   {#if form?.message}<p class="success" role="status">{form.message}</p>{/if}
   {#if form?.error}<p class="action-errors" role="alert">{form.error}</p>{/if}

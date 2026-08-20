@@ -674,10 +674,6 @@ label small { line-height: 1.35; }
 /* Secondary FigJam-style graph workspace. The canvas stays lightweight SVG so
    the board does not inherit a heavyweight editor runtime. */
 .graph-workspace { width: min(100% - 3rem, 1800px); min-height: 100vh; margin-inline: auto; padding: 1.6rem 0 3rem; }
-.graph-header { display: flex; justify-content: space-between; align-items: end; gap: 1rem; padding-bottom: 1rem; }
-.graph-header h1 { margin: .1rem 0 .25rem; font-size: clamp(1.4rem, 3vw, 2.2rem); }
-.graph-mode-switch { display: flex; gap: .35rem; }
-.graph-mode-switch .active { color: var(--accent-strong); border-color: var(--accent-text); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .graph-shell { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); min-height: min(76vh, 760px); overflow: hidden; border: 1px solid var(--line-soft); border-radius: .8rem; background: var(--surface-1); box-shadow: var(--shadow-md); }
 .graph-toolbar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .55rem .7rem; border-bottom: 1px solid var(--line-soft); background: color-mix(in srgb, var(--surface-2) 90%, transparent); }
 .graph-toolbar button { min-height: 2rem; padding: .3rem .6rem; font-size: .72rem; }
@@ -722,7 +718,7 @@ label small { line-height: 1.35; }
 .graph-settings form { display: grid; gap: .55rem; padding-top: .65rem; }
 .graph-settings button { margin-top: .2rem; }
 @media (max-width: 900px) { .graph-shell { grid-template-columns: minmax(0, 1fr); } .graph-inspector { border-top: 1px solid var(--line-soft); border-left: 0; } .graph-canvas-wrap { min-height: 520px; } .graph-canvas { min-height: 520px; } }
-@media (max-width: 620px) { .graph-workspace { width: min(100% - 1.2rem, 1800px); padding-top: .9rem; } .graph-header { align-items: start; flex-direction: column; } .graph-mode-switch { width: 100%; } .graph-mode-switch a { flex: 1; text-align: center; } .graph-create-panel { grid-template-columns: 1fr 1fr; } .graph-create-panel label:nth-child(2) { grid-column: 1 / -1; } .graph-create-panel label:nth-child(3) { grid-column: 1 / -1; } .graph-count { width: 100%; margin-left: 0; } }
+@media (max-width: 620px) { .graph-workspace { width: min(100% - 1.2rem, 1800px); padding-top: .9rem; } .graph-create-panel { grid-template-columns: 1fr 1fr; } .graph-create-panel label:nth-child(2) { grid-column: 1 / -1; } .graph-create-panel label:nth-child(3) { grid-column: 1 / -1; } .graph-count { width: 100%; margin-left: 0; } }
 
 @media (max-width: 900px) {
   .project-toolbar { align-items: start; }
@@ -1002,7 +998,6 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 
 /* Project file library and Markdown workspace */
 .project-files-page { max-width: 1600px; min-height: 100vh; padding-block: 1.4rem 3rem; }
-.files-topbar { align-items: center; margin-bottom: 1.2rem; }
 .files-workspace { position: relative; display: grid; grid-template-columns: 290px minmax(0, 1fr); min-height: min(760px, calc(100vh - 10rem)); border: 1px solid var(--line); border-radius: .8rem; overflow: hidden; background: var(--surface-1); box-shadow: var(--shadow-md); transition: border-color .16s ease, box-shadow .16s ease; }
 .files-workspace.drag-active { border-color: color-mix(in srgb, var(--accent) 72%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), var(--shadow-md); }
 .files-drop-overlay { position: absolute; z-index: 5; inset: .65rem; display: grid; place-items: center; align-content: center; gap: .35rem; pointer-events: none; border: 2px dashed color-mix(in srgb, var(--accent) 72%, transparent); border-radius: .65rem; color: #eff7ff; background: color-mix(in srgb, #0c1724 82%, transparent); text-align: center; box-shadow: 0 .8rem 2.5rem rgb(0 0 0 / .25); }
@@ -1168,7 +1163,7 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 .binary-file-preview > p:not(.eyebrow) { margin: 0 0 1rem; color: var(--muted); font-size: .72rem; }
 .binary-file-icon { display: grid; width: min(12rem, 45vw); aspect-ratio: 1.35; place-items: center; margin: .5rem 0 1rem; border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: .7rem; color: var(--accent-text); background: color-mix(in srgb, var(--accent) 7%, var(--surface-0)); font: 850 1.5rem/1 ui-monospace, monospace; }
 @media (max-width: 850px) { .files-workspace { grid-template-columns: 220px minmax(0, 1fr); } .markdown-editor-grid { grid-template-columns: 1fr; } .markdown-preview { min-height: 18rem; max-height: 34rem; border-top: 1px solid var(--line); } .codemirror-host { min-height: 24rem; border-right: 0; } }
-@media (max-width: 620px) { .project-files-page { padding: 1rem; } .files-workspace { display: flex; flex-direction: column; } .files-sidebar { max-height: 340px; border-right: 0; border-bottom: 1px solid var(--line); } .file-list { max-height: 140px; } .files-topbar, .file-editor-heading, .file-save-bar { display: grid; } .file-editor-actions { justify-content: end; } }
+@media (max-width: 620px) { .project-files-page { padding: 1rem; } .files-workspace { display: flex; flex-direction: column; } .files-sidebar { max-height: 340px; border-right: 0; border-bottom: 1px solid var(--line); } .file-list { max-height: 140px; } .file-editor-heading, .file-save-bar { display: grid; } .file-editor-actions { justify-content: end; } }
 
 /* Final Kanban sizing pass: the intake/backlog lane gets the extra reading
    room, while the remaining lanes shrink by the same amount so the board does
@@ -1202,7 +1197,6 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
    instead of stacking gradients, shadows, and hover movement. */
 .project-workspace .project-toolbar { border-radius: .55rem; background: var(--surface-1); box-shadow: none; }
 .project-workspace { padding-top: 1.6rem; padding-bottom: 2rem; }
-.project-workspace > .topbar { padding-bottom: .85rem; margin-bottom: .85rem; }
 .project-workspace .project-stats { gap: .7rem; }
 .project-workspace .project-stats span { padding: 0; border: 0; border-radius: 0; background: none; }
 .project-workspace .project-stats span + span { padding-left: .7rem; border-left: 1px solid var(--line-soft); }
@@ -1529,54 +1523,13 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
   padding-top: .65rem;
   padding-bottom: 1.1rem;
 }
-/* The board canvas is painted from --board-canvas / --project-bg-image by the
-   single ::before rule in lib/styles/board-theme.css, so that one selectable
-   theme decides it instead of a hard-coded blue that every theme inherited. */
-.project-workspace > .topbar.project-board-header {
-  min-height: 3.4rem;
-  align-items: center;
-  padding: .45rem .55rem .65rem;
-  margin: 0;
-  border-bottom: 0;
-  color: #fff;
-}
-.board-title-group { display: flex; min-width: 0; align-items: center; gap: .55rem; }
-.board-switcher {
-  display: inline-flex;
-  min-height: 2.15rem;
-  align-items: center;
-  gap: .35rem;
-  padding: .3rem .52rem;
-  border: 1px solid rgb(255 255 255 / .22);
-  border-radius: .4rem;
-  color: #fff;
-  background: rgb(5 45 129 / .19);
-  font-size: .71rem;
-  font-weight: 780;
-  text-decoration: none;
-}
-.board-switcher:hover, .board-switcher:focus-visible { color: #fff; border-color: rgb(255 255 255 / .45); background: rgb(255 255 255 / .14); }
-.board-switcher svg { width: .95rem; height: .95rem; }
-.board-divider { width: 1px; height: 1.65rem; background: rgb(255 255 255 / .28); }
-.project-board-header .eyebrow { margin: 0 0 .02rem; color: rgb(234 250 255 / .74); font-size: .57rem; letter-spacing: .09em; }
-.project-board-header h1 { overflow: hidden; margin: 0; color: #fff; font-size: clamp(1.05rem, 2vw, 1.45rem); line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
-.board-card-count { flex: 0 0 auto; padding: .2rem .43rem; border: 1px solid rgb(255 255 255 / .21); border-radius: 99px; color: rgb(244 252 255 / .87); background: rgb(0 61 145 / .18); font-size: .62rem; font-variant-numeric: tabular-nums; }
-.board-header-actions { gap: .35rem; }
-.board-header-actions .quiet-button, .board-cloud-link {
-  display: inline-flex;
-  min-height: 2.15rem;
-  align-items: center;
-  gap: .3rem;
-  padding: .32rem .55rem;
-  border-color: rgb(255 255 255 / .21);
-  color: #effaff;
-  background: rgb(3 52 132 / .18);
-  font-size: .69rem;
-  font-weight: 760;
-  text-decoration: none;
-}
-.board-header-actions .quiet-button:hover, .board-header-actions .quiet-button:focus-visible, .board-cloud-link:hover, .board-cloud-link:focus-visible { border-color: rgb(255 255 255 / .5); color: #fff; background: rgb(255 255 255 / .16); }
-.board-cloud-link { border-radius: .42rem; background: rgb(0 94 113 / .25); }
+/* board-switcher/board-star/board-name-button/board-card-count/
+   source-lock-chip/project-tabs base styles now live in the unified project
+   header block further down this file; `.board-header-actions` is all
+   that's still board-page-specific here (it only wraps the Activity/
+   Archive/Appearance buttons now that Backlog/Files/Graph/Automation/
+   Settings moved into the shared tab bar). */
+.board-header-actions { display: flex; align-items: center; gap: .35rem; }
 
 .project-workspace .project-toolbar {
   position: relative;
@@ -1697,8 +1650,7 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
   .workspace-brand small, .workspace-account > span { display: none; }
   .workspace-nav nav { overflow-x: auto; }
   .nav-create { margin-left: auto; }
-  .project-workspace > .topbar.project-board-header { align-items: flex-start; }
-  .board-title-group { flex-wrap: wrap; }
+  .project-workspace .project-header-top { align-items: flex-start; flex-wrap: wrap; }
   .board-header-actions { justify-content: flex-start; }
   .project-workspace .project-column, .project-workspace .project-column.project-column-backlog { flex-basis: min(86vw, 320px); width: min(86vw, 320px); max-width: min(86vw, 320px); }
 }
@@ -1707,9 +1659,9 @@ main.board-page { max-width: none; padding-inline: clamp(1rem, 3vw, 2.5rem); }
   .workspace-nav nav a:not(.active) { font-size: .66rem; }
   .nav-create { padding-inline: .5rem; }
   .project-workspace { width: 100%; padding-inline: .45rem; }
-  .board-divider, .board-card-count { display: none; }
-  .project-board-header h1 { max-width: 13rem; }
-  .board-header-actions .quiet-button, .board-cloud-link { padding-inline: .42rem; }
+  .board-card-count { display: none; }
+  .project-header-top h1, .project-header-top .board-name-button { max-width: 13rem; }
+  .board-header-actions .quiet-button { padding-inline: .42rem; }
 }
 
 /* Trello-parity additions: source lock, markdown, attachments, due-complete,
@@ -1898,9 +1850,8 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
 .topbar { padding-bottom: 1rem; margin-bottom: 1rem; }
 .workspace-nav { min-height: 3.3rem; padding-block: .3rem; }
 .workspace-nav nav a, .workspace-nav .account-link { min-height: 2.15rem; }
-.project-workspace > .topbar.project-board-header { min-height: 3rem; padding: .4rem .55rem .55rem; }
+.project-header { padding-bottom: .65rem; margin-bottom: .65rem; }
 .modal-heading { padding-bottom: .65rem; }
-.graph-header { padding-bottom: .8rem; }
 
 /* Buttons sharing a row should match height regardless of tag (<a> vs
    <button>) or which page they came from. The generic .top-links row is
@@ -2128,3 +2079,69 @@ small.over-wip { background: color-mix(in srgb, #ff9b7a 30%, transparent) !impor
    picker — it applies immediately like the board's own appearance panel, so
    its feedback sits right where the click happened rather than in a toast. */
 .field-status { margin-left: .5rem; color: var(--good-text, var(--good)); font-size: .68rem; font-weight: 700; text-transform: none; letter-spacing: 0; }
+
+/* ============================================================================
+   Unified project header (ProjectHeader.svelte).
+
+   Board, backlog, files, graph, automation, and settings used to each draw
+   their own header — a different eyebrow, a different subset of links to
+   the other five, several missing links entirely. This is the one header
+   all six now share; `board-switcher`/`board-star`/`board-name-button`/
+   `board-card-count`/`source-lock-chip` keep their existing class names on
+   purpose so the board page's own canvas-tone theming in board-theme.css
+   (which already computes readable ink for any board color or photo) keeps
+   applying there unchanged. This block is what they look like everywhere
+   *else* — outside that theme scope, on the app's own plain surface. */
+.project-header { display: grid; gap: .4rem; padding-bottom: .85rem; margin-bottom: .85rem; border-bottom: 1px solid var(--line-soft); }
+.project-header-top { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.project-header-top h1, .project-header-top .board-name-button {
+  margin: 0;
+  overflow: hidden;
+  max-width: 26rem;
+  color: var(--text, inherit);
+  font-size: clamp(1.02rem, 2vw, 1.3rem);
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-header-extra { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-left: auto; }
+.page-intro { margin: -.15rem 0 1rem; color: var(--muted); font-size: .78rem; line-height: 1.5; max-width: 58rem; }
+
+.board-switcher { min-width: 0; padding: 0; border: 1px solid var(--line-soft); border-radius: .4rem; color: var(--muted); background: transparent; }
+.board-switcher svg { width: .95rem; height: .95rem; }
+.board-switcher:hover, .board-switcher:focus-visible { color: var(--accent-text); border-color: var(--accent-text); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.board-star { display: grid; width: 1.9rem; min-width: 0; min-height: 1.9rem; place-items: center; padding: 0; border: 1px solid var(--line-soft); border-radius: .4rem; color: var(--muted); background: transparent; box-shadow: none; }
+.board-star svg { width: 1.05rem; height: 1.05rem; }
+.board-star:hover, .board-star:focus-visible { color: #f4b860; border-color: color-mix(in srgb, #f4b860 45%, var(--line)); background: color-mix(in srgb, #f4b860 10%, transparent); transform: none; }
+.board-star.active { color: #f4b860; }
+.board-name-button { padding: 0; color: inherit; background: none; border: none; font: inherit; cursor: pointer; }
+.board-name-button:hover { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 60%, transparent); text-underline-offset: .2rem; }
+.board-rename-form input { min-width: 12rem; font-size: 1.15rem; font-weight: 800; }
+.board-card-count { flex: 0 0 auto; padding: .2rem .45rem; border: 1px solid var(--line-soft); border-radius: 99px; color: var(--muted); font-size: .64rem; font-variant-numeric: tabular-nums; }
+.source-lock-chip { display: inline-flex; align-items: center; gap: .3rem; padding: .1rem .5rem; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 99px; color: var(--accent-text); font-size: .62rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.source-lock-chip svg { width: .8rem; height: .8rem; }
+
+/* One row of small tabs — the actual "unify the header" fix. Sized to stay
+   compact at every density: no icons, no wasted vertical space, the active
+   one picked out by fill rather than an underline that shifts layout. */
+.project-tabs { display: flex; flex-wrap: wrap; gap: .15rem; }
+.project-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.85rem;
+  padding: .28rem .6rem;
+  border-radius: .4rem;
+  color: var(--muted);
+  font-size: .73rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.project-tabs a:hover, .project-tabs a:focus-visible { color: var(--text, inherit); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.project-tabs a.active { color: var(--accent-text); background: color-mix(in srgb, var(--accent) 15%, transparent); font-weight: 800; }
+
+@media (max-width: 640px) {
+  .project-header-top h1, .project-header-top .board-name-button { max-width: 12rem; }
+  .project-tabs { width: 100%; overflow-x: auto; }
+}

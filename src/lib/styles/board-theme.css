@@ -384,41 +384,42 @@
    Header, toolbar, and the controls that sit on the canvas rather than in a
    list. All of them read the canvas pair, so a light board gets dark chrome. */
 
-.project-workspace[data-board-theme] > .topbar.project-board-header,
-.project-workspace[data-board-theme] .board-title-group,
-.project-workspace[data-board-theme] .board-title-group h1,
+.project-workspace[data-board-theme] > .project-header,
+.project-workspace[data-board-theme] .project-header-top h1,
 .project-workspace[data-board-theme] .board-name-button,
 .project-workspace[data-board-theme] .board-switcher,
 .project-workspace[data-board-theme] .board-card-count,
 .project-workspace[data-board-theme] .board-header-actions .quiet-button,
-.project-workspace[data-board-theme] .board-cloud-link,
-.project-workspace[data-board-theme] .board-star {
+.project-workspace[data-board-theme] .board-star,
+.project-workspace[data-board-theme] .project-tabs a {
   color: var(--canvas-ink);
 }
-.project-workspace[data-board-theme] .board-title-group .eyebrow,
 .project-workspace[data-board-theme] .project-stats,
 .project-workspace[data-board-theme] .project-toolbar label,
 .project-workspace[data-board-theme] .find-work-menu summary small,
 .project-workspace[data-board-theme] .project-toolbar-copy .save-status,
-.project-workspace[data-board-theme] .workflow-pulse {
+.project-workspace[data-board-theme] .workflow-pulse,
+.project-workspace[data-board-theme] .project-tabs a:not(.active) {
   color: var(--canvas-ink-soft);
 }
 .project-workspace[data-board-theme] .project-stats strong,
-.project-workspace[data-board-theme] .board-name-button:hover { color: var(--canvas-ink); }
-.project-workspace[data-board-theme] .board-divider { background: var(--canvas-line); }
+.project-workspace[data-board-theme] .board-name-button:hover,
+.project-workspace[data-board-theme] .project-tabs a:hover { color: var(--canvas-ink); }
+.project-workspace[data-board-theme] .project-header { border-color: var(--canvas-line); }
 
 .project-workspace[data-board-theme] .board-switcher,
 .project-workspace[data-board-theme] .board-card-count,
 .project-workspace[data-board-theme] .board-header-actions .quiet-button,
-.project-workspace[data-board-theme] .board-cloud-link,
+.project-workspace[data-board-theme] .board-star,
 .project-workspace[data-board-theme] .source-lock-chip {
   border-color: var(--canvas-line);
   background: var(--canvas-fill);
 }
 .project-workspace[data-board-theme] .board-switcher:hover,
 .project-workspace[data-board-theme] .board-header-actions .quiet-button:hover,
-.project-workspace[data-board-theme] .board-cloud-link:hover,
-.project-workspace[data-board-theme] .board-name-button:hover {
+.project-workspace[data-board-theme] .board-name-button:hover,
+.project-workspace[data-board-theme] .project-tabs a:hover,
+.project-workspace[data-board-theme] .project-tabs a.active {
   color: var(--canvas-ink);
   border-color: var(--canvas-ink-soft);
   background: var(--canvas-fill-strong);
