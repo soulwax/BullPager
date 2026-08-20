@@ -396,7 +396,8 @@ export const actions = {
       shadow: form.get('shadow'),
       glassIntensity: form.get('glassIntensity'),
       accent: form.get('accent'),
-      highContrast: form.get('highContrast')
+      highContrast: form.get('highContrast'),
+      cardAging: form.get('cardAging')
     });
     const background = String(form.get('background') ?? 'none');
     // A 'custom' background points at an uploaded file that only the settings

@@ -54,7 +54,8 @@ export const actions = {
       shadow: form.get('shadow'),
       glassIntensity: form.get('glassIntensity'),
       accent: form.get('accent'),
-      highContrast: form.get('highContrast') === 'on'
+      highContrast: form.get('highContrast') === 'on',
+      cardAging: form.get('cardAging') === 'on'
     });
     const currentLanes = lanesFromSettings(currentSettings, prefix);
     const renames = laneNames.length ? laneNames.map((name, index) => ({ from: laneOriginals[index] ?? '', to: name })) : [];

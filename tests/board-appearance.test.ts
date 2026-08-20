@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  agingTier,
   appearanceAttributes,
   appearanceFromSettings,
   appearanceStyle,
@@ -58,7 +59,8 @@ describe('settings round trip', () => {
       shadow: 'lifted',
       glassIntensity: 71,
       accent: '#1fb6a0',
-      highContrast: true
+      highContrast: true,
+      cardAging: true
     };
     const stored = appearanceToSettings(appearance, 'project_demo_');
     expect(stored['project_demo_card_theme']).toBe('glass-dark');
@@ -201,5 +203,45 @@ describe('initialsFor', () => {
   it('falls back to a placeholder for empty input', () => {
     expect(initialsFor('')).toBe('?');
     expect(initialsFor('   ')).toBe('?');
+  });
+});
+
+describe('agingTier', () => {
+  const NOW = Date.parse('2026-08-20T12:00:00.000Z');
+  const daysAgo = (days: number) => new Date(NOW - days * 86_400_000).toISOString();
+
+  it('is fresh (tier 0) for a card updated moments ago', () => {
+    expect(agingTier(daysAgo(0), NOW)).toBe(0);
+    expect(agingTier(daysAgo(2.9), NOW)).toBe(0);
+  });
+
+  it('steps up a tier at each threshold, inclusive of the boundary', () => {
+    expect(agingTier(daysAgo(3), NOW)).toBe(1);
+    expect(agingTier(daysAgo(6.9), NOW)).toBe(1);
+    expect(agingTier(daysAgo(7), NOW)).toBe(2);
+    expect(agingTier(daysAgo(13.9), NOW)).toBe(2);
+    expect(agingTier(daysAgo(14), NOW)).toBe(3);
+  });
+
+  it('never exceeds the oldest tier, however old the card is', () => {
+    expect(agingTier(daysAgo(400), NOW)).toBe(3);
+  });
+
+  it('is monotonically non-decreasing as a card gets older', () => {
+    let previous = 0;
+    for (let days = 0; days <= 30; days += 1) {
+      const tier = agingTier(daysAgo(days), NOW);
+      expect(tier).toBeGreaterThanOrEqual(previous);
+      previous = tier;
+    }
+  });
+
+  it('treats an unparseable or missing timestamp as fresh rather than throwing', () => {
+    expect(agingTier('', NOW)).toBe(0);
+    expect(agingTier('not-a-date', NOW)).toBe(0);
+  });
+
+  it('defaults `now` to the real clock when omitted', () => {
+    expect(agingTier(new Date().toISOString())).toBe(0);
   });
 });

@@ -64,6 +64,10 @@ export type BoardAppearance = {
   accent: string;
   /** Boost separators and muted text for low-light or projector use. */
   highContrast: boolean;
+  /** Fade a card the longer it sits without an update — Trello's own "card
+   * aging" Power-Up. Off by default: it's a signal worth opting into, not a
+   * judgment every board wants passed on every card. */
+  cardAging: boolean;
 };
 
 export type BoardThemeOption = {
@@ -136,7 +140,8 @@ export const defaultAppearance: BoardAppearance = {
   shadow: 'soft',
   glassIntensity: 38,
   accent: '#73b6ff',
-  highContrast: false
+  highContrast: false,
+  cardAging: false
 };
 
 const themeIds = new Set<string>(boardThemes.map((theme) => theme.id));
@@ -168,7 +173,8 @@ export function normalizeAppearance(raw: Partial<Record<keyof BoardAppearance, u
     shadow: pick(shadowIds, raw.shadow, defaultAppearance.shadow),
     glassIntensity: Number.isFinite(glass) ? Math.max(0, Math.min(100, Math.round(glass))) : defaultAppearance.glassIntensity,
     accent,
-    highContrast: raw.highContrast === true || raw.highContrast === 'true'
+    highContrast: raw.highContrast === true || raw.highContrast === 'true',
+    cardAging: raw.cardAging === true || raw.cardAging === 'true'
   };
 }
 
@@ -185,7 +191,8 @@ export function appearanceFromSettings(settings: Record<string, string>, prefix:
     shadow: value('shadow'),
     glassIntensity: value('glass_intensity'),
     accent: value('accent'),
-    highContrast: value('high_contrast')
+    highContrast: value('high_contrast'),
+    cardAging: value('card_aging')
   });
 }
 
@@ -201,7 +208,8 @@ export function appearanceToSettings(appearance: BoardAppearance, prefix: string
     [`${prefix}shadow`]: appearance.shadow,
     [`${prefix}glass_intensity`]: String(appearance.glassIntensity),
     [`${prefix}accent`]: appearance.accent,
-    [`${prefix}high_contrast`]: String(appearance.highContrast)
+    [`${prefix}high_contrast`]: String(appearance.highContrast),
+    [`${prefix}card_aging`]: String(appearance.cardAging)
   };
 }
 
@@ -337,4 +345,31 @@ export function personColor(name: string): PersonColor {
   const seed = name.trim() || '?';
   const background = hslToHex(personHue(seed), 62, 46);
   return { background, ink: relativeLuminance(background) > 0.45 ? 'dark' : 'light', initials: initialsFor(seed) };
+}
+
+/* ============================================================================
+   Card aging.
+
+   Trello's own name for this is a Power-Up, but the idea is simple: a card
+   nobody has touched in a while is doing something the board's activity feed
+   already implies — going stale — and fading it makes that visible without
+   requiring anyone to read the feed. Four tiers rather than a continuous
+   fade: a card's staleness only needs to be legible at a glance, and a
+   handful of fixed CSS classes are far cheaper to theme consistently (light
+   card, dark card, glass card) than an inline opacity computed per render.
+   ========================================================================= */
+
+export const AGING_THRESHOLDS_DAYS = [3, 7, 14] as const;
+
+/** 0 (fresh) through 3 (oldest tier) from how long ago `updatedAt` was,
+ * relative to `now` — both plain inputs so this stays trivial to test at
+ * exact boundaries instead of depending on the real clock. */
+export function agingTier(updatedAt: string, now: number = Date.now()): 0 | 1 | 2 | 3 {
+  const updated = Date.parse(updatedAt);
+  if (!Number.isFinite(updated)) return 0;
+  const days = Math.max(0, (now - updated) / 86_400_000);
+  if (days >= AGING_THRESHOLDS_DAYS[2]) return 3;
+  if (days >= AGING_THRESHOLDS_DAYS[1]) return 2;
+  if (days >= AGING_THRESHOLDS_DAYS[0]) return 1;
+  return 0;
 }

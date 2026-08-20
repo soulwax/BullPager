@@ -496,7 +496,7 @@ describe('image cover cleanup on attachment removal', () => {
 });
 
 describe('saveAppearance action (board-level theme, cards, density, background)', () => {
-  const fullAppearance = { theme: 'forest', cardTheme: 'glass-dark', density: 'dense', radius: 'round', laneWidth: 'wide', textScale: 'large', shadow: 'lifted', glassIntensity: '62', accent: '#7bb61b', highContrast: 'true' };
+  const fullAppearance = { theme: 'forest', cardTheme: 'glass-dark', density: 'dense', radius: 'round', laneWidth: 'wide', textScale: 'large', shadow: 'lifted', glassIntensity: '62', accent: '#7bb61b', highContrast: 'true', cardAging: 'true' };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -524,6 +524,7 @@ describe('saveAppearance action (board-level theme, cards, density, background)'
       'project_demo_glass_intensity': '62',
       'project_demo_accent': '#7bb61b',
       'project_demo_high_contrast': 'true',
+      'project_demo_card_aging': 'true',
       'project_demo_background': 'trello-green'
     });
   });

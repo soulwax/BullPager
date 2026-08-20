@@ -18,6 +18,7 @@
   import { defaultProjectTags, tagId, tagPalette } from "$lib/projectTags";
   import { projectBackground } from "$lib/projectBackgrounds";
   import {
+    agingTier,
     appearanceAttributes,
     appearanceFromSettings,
     appearanceStyle,
@@ -973,6 +974,9 @@
         })
       : "";
   }
+  function cardAgingTier(card: ProjectCard) {
+    return appearance.cardAging ? agingTier(card.updatedAt) : 0;
+  }
   function toggleLane(lane: string) {
     collapsed[lane] = !collapsed[lane];
     queueViewSave();
@@ -1788,6 +1792,9 @@
                     aria-label={`${card.title}, ${card.priority} priority`}
                     href={`?card=${encodeURIComponent(card.id)}`}
                     class:archived={card.archived}
+                    class:card-aged-1={cardAgingTier(card) === 1}
+                    class:card-aged-2={cardAgingTier(card) === 2}
+                    class:card-aged-3={cardAgingTier(card) === 3}
                     class="project-card"
                     >{#if card.coverColor?.startsWith("/")}<div
                         class="card-cover card-cover-image"

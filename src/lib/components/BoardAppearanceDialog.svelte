@@ -204,6 +204,10 @@
     <input type="checkbox" bind:checked={appearance.highContrast} />
     High contrast
   </label>
+  <label class="appearance-toggle">
+    <input type="checkbox" bind:checked={appearance.cardAging} />
+    Card aging — fade cards nobody has touched in a while
+  </label>
 
   <footer class="appearance-footer">
     {#if canEdit}

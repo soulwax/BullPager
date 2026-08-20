@@ -355,6 +355,13 @@
           checked={appearance.highContrast}
         /> High contrast text and separators</label
       >
+      <label class="check"
+        ><input
+          type="checkbox"
+          name="cardAging"
+          checked={appearance.cardAging}
+        /> Fade cards the longer they sit untouched</label
+      >
       <label
         >Lane layout <select name="laneStyle"
           ><option

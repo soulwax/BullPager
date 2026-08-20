@@ -2111,3 +2111,15 @@ small.over-wip { background: color-mix(in srgb, #ff9b7a 30%, transparent) !impor
 .automation-trigger label.check { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; font-weight: 500; }
 .automation-action-row { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
 .automation-add-action { justify-self: start; }
+
+/* Card aging: a plain filter rather than themed tokens, so the same three
+   tiers read correctly against light, dark, and glass cards alike without
+   computing a separate fade per theme. Excluded while dragging so the card
+   someone is actively moving never looks stale mid-move. */
+.project-card.card-aged-1:not(.dragging) { filter: saturate(.88) opacity(.92); }
+.project-card.card-aged-2:not(.dragging) { filter: saturate(.72) opacity(.82); }
+.project-card.card-aged-3:not(.dragging) { filter: saturate(.5) opacity(.7); }
+.project-card.card-aged-1:hover, .project-card.card-aged-2:hover, .project-card.card-aged-3:hover,
+.project-card.card-aged-1:focus-visible, .project-card.card-aged-2:focus-visible, .project-card.card-aged-3:focus-visible {
+  filter: none;
+}
