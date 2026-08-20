@@ -674,18 +674,23 @@ label small { line-height: 1.35; }
 /* Secondary FigJam-style graph workspace. The canvas stays lightweight SVG so
    the board does not inherit a heavyweight editor runtime. */
 .graph-workspace { width: min(100% - 3rem, 1800px); min-height: 100vh; margin-inline: auto; padding: 1.6rem 0 3rem; }
-.graph-shell { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); min-height: min(76vh, 760px); overflow: hidden; border: 1px solid var(--line-soft); border-radius: .8rem; background: var(--surface-1); box-shadow: var(--shadow-md); }
-.graph-toolbar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .55rem .7rem; border-bottom: 1px solid var(--line-soft); background: color-mix(in srgb, var(--surface-2) 90%, transparent); }
-.graph-toolbar button { min-height: 2rem; padding: .3rem .6rem; font-size: .72rem; }
-.graph-tool-group { display: inline-flex; gap: .25rem; padding-right: .35rem; margin-right: .15rem; border-right: 1px solid var(--line-soft); }
+.graph-shell { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); min-height: min(76vh, 760px); overflow: hidden; border: 1px solid var(--line-soft); border-radius: .8rem; background: var(--surface-1); box-shadow: var(--shadow-md); }
+/* FigJam floats its tool picker over the canvas rather than pinning it to a
+   header row, so the drawing surface stays edge-to-edge and the toolbar
+   reads as something you reach for, not chrome you scroll past. */
+.graph-toolbar { position: absolute; z-index: 6; left: 50%; bottom: 1rem; display: flex; flex-wrap: nowrap; align-items: center; gap: .4rem; width: max-content; max-width: calc(100% - 1.6rem); padding: .4rem .55rem; overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 99px; background: color-mix(in srgb, var(--surface-2) 94%, transparent); box-shadow: var(--shadow-md); backdrop-filter: blur(10px); transform: translateX(-50%); }
+.graph-toolbar button { min-height: 2rem; padding: .3rem .6rem; font-size: .72rem; white-space: nowrap; }
+.graph-tool-group { display: inline-flex; flex: 0 0 auto; gap: .25rem; padding-right: .35rem; margin-right: .15rem; border-right: 1px solid var(--line-soft); }
 .graph-tool-group button.active { color: var(--accent-strong); border-color: var(--accent-text); background: color-mix(in srgb, var(--accent) 13%, transparent); }
 .zoom-label { min-width: 3.2rem; color: var(--muted); text-align: center; font-size: .72rem; font-variant-numeric: tabular-nums; }
-.graph-count { margin-left: auto; color: var(--muted); font-size: .7rem; }
+.graph-count { color: var(--muted); font-size: .7rem; white-space: nowrap; }
 .graph-canvas-wrap { position: relative; min-width: 0; min-height: 600px; overflow: hidden; background: #0d141e; }
 .graph-ocean .graph-canvas-wrap { background: #0e1c2b; }
 .graph-light .graph-canvas-wrap { background: #e9eef5; }
 .graph-canvas { display: block; width: 100%; height: 100%; min-height: 600px; color: #8da1b8; cursor: crosshair; touch-action: none; }
 .graph-light .graph-canvas { color: #61758d; }
+.graph-canvas.placing-cursor { cursor: copy; }
+.graph-placing-hint { position: absolute; z-index: 6; top: .75rem; left: 50%; padding: .35rem .7rem; border: 1px solid var(--line-soft); border-radius: 99px; color: var(--accent-text); background: color-mix(in srgb, var(--surface-2) 94%, transparent); font-size: .72rem; font-weight: 700; box-shadow: var(--shadow-sm); transform: translateX(-50%); pointer-events: none; }
 .graph-edge { color: #7892ae; stroke: currentColor; stroke-width: 2; fill: none; opacity: .8; cursor: pointer; }
 .graph-edge:hover, .graph-edge.selected { color: var(--accent-text); stroke-width: 3; opacity: 1; }
 .graph-edge-label { fill: currentColor; font-size: 13px; pointer-events: none; text-anchor: middle; }
@@ -694,6 +699,8 @@ label small { line-height: 1.35; }
 .graph-node rect { fill: color-mix(in srgb, var(--node-color) 12%, var(--surface-2)); stroke: color-mix(in srgb, var(--node-color) 46%, var(--line)); stroke-width: 1.5; filter: drop-shadow(0 8px 14px rgb(0 0 0 / .22)); }
 .graph-node:hover rect, .graph-node.selected rect, .graph-node:focus rect { stroke: var(--node-color); stroke-width: 3; }
 .graph-node-kind { fill: var(--node-color); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.graph-node rect.graph-node-resize-handle { fill: var(--node-color); stroke: #0d141e; stroke-width: 1; cursor: nwse-resize; opacity: .85; }
+.graph-node rect.graph-node-resize-handle:hover { opacity: 1; }
 .graph-node-title { fill: #edf3fa; font-size: 18px; font-weight: 800; }
 .graph-light .graph-node-title { fill: #172333; }
 .graph-node foreignObject p { max-width: 100%; margin: 0; color: #b7c5d5; font: 14px/1.35 system-ui, sans-serif; overflow-wrap: anywhere; }
@@ -718,7 +725,7 @@ label small { line-height: 1.35; }
 .graph-settings form { display: grid; gap: .55rem; padding-top: .65rem; }
 .graph-settings button { margin-top: .2rem; }
 @media (max-width: 900px) { .graph-shell { grid-template-columns: minmax(0, 1fr); } .graph-inspector { border-top: 1px solid var(--line-soft); border-left: 0; } .graph-canvas-wrap { min-height: 520px; } .graph-canvas { min-height: 520px; } }
-@media (max-width: 620px) { .graph-workspace { width: min(100% - 1.2rem, 1800px); padding-top: .9rem; } .graph-create-panel { grid-template-columns: 1fr 1fr; } .graph-create-panel label:nth-child(2) { grid-column: 1 / -1; } .graph-create-panel label:nth-child(3) { grid-column: 1 / -1; } .graph-count { width: 100%; margin-left: 0; } }
+@media (max-width: 620px) { .graph-workspace { width: min(100% - 1.2rem, 1800px); padding-top: .9rem; } .graph-create-panel { grid-template-columns: 1fr 1fr; } .graph-create-panel label:nth-child(2) { grid-column: 1 / -1; } .graph-create-panel label:nth-child(3) { grid-column: 1 / -1; } .graph-toolbar { max-width: calc(100% - .8rem); } }
 
 @media (max-width: 900px) {
   .project-toolbar { align-items: start; }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import type { GraphEdge, GraphNode, GraphNodeKind } from '$lib/types';
+  import { edgeAnchor } from '$lib/graphGeometry';
   import ProjectHeader from '$lib/components/ProjectHeader.svelte';
   import {
     conditionTypes,
@@ -19,12 +20,18 @@
   let selectedNodeId = $state<string | null>(null);
   let selectedEdgeId = $state<string | null>(null);
   let tool = $state<'select' | 'pan' | 'connect'>('select');
+  // Armed by the quick-create buttons: the next canvas click drops a node of
+  // this kind right there instead of opening a form first — FigJam's own
+  // "pick a tool, click the canvas" rhythm. Card-linking stays in the full
+  // form below, since it inherently needs a card picker either way.
+  let placing = $state<'note' | 'group' | null>(null);
   let showCreate = $state(false);
   let showStyleRules = $state(false);
   let zoom = $state(1);
   let panX = $state(0);
   let panY = $state(0);
   let drag: { id: string; startX: number; startY: number; nodeX: number; nodeY: number } | null = null;
+  let resizing: { id: string; startX: number; startY: number; nodeWidth: number; nodeHeight: number } | null = null;
   let panning: { startX: number; startY: number; panX: number; panY: number } | null = null;
   const selectedNode = $derived(data.graph.nodes.find((node) => node.id === selectedNodeId) ?? null);
   const selectedEdge = $derived(data.graph.edges.find((edge) => edge.id === selectedEdgeId) ?? null);
@@ -59,10 +66,21 @@
     const p = point(event);
     drag = { id: node.id, startX: p.x, startY: p.y, nodeX: node.x, nodeY: node.y };
   }
-  function canvasDown(event: PointerEvent) {
+  function startResize(node: GraphNode, event: PointerEvent) {
+    event.stopPropagation();
+    if (!data.canEdit) return;
+    const p = point(event);
+    resizing = { id: node.id, startX: p.x, startY: p.y, nodeWidth: node.width, nodeHeight: node.height };
+  }
+  async function canvasDown(event: PointerEvent) {
     if ((event.target as Element)?.tagName !== 'svg') return;
     selectedNodeId = null;
     selectedEdgeId = null;
+    if (placing && data.canEdit) {
+      const p = point(event);
+      await placeNode(placing, p.x, p.y);
+      return;
+    }
     if (tool === 'pan' || event.button === 1) panning = { startX: event.clientX, startY: event.clientY, panX, panY };
   }
   function canvasMove(event: PointerEvent) {
@@ -74,6 +92,14 @@
         node.y = Math.round((drag.nodeY + p.y - drag.startY) / (data.graph.settings.snap ? data.graph.settings.gridSize : 1)) * (data.graph.settings.snap ? data.graph.settings.gridSize : 1);
       }
     }
+    if (resizing) {
+      const p = point(event);
+      const node = data.graph.nodes.find((item) => item.id === resizing?.id);
+      if (node) {
+        node.width = Math.max(80, Math.min(1200, Math.round(resizing.nodeWidth + p.x - resizing.startX)));
+        node.height = Math.max(50, Math.min(900, Math.round(resizing.nodeHeight + p.y - resizing.startY)));
+      }
+    }
     if (panning) { panX = panning.panX + event.clientX - panning.startX; panY = panning.panY + event.clientY - panning.startY; }
   }
   async function canvasUp() {
@@ -83,12 +109,38 @@
       drag = null;
       await invalidateAll();
     }
+    if (resizing) {
+      const node = data.graph.nodes.find((item) => item.id === resizing?.id);
+      if (node) { const body = new FormData(); body.set('id', node.id); body.set('width', String(node.width)); body.set('height', String(node.height)); body.set('revision', String(data.graph.settings.revision)); const response = await fetch('?/resizeNode', { method: 'POST', body, headers: { accept: 'application/json' } }); if (!response.ok) await invalidateAll(); }
+      resizing = null;
+      await invalidateAll();
+    }
     panning = null;
   }
   async function createEdge(sourceNodeId: string, targetNodeId: string) {
     const body = new FormData(); body.set('sourceNodeId', sourceNodeId); body.set('targetNodeId', targetNodeId); body.set('kind', 'relates_to'); body.set('revision', String(data.graph.settings.revision));
     const response = await fetch('?/createEdge', { method: 'POST', body, headers: { accept: 'application/json' } });
     if (response.ok) { selectedNodeId = null; tool = 'select'; await invalidateAll(); }
+  }
+  async function placeNode(kind: 'note' | 'group', x: number, y: number) {
+    const body = new FormData();
+    body.set('kind', kind);
+    body.set('title', kind === 'group' ? 'New group' : 'New note');
+    body.set('color', kind === 'group' ? '#9B8AFB' : '#5E9CFF');
+    body.set('x', String(Math.round(x)));
+    body.set('y', String(Math.round(y)));
+    const response = await fetch('?/createNode', { method: 'POST', body, headers: { accept: 'application/json' } });
+    placing = null;
+    tool = 'select';
+    if (response.ok) {
+      await invalidateAll();
+      // The freshly created node isn't in `data.graph.nodes` until the
+      // reload above lands — the point of quick-create is typing the real
+      // title immediately, so it still needs to end up selected once it's
+      // there rather than left for a second click to find it.
+      const created = data.graph.nodes.filter((node) => node.kind === kind).at(-1);
+      if (created) selectedNodeId = created.id;
+    }
   }
   function fitGraph() {
     if (!activeNodes.length) { zoom = 1; panX = 0; panY = 0; return; }
@@ -107,18 +159,33 @@
   <ProjectHeader project={data.project} active="graph" canEdit={data.canEdit} username={data.username} starred={data.starred} />
   {#if form?.message}<p class="success" role="status">{form.message}</p>{/if}{#if form?.error}<p class="action-errors" role="alert">{form.error}</p>{/if}
   <section class="graph-shell">
-    <div class="graph-toolbar" aria-label="Graph tools"><div class="graph-tool-group"><button class:active={tool === 'select'} type="button" onclick={() => { tool = 'select'; }}>Select</button><button class:active={tool === 'pan'} type="button" onclick={() => { tool = 'pan'; }}>Pan</button><button class:active={tool === 'connect'} type="button" onclick={() => { tool = 'connect'; selectedNodeId = null; }}>Connect</button></div><button type="button" onclick={() => { showCreate = !showCreate; }}><Plus /> Add object</button><button type="button" class="quiet-button icon-only" aria-label="Zoom in" onclick={() => { zoom = Math.min(2, zoom + .1); }}><Plus /></button><span class="zoom-label">{Math.round(zoom * 100)}%</span><button type="button" class="quiet-button icon-only" aria-label="Zoom out" onclick={() => { zoom = Math.max(.35, zoom - .1); }}><Minus /></button><button type="button" class="quiet-button" onclick={fitGraph}>Fit</button><span class="graph-count">{activeNodes.length} objects · {data.graph.edges.length} connections</span></div>
+    <div class="graph-toolbar" aria-label="Graph tools">
+      <div class="graph-tool-group">
+        <button class:active={tool === 'select' && !placing} type="button" onclick={() => { tool = 'select'; placing = null; }}>Select</button>
+        <button class:active={tool === 'pan'} type="button" onclick={() => { tool = 'pan'; placing = null; }}>Pan</button>
+        <button class:active={tool === 'connect'} type="button" onclick={() => { tool = 'connect'; placing = null; selectedNodeId = null; }}>Connect</button>
+      </div>
+      {#if data.canEdit}
+        <div class="graph-tool-group">
+          <button class:active={placing === 'note'} type="button" title="Click the canvas to drop a note" onclick={() => { placing = placing === 'note' ? null : 'note'; tool = 'select'; }}><Plus /> Note</button>
+          <button class:active={placing === 'group'} type="button" title="Click the canvas to drop a group" onclick={() => { placing = placing === 'group' ? null : 'group'; tool = 'select'; }}><Plus /> Group</button>
+        </div>
+      {/if}
+      <button type="button" class="quiet-button" onclick={() => { showCreate = !showCreate; }}>Link a card…</button>
+      <button type="button" class="quiet-button icon-only" aria-label="Zoom in" onclick={() => { zoom = Math.min(2, zoom + .1); }}><Plus /></button><span class="zoom-label">{Math.round(zoom * 100)}%</span><button type="button" class="quiet-button icon-only" aria-label="Zoom out" onclick={() => { zoom = Math.max(.35, zoom - .1); }}><Minus /></button><button type="button" class="quiet-button" onclick={fitGraph}>Fit</button><span class="graph-count">{activeNodes.length} objects · {data.graph.edges.length} connections</span>
+    </div>
+    {#if placing}<p class="graph-placing-hint" role="status">Click anywhere on the canvas to drop the {placing}.</p>{/if}
     {#if showCreate && data.canEdit}<form method="POST" action="?/createNode" class="graph-create-panel"><label>Type <select name="kind"><option value="note">Note</option><option value="group">Group</option><option value="card">Linked card</option></select></label><label>Title <input name="title" maxlength="160" placeholder="What should be visible?" required /></label><label>Body <textarea name="body" rows="2" maxlength="4000" placeholder="Context or decision"></textarea></label><label>Link card <select name="cardId"><option value="">None</option>{#each data.cards as card}<option value={card.id}>{card.title}</option>{/each}</select></label><label>Color <input name="color" type="color" value="#5E9CFF" /></label><button type="submit">Create object</button></form>{/if}
-    <div class="graph-canvas-wrap"><svg class="graph-canvas" viewBox="0 0 1600 900" role="application" aria-label="Project graph canvas" onpointerdown={canvasDown} onpointermove={canvasMove} onpointerup={canvasUp} onpointerleave={canvasUp}>
+    <div class="graph-canvas-wrap"><svg class:placing-cursor={Boolean(placing)} class="graph-canvas" viewBox="0 0 1600 900" role="application" aria-label="Project graph canvas" onpointerdown={canvasDown} onpointermove={canvasMove} onpointerup={canvasUp} onpointerleave={canvasUp}>
       <defs><pattern id="graph-grid" width={data.graph.settings.gridSize * 4} height={data.graph.settings.gridSize * 4} patternUnits="userSpaceOnUse"><path d={`M ${data.graph.settings.gridSize * 4} 0 L 0 0 0 ${data.graph.settings.gridSize * 4}`} fill="none" stroke="currentColor" stroke-opacity=".12" /></pattern><marker id="graph-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 z" fill="currentColor" /></marker></defs>
       <rect width="1600" height="900" fill="url(#graph-grid)" />
       <g transform={`translate(${panX},${panY}) scale(${zoom})`}>
         {#each data.graph.edges as edge}
           {@const source = nodeById.get(edge.sourceNodeId)}{@const target = nodeById.get(edge.targetNodeId)}
-          {#if source && target}<line class:selected={selectedEdgeId === edge.id} class="graph-edge" role="button" tabindex="0" aria-label={`${edge.kind.replace('_', ' ')} connection`} x1={source.x + source.width / 2} y1={source.y + source.height / 2} x2={target.x + target.width / 2} y2={target.y + target.height / 2} marker-end="url(#graph-arrow)" onclick={(event) => { event.stopPropagation(); selectedEdgeId = edge.id; selectedNodeId = null; }} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { selectedEdgeId = edge.id; selectedNodeId = null; } }} /><text class="graph-edge-label" x={(source.x + target.x + source.width / 2 + target.width / 2) / 2} y={(source.y + target.y + source.height / 2 + target.height / 2) / 2}>{edge.label || edge.kind.replace('_', ' ')}</text>{/if}
+          {#if source && target}{@const sourceCenter = { x: source.x + source.width / 2, y: source.y + source.height / 2 }}{@const targetCenter = { x: target.x + target.width / 2, y: target.y + target.height / 2 }}{@const from = edgeAnchor(source, targetCenter.x, targetCenter.y)}{@const to = edgeAnchor(target, sourceCenter.x, sourceCenter.y)}<line class:selected={selectedEdgeId === edge.id} class="graph-edge" role="button" tabindex="0" aria-label={`${edge.kind.replace('_', ' ')} connection`} x1={from.x} y1={from.y} x2={to.x} y2={to.y} marker-end="url(#graph-arrow)" onclick={(event) => { event.stopPropagation(); selectedEdgeId = edge.id; selectedNodeId = null; }} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { selectedEdgeId = edge.id; selectedNodeId = null; } }} /><text class="graph-edge-label" x={(from.x + to.x) / 2} y={(from.y + to.y) / 2}>{edge.label || edge.kind.replace('_', ' ')}</text>{/if}
         {/each}
         {#each activeNodes as node}
-          <g class:selected={selectedNodeId === node.id} class={`graph-node graph-node-${node.kind}`} transform={`translate(${node.x},${node.y})`} role="button" tabindex="0" aria-label={`${node.kind}: ${node.title}`} aria-pressed={selectedNodeId === node.id} onpointerdown={(event) => selectNode(node, event)} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') selectedNodeId = node.id; }}><rect width={node.width} height={node.height} rx="12" style={`--node-color: ${nodeColor(node)}`} /><text class="graph-node-kind" x="16" y="24">{node.kind}{node.cardId ? ' · linked card' : ''}</text><text class="graph-node-title" x="16" y="52">{node.title}</text>{#if node.body && !node.collapsed}<foreignObject x="16" y="66" width={node.width - 32} height={node.height - 76}><p xmlns="http://www.w3.org/1999/xhtml">{node.body}</p></foreignObject>{/if}</g>
+          <g class:selected={selectedNodeId === node.id} class={`graph-node graph-node-${node.kind}`} style={`--node-color: ${nodeColor(node)}`} transform={`translate(${node.x},${node.y})`} role="button" tabindex="0" aria-label={`${node.kind}: ${node.title}`} aria-pressed={selectedNodeId === node.id} onpointerdown={(event) => selectNode(node, event)} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') selectedNodeId = node.id; }}><rect width={node.width} height={node.height} rx="12" /><text class="graph-node-kind" x="16" y="24">{node.kind}{node.cardId ? ' · linked card' : ''}</text><text class="graph-node-title" x="16" y="52">{node.title}</text>{#if node.body && !node.collapsed}<foreignObject x="16" y="66" width={node.width - 32} height={node.height - 76}><p xmlns="http://www.w3.org/1999/xhtml">{node.body}</p></foreignObject>{/if}{#if data.canEdit && selectedNodeId === node.id && tool === 'select'}<rect class="graph-node-resize-handle" x={node.width - 14} y={node.height - 14} width="14" height="14" rx="3" role="button" tabindex="0" aria-label={`Resize ${node.title}`} onpointerdown={(event) => startResize(node, event)} onkeydown={(event) => event.stopPropagation()}></rect>{/if}</g>
         {/each}
       </g>
     </svg>{#if !activeNodes.length}<div class="graph-empty"><p class="eyebrow">EMPTY GRAPH</p><h2>Start with one idea.</h2><p>Add a note, group a phase, or link a card to make the relationships visible.</p><button type="button" onclick={() => { showCreate = true; }}>Add first object</button></div>{/if}</div>

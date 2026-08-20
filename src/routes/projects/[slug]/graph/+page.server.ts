@@ -97,6 +97,17 @@ export const actions = {
     await backupGraphSnapshot(params.slug, locals.username ?? 'unknown');
     return { message: 'Position saved.' };
   },
+  resizeNode: async ({ request, locals, params }) => {
+    if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to edit the graph.' });
+    const form = await request.formData();
+    const id = String(form.get('id') ?? '').trim();
+    const width = Math.round(Number(form.get('width')));
+    const height = Math.round(Number(form.get('height')));
+    if (!id || !Number.isFinite(width) || !Number.isFinite(height) || width < 80 || height < 50 || width > 1200 || height > 900) return fail(400, { error: 'Choose a valid graph object size.' });
+    try { await updateGraphNode(params.slug, id, { width, height }, Number(form.get('revision') ?? 0) || undefined); } catch (error) { return failure(error); }
+    await backupGraphSnapshot(params.slug, locals.username ?? 'unknown');
+    return { message: 'Size saved.' };
+  },
   deleteNode: async ({ request, locals, params }) => {
     if (!canEdit(locals.role)) return fail(403, { error: 'Editor access is required to edit the graph.' });
     const form = await request.formData();

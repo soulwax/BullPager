@@ -55,6 +55,24 @@ describe('graph actions', () => {
     expect(moved).toEqual({ message: 'Position saved.' });
     expect(persistence.updateGraphNode).toHaveBeenCalledWith('demo', 'a', { x: 240, y: 180 }, undefined);
   });
+
+  it('blocks viewers from resizing graph objects', async () => {
+    const result = await actions.resizeNode({ request: request({ id: 'a', width: '200', height: '120' }), locals: { role: 'viewer', username: 'sam' }, params: { slug: 'demo' } } as never);
+    expect(result).toMatchObject({ status: 403 });
+    expect(persistence.updateGraphNode).not.toHaveBeenCalled();
+  });
+
+  it('rejects a resize outside the allowed size range', async () => {
+    const result = await actions.resizeNode({ request: request({ id: 'a', width: '40', height: '120' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+    expect(result).toMatchObject({ status: 400 });
+    expect(persistence.updateGraphNode).not.toHaveBeenCalled();
+  });
+
+  it('persists a validated resize for editors', async () => {
+    const result = await actions.resizeNode({ request: request({ id: 'a', width: '260.4', height: '140.6', revision: '3' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+    expect(result).toEqual({ message: 'Size saved.' });
+    expect(persistence.updateGraphNode).toHaveBeenCalledWith('demo', 'a', { width: 260, height: 141 }, 3);
+  });
 });
 
 describe('graph cloud backup (writes a snapshot after every successful mutation)', () => {
@@ -93,12 +111,13 @@ describe('graph cloud backup (writes a snapshot after every successful mutation)
     expect(typeof parsed.exportedAt).toBe('string');
   });
 
-  it('backs up after createEdge, deleteNode, deleteEdge, and saveSettings too', async () => {
+  it('backs up after createEdge, resizeNode, deleteNode, deleteEdge, and saveSettings too', async () => {
     await actions.createEdge({ request: request({ sourceNodeId: 'a', targetNodeId: 'b', kind: 'blocks' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
+    await actions.resizeNode({ request: request({ id: 'a', width: '200', height: '120' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
     await actions.deleteNode({ request: request({ id: 'a' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
     await actions.deleteEdge({ request: request({ id: 'e1' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
     await actions.saveSettings({ request: request({ background: 'ocean' }), locals: { role: 'editor', username: 'ada' }, params: { slug: 'demo' } } as never);
-    expect(persistence.upsertProjectFile).toHaveBeenCalledTimes(4);
+    expect(persistence.upsertProjectFile).toHaveBeenCalledTimes(5);
   });
 
   it('does not back up when the mutation itself is rejected (validation) or unauthorized', async () => {
