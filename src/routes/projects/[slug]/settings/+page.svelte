@@ -1,16 +1,7 @@
 <script lang="ts">
   import type { BoardProject } from "$lib/types";
   import { projectBackgrounds } from "$lib/projectBackgrounds";
-  import {
-    appearanceFromSettings,
-    boardThemes,
-    cardThemes,
-    densities,
-    laneWidths,
-    radii,
-    shadows,
-    textScales,
-  } from "$lib/boardAppearance";
+  import { appearanceFromSettings } from "$lib/boardAppearance";
   import { invalidateAll } from "$app/navigation";
   import Check from "@lucide/svelte/icons/check";
   import Plus from "@lucide/svelte/icons/plus";
@@ -59,6 +50,37 @@
       }, 2400);
     }
   }
+
+  // The board's own quick appearance panel already applies every other
+  // appearance field immediately, board-wide, with no save button — a
+  // built-in background swatch here should not be the one exception left
+  // waiting behind this page's big "Save project settings" click. It posts
+  // through the same ?/saveAppearance action the panel uses, carrying the
+  // rest of the board's current look along so nothing else resets.
+  let backgroundApplyStatus = $state("");
+  async function chooseBackground(id: string) {
+    if (setting("background", "none") === id) return;
+    backgroundApplyStatus = "Applying…";
+    const body = new FormData();
+    for (const [key, value] of Object.entries(appearance))
+      body.set(key, String(value));
+    body.set("background", id);
+    try {
+      const response = await fetch("?/saveAppearance", {
+        method: "POST",
+        body,
+        headers: { accept: "application/json" },
+      });
+      backgroundApplyStatus = response.ok ? "Applied" : "Could not apply";
+      if (response.ok) await invalidateAll();
+    } catch {
+      backgroundApplyStatus = "Could not apply";
+    } finally {
+      setTimeout(() => {
+        backgroundApplyStatus = "";
+      }, 1800);
+    }
+  }
   let lanes = $state<{ original: string; name: string }[]>(
     (() => {
       try {
@@ -83,12 +105,12 @@
       ];
     })(),
   );
-  // The same model the board's quick appearance panel edits, so this page
-  // shows what the panel last saved instead of a second set of defaults.
+  // Read-only here — used only to carry the board's current look along when
+  // a background swatch below applies immediately, so that request doesn't
+  // reset the fields the quick panel owns. Edited from the board itself.
   const appearance = $derived(
     appearanceFromSettings(data.settings, data.prefix),
   );
-  let glassIntensity = $state(Number(setting("glass_intensity", "38")));
   function addLane() {
     if (lanes.length < 8)
       lanes = [...lanes, { original: "", name: `Column ${lanes.length + 1}` }];
@@ -110,9 +132,10 @@
       <p class="eyebrow">PROJECT SETTINGS</p>
       <h1>{data.project.name}</h1>
       <p class="subtitle">
-        Tune the workflow, appearance, and defaults for this project only. Every
-        appearance option here is also on the board itself — press <kbd>V</kbd> or
-        use the palette button in the board header.
+        Tune the workflow and defaults for this project only. Theme, card
+        style, density, and the rest of the board's look live on the board
+        itself — press <kbd>V</kbd> or use the palette button in the board header
+        — and apply instantly there, no save button.
       </p>
     </div>
     <div class="top-links">
@@ -187,32 +210,16 @@
           ></select
         ></label
       >
-      <label
-        >Board theme <select name="boardTheme"
-          >{#each boardThemes as theme}<option
-              value={theme.id}
-              selected={appearance.theme === theme.id}
-              >{theme.label} — {theme.hint}</option
-            >{/each}</select
-        ></label
-      >
-      <label
-        >Card style <select name="cardTheme"
-          >{#each cardThemes as option}<option
-              value={option.id}
-              selected={appearance.cardTheme === option.id}
-              >{option.label}</option
-            >{/each}</select
-        ><small
-          >Auto keeps cards readable by contrasting with the board: light cards
-          on a dark board, dark cards on a light one.</small
-        ></label
-      >
       <fieldset class="background-picker wide-field">
-        <legend>Board background</legend>
+        <legend
+          >Board background{#if backgroundApplyStatus}<small
+              class="field-status">{backgroundApplyStatus}</small
+            >{/if}</legend
+        >
         <p class="field-help">
-          Choose a color, gradient, or photo for this board. Cards stay opaque
-          and readable on every option.
+          Choose a color, gradient, or photo for this board — applies
+          immediately, no separate save. Cards stay opaque and readable on
+          every option.
         </p>
         <div class="background-swatch-grid">
           <label class="background-swatch none-swatch" title="Plain midnight"
@@ -221,6 +228,7 @@
               name="background"
               value="none"
               checked={setting("background", "none") === "none"}
+              onchange={() => chooseBackground("none")}
             /><span class="swatch-check" aria-hidden="true"><Check /></span
             ></label
           >
@@ -238,6 +246,7 @@
                 name="background"
                 value={background.id}
                 checked={setting("background") === background.id}
+                onchange={() => chooseBackground(background.id)}
               />
               <span class="swatch-check" aria-hidden="true"><Check /></span>
             </label>
@@ -253,6 +262,7 @@
                 name="background"
                 value="custom"
                 checked={setting("background") === "custom"}
+                onchange={() => chooseBackground("custom")}
               />
               <span class="swatch-check" aria-hidden="true"><Check /></span>
             </label>
@@ -282,86 +292,11 @@
         </div>
         <p class="field-help">
           Custom uploads are stored with this project's files and shown just
-          like a photo background.
+          like a photo background. Every other appearance choice — theme, card
+          style, density, and the rest — lives on the board itself: press
+          <kbd>V</kbd> or use the palette button in the board header.
         </p>
       </fieldset>
-      <label
-        >Frost intensity <output class="range-output">{glassIntensity}%</output
-        ><input
-          name="glassIntensity"
-          type="range"
-          min="0"
-          max="100"
-          step="1"
-          bind:value={glassIntensity}
-        /><small
-          >Only applies to the two glass card styles. Solid light and dark cards
-          stay opaque.</small
-        ></label
-      >
-      <label
-        >Card density <select name="cardDensity"
-          >{#each densities as option}<option
-              value={option.id}
-              selected={appearance.density === option.id}>{option.label}</option
-            >{/each}</select
-        ></label
-      >
-      <label
-        >List width <select name="laneWidth"
-          >{#each laneWidths as option}<option
-              value={option.id}
-              selected={appearance.laneWidth === option.id}
-              >{option.label}</option
-            >{/each}</select
-        ></label
-      >
-      <label
-        >Text size <select name="textScale"
-          >{#each textScales as option}<option
-              value={option.id}
-              selected={appearance.textScale === option.id}
-              >{option.label}</option
-            >{/each}</select
-        ></label
-      >
-      <label
-        >Corner style <select name="radius"
-          >{#each radii as option}<option
-              value={option.id}
-              selected={appearance.radius === option.id}>{option.label}</option
-            >{/each}</select
-        ></label
-      >
-      <label
-        >Card depth <select name="shadow"
-          >{#each shadows as option}<option
-              value={option.id}
-              selected={appearance.shadow === option.id}>{option.label}</option
-            >{/each}</select
-        ></label
-      >
-      <label
-        >Accent color <input
-          name="accent"
-          type="color"
-          value={appearance.accent}
-        /></label
-      >
-      <label class="check"
-        ><input
-          type="checkbox"
-          name="highContrast"
-          checked={appearance.highContrast}
-        /> High contrast text and separators</label
-      >
-      <label class="check"
-        ><input
-          type="checkbox"
-          name="cardAging"
-          checked={appearance.cardAging}
-        /> Fade cards the longer they sit untouched</label
-      >
       <label
         >Lane layout <select name="laneStyle"
           ><option

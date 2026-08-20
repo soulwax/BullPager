@@ -8,9 +8,14 @@
    * narrow scrollable column of segmented buttons — every option is one click
    * from open, with no nested selects to open and scan.
    *
-   * Changes apply live to the parent's bound appearance object. Saving is a
-   * separate, explicit step so a viewer without edit rights can still try a
-   * look locally, and an editor can back out with Reset.
+   * Every control applies immediately, board-wide, the same way every other
+   * board setting in this app already works (a list rename, a WIP limit, a
+   * lane reorder) — none of those wait behind a "Save" button either, so
+   * appearance shouldn't be the one exception with its own commit step. The
+   * parent owns debouncing the actual network write; this component's only
+   * job is to call `onchange()` after every mutation so the parent knows
+   * something changed. Editor-only: there is nothing to preview locally
+   * without saving, because there is no longer a save step to preview against.
    */
   import {
     boardThemes,
@@ -26,30 +31,20 @@
     resolveCardTheme
   } from '$lib/boardAppearance';
   import { projectBackgrounds } from '$lib/projectBackgrounds';
-  import Check from '@lucide/svelte/icons/check';
-  import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
   import X from '@lucide/svelte/icons/x';
 
   let {
     appearance = $bindable(),
     background = $bindable(),
     canvas,
-    canEdit,
-    dirty,
-    saving,
     onclose,
-    onsave,
-    onreset
+    onchange
   }: {
     appearance: BoardAppearance;
     background: string;
     canvas: BoardCanvas;
-    canEdit: boolean;
-    dirty: boolean;
-    saving: boolean;
     onclose: () => void;
-    onsave: () => void;
-    onreset: () => void;
+    onchange: () => void;
   } = $props();
 
   const accentSwatches = ['#73b6ff', '#0c66e4', '#1fb6a0', '#7bb61b', '#e8912d', '#cf513f', '#d84a91', '#9b8afb', '#5e6c84'];
@@ -64,6 +59,15 @@
       : cardThemes.find((option) => option.id === appearance.cardTheme)?.hint ?? ''
   );
   const usesGlass = $derived(resolved.startsWith('glass'));
+
+  function set<K extends keyof BoardAppearance>(key: K, value: BoardAppearance[K]) {
+    appearance[key] = value;
+    onchange();
+  }
+  function setBackground(id: string) {
+    background = id;
+    onchange();
+  }
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
@@ -93,7 +97,7 @@
           style={`--theme-swatch: ${theme.swatch}`}
           aria-pressed={appearance.theme === theme.id}
           title={theme.hint}
-          onclick={() => { appearance.theme = theme.id; }}
+          onclick={() => set('theme', theme.id)}
         ><span aria-hidden="true"></span><small>{theme.label}</small></button>
       {/each}
     </div>
@@ -110,7 +114,7 @@
           aria-pressed={background === option.id}
           aria-label={option.label}
           title={option.label}
-          onclick={() => { background = option.id; }}
+          onclick={() => setBackground(option.id)}
         ></button>
       {/each}
     </div>
@@ -124,7 +128,7 @@
           type="button"
           aria-pressed={appearance.cardTheme === option.id}
           title={option.hint}
-          onclick={() => { appearance.cardTheme = option.id as CardThemeId; }}
+          onclick={() => set('cardTheme', option.id as CardThemeId)}
         >{option.label}</button>
       {/each}
     </div>
@@ -134,7 +138,15 @@
   {#if usesGlass}
     <label class="appearance-group appearance-slider">
       <span>Frost — {appearance.glassIntensity}%</span>
-      <input type="range" min="0" max="100" step="1" bind:value={appearance.glassIntensity} aria-label="Frost intensity" />
+      <input
+        type="range"
+        min="0"
+        max="100"
+        step="1"
+        bind:value={appearance.glassIntensity}
+        oninput={onchange}
+        aria-label="Frost intensity"
+      />
     </label>
   {/if}
 
@@ -142,7 +154,7 @@
     <span id="appearance-density-label">Density</span>
     <div class="appearance-options" role="group" aria-labelledby="appearance-density-label">
       {#each densities as option}
-        <button type="button" aria-pressed={appearance.density === option.id} onclick={() => { appearance.density = option.id; }}>{option.label}</button>
+        <button type="button" aria-pressed={appearance.density === option.id} onclick={() => set('density', option.id)}>{option.label}</button>
       {/each}
     </div>
   </div>
@@ -151,7 +163,7 @@
     <span id="appearance-lane-label">List width</span>
     <div class="appearance-options" role="group" aria-labelledby="appearance-lane-label">
       {#each laneWidths as option}
-        <button type="button" aria-pressed={appearance.laneWidth === option.id} onclick={() => { appearance.laneWidth = option.id; }}>{option.label}</button>
+        <button type="button" aria-pressed={appearance.laneWidth === option.id} onclick={() => set('laneWidth', option.id)}>{option.label}</button>
       {/each}
     </div>
   </div>
@@ -160,7 +172,7 @@
     <span id="appearance-text-label">Text size</span>
     <div class="appearance-options" role="group" aria-labelledby="appearance-text-label">
       {#each textScales as option}
-        <button type="button" aria-pressed={appearance.textScale === option.id} onclick={() => { appearance.textScale = option.id; }}>{option.label}</button>
+        <button type="button" aria-pressed={appearance.textScale === option.id} onclick={() => set('textScale', option.id)}>{option.label}</button>
       {/each}
     </div>
   </div>
@@ -169,7 +181,7 @@
     <span id="appearance-corner-label">Corners</span>
     <div class="appearance-options" role="group" aria-labelledby="appearance-corner-label">
       {#each radii as option}
-        <button type="button" aria-pressed={appearance.radius === option.id} onclick={() => { appearance.radius = option.id; }}>{option.label}</button>
+        <button type="button" aria-pressed={appearance.radius === option.id} onclick={() => set('radius', option.id)}>{option.label}</button>
       {/each}
     </div>
   </div>
@@ -178,7 +190,7 @@
     <span id="appearance-shadow-label">Depth</span>
     <div class="appearance-options" role="group" aria-labelledby="appearance-shadow-label">
       {#each shadows as option}
-        <button type="button" aria-pressed={appearance.shadow === option.id} onclick={() => { appearance.shadow = option.id; }}>{option.label}</button>
+        <button type="button" aria-pressed={appearance.shadow === option.id} onclick={() => set('shadow', option.id)}>{option.label}</button>
       {/each}
     </div>
   </div>
@@ -194,33 +206,20 @@
           aria-pressed={appearance.accent.toLowerCase() === color}
           aria-label={`Accent ${color}`}
           title={color}
-          onclick={() => { appearance.accent = color; }}
+          onclick={() => set('accent', color)}
         ></button>
       {/each}
     </div>
   </div>
 
   <label class="appearance-toggle">
-    <input type="checkbox" bind:checked={appearance.highContrast} />
+    <input type="checkbox" bind:checked={appearance.highContrast} onchange={onchange} />
     High contrast
   </label>
   <label class="appearance-toggle">
-    <input type="checkbox" bind:checked={appearance.cardAging} />
+    <input type="checkbox" bind:checked={appearance.cardAging} onchange={onchange} />
     Card aging — fade cards nobody has touched in a while
   </label>
 
-  <footer class="appearance-footer">
-    {#if canEdit}
-      <p class="appearance-note">{dirty ? 'Unsaved' : 'Saved for everyone on this board'}</p>
-      <div class="appearance-actions">
-        <button type="button" class="quiet-button" disabled={!dirty || saving} onclick={onreset}><RotateCcw /> Reset</button>
-        <button type="button" disabled={!dirty || saving} onclick={onsave}><Check /> {saving ? 'Saving…' : 'Save'}</button>
-      </div>
-    {:else}
-      <p class="appearance-note">Preview only — editor access is required to save this board's look.</p>
-      <div class="appearance-actions">
-        <button type="button" class="quiet-button" disabled={!dirty} onclick={onreset}><RotateCcw /> Reset</button>
-      </div>
-    {/if}
-  </footer>
+  <p class="appearance-note appearance-footer-note">Applies for everyone on this board until changed again.</p>
 </dialog>

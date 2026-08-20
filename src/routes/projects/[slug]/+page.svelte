@@ -87,13 +87,11 @@
   const setting = (name: string, fallback = "") =>
     data.settings[`${data.prefix}${name}`] ?? fallback;
   // Appearance is board-level, mirroring `background`: everyone looking at the
-  // board sees the same thing. It is held as local state rather than read
-  // straight from `data` so the panel can preview a change against the live
-  // board before anyone commits it.
-  const savedAppearance = $derived(
-    appearanceFromSettings(data.settings, data.prefix),
-  );
-  const savedBackgroundId = $derived(setting("background", "none"));
+  // board sees the same thing. It is held as local state (rather than read
+  // straight from `data` on every render) purely so a control's own click
+  // handler can update it optimistically before the debounced save round
+  // trips — there is no separate "draft" concept anymore, since every change
+  // applies immediately, the same as every other board setting.
   let appearance = $state<BoardAppearance>(
     untrack(() => appearanceFromSettings(data.settings, data.prefix)),
   );
@@ -102,7 +100,6 @@
   );
   let appearanceSlug = untrack(() => data.project.slug);
   let showAppearance = $state(false);
-  let savingAppearance = $state(false);
   const boardBackground = $derived(
     backgroundId === "custom" && setting("background_custom_path")
       ? {
@@ -122,61 +119,58 @@
   const boardAttributes = $derived(
     appearanceAttributes(appearance, boardCanvas),
   );
-  const appearanceDirty = $derived(
-    backgroundId !== savedBackgroundId ||
-      (Object.keys(appearance) as (keyof BoardAppearance)[]).some(
-        (key) => appearance[key] !== savedAppearance[key],
-      ),
-  );
   // The legacy two-step density class still drives a handful of cover-image
   // sizes; the four-step scale collapses onto it rather than duplicating them.
   const compactBoard = $derived(
     appearance.density === "compact" || appearance.density === "dense",
   );
 
-  // Navigating to another board reuses this component, so the local preview
-  // copy has to be re-seeded from the board that is now on screen.
+  // Navigating to another board reuses this component, so the local copy has
+  // to be re-seeded from the board that is now on screen.
   $effect(() => {
     if (data.project.slug === appearanceSlug) return;
     appearanceSlug = data.project.slug;
-    appearance = { ...savedAppearance };
-    backgroundId = savedBackgroundId;
+    appearance = appearanceFromSettings(data.settings, data.prefix);
+    backgroundId = data.settings[`${data.prefix}background`] ?? "none";
     showAppearance = false;
   });
 
-  function resetAppearance() {
-    appearance = { ...savedAppearance };
-    backgroundId = savedBackgroundId;
-  }
-
-  async function saveAppearance() {
-    if (!data.canEdit || savingAppearance) return;
-    savingAppearance = true;
-    const body = new FormData();
-    for (const [key, value] of Object.entries(appearance))
-      body.set(key, String(value));
-    body.set("background", backgroundId);
-    try {
-      const response = await fetch("?/saveAppearance", {
-        method: "POST",
-        body,
-        headers: { accept: "application/json" },
-      });
-      if (!response.ok) throw new Error("save failed");
-      savedStatus = "Appearance saved";
-      await invalidateAll();
-    } catch {
-      savedStatus = "Could not save appearance";
-    } finally {
-      savingAppearance = false;
-      setTimeout(() => {
-        if (
-          savedStatus.startsWith("Appearance") ||
-          savedStatus.startsWith("Could not save appearance")
-        )
-          savedStatus = "";
-      }, 2400);
-    }
+  let appearanceSaveTimer: ReturnType<typeof setTimeout> | undefined;
+  // Called after every control in the appearance panel — theme click, slider
+  // drag, toggle flip. Debounced rather than fired per-call so dragging the
+  // frost slider or clicking through five theme swatches in a row sends one
+  // request, not a burst of them; there is no separate save step for the
+  // person using the panel to notice or wait on.
+  function queueAppearanceSave() {
+    if (!data.canEdit) return;
+    if (appearanceSaveTimer) clearTimeout(appearanceSaveTimer);
+    appearanceSaveTimer = setTimeout(async () => {
+      const body = new FormData();
+      for (const [key, value] of Object.entries(appearance))
+        body.set(key, String(value));
+      body.set("background", backgroundId);
+      try {
+        const response = await fetch("?/saveAppearance", {
+          method: "POST",
+          body,
+          headers: { accept: "application/json" },
+        });
+        savedStatus = response.ok
+          ? "Appearance saved"
+          : "Could not save appearance";
+        if (response.ok) await invalidateAll();
+      } catch {
+        savedStatus = "Could not save appearance";
+      } finally {
+        setTimeout(() => {
+          if (
+            savedStatus === "Appearance saved" ||
+            savedStatus === "Could not save appearance"
+          )
+            savedStatus = "";
+        }, 1800);
+      }
+    }, 250);
   }
   const isDefaultTag = (id: string) =>
     defaultProjectTags.some((tag) => tagId(data.project.slug, tag.slug) === id);
@@ -713,7 +707,7 @@
     }
     // The appearance panel owns Escape while it is open (it closes itself), so
     // it is checked before the editor/composer Escape handling below.
-    if (event.key === "v" || event.key === "V") {
+    if (data.canEdit && (event.key === "v" || event.key === "V")) {
       showAppearance = !showAppearance;
       return;
     }
@@ -1228,18 +1222,18 @@
           href={`/projects/${data.project.slug}/automation`}
           aria-label="Board automation"
           title="Board automation"><Zap /></a
-        >{/if}<button
-        type="button"
-        class="quiet-button icon-only"
-        class:active={showAppearance}
-        aria-haspopup="dialog"
-        aria-expanded={showAppearance}
-        aria-label="Board appearance (V)"
-        title="Board appearance — V"
-        onclick={() => {
-          showAppearance = !showAppearance;
-        }}><Palette /></button
-      ><a
+        ><button
+          type="button"
+          class="quiet-button icon-only"
+          class:active={showAppearance}
+          aria-haspopup="dialog"
+          aria-expanded={showAppearance}
+          aria-label="Board appearance (V)"
+          title="Board appearance — V"
+          onclick={() => {
+            showAppearance = !showAppearance;
+          }}><Palette /></button
+        >{/if}<a
         class="quiet-button icon-only"
         href={`/projects/${data.project.slug}/settings`}
         aria-label="Project settings"><Settings /></a
@@ -1247,19 +1241,15 @@
     </div>
   </header>
 
-  {#if showAppearance}
+  {#if showAppearance && data.canEdit}
     <BoardAppearanceDialog
       bind:appearance
       bind:background={backgroundId}
       canvas={boardCanvas}
-      canEdit={data.canEdit}
-      dirty={appearanceDirty}
-      saving={savingAppearance}
       onclose={() => {
         showAppearance = false;
       }}
-      onsave={saveAppearance}
-      onreset={resetAppearance}
+      onchange={queueAppearanceSave}
     />
   {/if}
 

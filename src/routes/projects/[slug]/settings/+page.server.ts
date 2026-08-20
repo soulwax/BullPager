@@ -3,8 +3,6 @@ import { randomBytes } from 'node:crypto';
 import { deleteProjectFile, getBoardProject, getProjectFileByPath, loadBoardSettings, normalizeProjectFilePath, recordProjectActivity, renameProjectLanes, saveBoardSettings, upsertProjectFile } from '$lib/server/persistence';
 import { deleteProjectFileObject, putProjectFileObject, projectFileObjectKey, r2Configured } from '$lib/server/r2';
 import { lanesFromSettings } from '$lib/projectState';
-import { projectBackgrounds } from '$lib/projectBackgrounds';
-import { appearanceFromSettings, appearanceToSettings, normalizeAppearance } from '$lib/boardAppearance';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
 const persistenceFailure = (error: unknown) => {
@@ -31,35 +29,21 @@ export const actions = {
     const key = String(form.get('workflowKey') ?? '').trim();
     const cadence = String(form.get('cadence') ?? 'weekly');
     const visibility = String(form.get('visibility') ?? 'private');
-    const background = String(form.get('background') ?? 'none');
     const showOutcomes = form.get('showOutcomes') === 'on' ? 'true' : 'false';
     const laneStyle = String(form.get('laneStyle') ?? 'scroll');
     const laneNames = form.getAll('laneName').map((lane) => String(lane).trim()).filter(Boolean);
     const laneOriginals = form.getAll('laneOriginal').map((lane) => String(lane).trim());
     const lanes = laneNames.length ? laneNames : String(form.get('lanes') ?? '').split(',').map((lane) => lane.trim()).filter(Boolean);
-    const validBackground = background === 'custom' || projectBackgrounds.some((item) => item.id === background);
-    if (key.length > 120 || !['weekly', 'biweekly', 'monthly'].includes(cadence) || !['private', 'shared'].includes(visibility) || !validBackground || !['scroll', 'wrap'].includes(laneStyle) || lanes.length < 2 || lanes.length > 8 || new Set(lanes).size !== lanes.length || lanes.some((lane) => lane.length > 48)) return fail(400, { error: 'Choose valid project settings.' });
+    if (key.length > 120 || !['weekly', 'biweekly', 'monthly'].includes(cadence) || !['private', 'shared'].includes(visibility) || !['scroll', 'wrap'].includes(laneStyle) || lanes.length < 2 || lanes.length > 8 || new Set(lanes).size !== lanes.length || lanes.some((lane) => lane.length > 48)) return fail(400, { error: 'Choose valid project settings.' });
     const currentSettings = await loadBoardSettings();
-    // Start from what is stored so this form only changes the appearance
-    // fields it actually renders, leaving the rest of the board's look as the
-    // quick panel last saved it.
-    const appearance = normalizeAppearance({
-      ...appearanceFromSettings(currentSettings, prefix),
-      theme: form.get('boardTheme'),
-      cardTheme: form.get('cardTheme'),
-      density: form.get('cardDensity'),
-      radius: form.get('radius'),
-      laneWidth: form.get('laneWidth'),
-      textScale: form.get('textScale'),
-      shadow: form.get('shadow'),
-      glassIntensity: form.get('glassIntensity'),
-      accent: form.get('accent'),
-      highContrast: form.get('highContrast') === 'on',
-      cardAging: form.get('cardAging') === 'on'
-    });
+    // Board theme, card style, density, background, and the rest of what
+    // lib/boardAppearance.ts models used to be duplicated in this form too —
+    // reconciled out of here so appearance has exactly one editing surface,
+    // the board itself, which applies every change immediately instead of
+    // waiting behind this form's Save button.
     const currentLanes = lanesFromSettings(currentSettings, prefix);
     const renames = laneNames.length ? laneNames.map((name, index) => ({ from: laneOriginals[index] ?? '', to: name })) : [];
-    const settingsToSave: Record<string, string> = { [`${prefix}workflow_key`]: key, [`${prefix}cadence`]: cadence, [`${prefix}visibility`]: visibility, [`${prefix}background`]: background, [`${prefix}show_outcomes`]: showOutcomes, [`${prefix}lane_style`]: laneStyle, [`${prefix}lanes`]: JSON.stringify(lanes), ...appearanceToSettings(appearance, prefix) };
+    const settingsToSave: Record<string, string> = { [`${prefix}workflow_key`]: key, [`${prefix}cadence`]: cadence, [`${prefix}visibility`]: visibility, [`${prefix}show_outcomes`]: showOutcomes, [`${prefix}lane_style`]: laneStyle, [`${prefix}lanes`]: JSON.stringify(lanes) };
     try {
       await renameProjectLanes(params.slug, renames.filter((rename) => currentLanes.includes(rename.from)));
       await saveBoardSettings(settingsToSave);

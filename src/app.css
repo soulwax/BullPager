@@ -2123,3 +2123,8 @@ small.over-wip { background: color-mix(in srgb, #ff9b7a 30%, transparent) !impor
 .project-card.card-aged-1:focus-visible, .project-card.card-aged-2:focus-visible, .project-card.card-aged-3:focus-visible {
   filter: none;
 }
+
+/* Inline apply-status next to a legend, for the settings page's background
+   picker — it applies immediately like the board's own appearance panel, so
+   its feedback sits right where the click happened rather than in a toast. */
+.field-status { margin-left: .5rem; color: var(--good-text, var(--good)); font-size: .68rem; font-weight: 700; text-transform: none; letter-spacing: 0; }
