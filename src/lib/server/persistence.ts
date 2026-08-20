@@ -574,11 +574,14 @@ async function renameLegacyPacketIds(projectSlug: string) {
   `;
 }
 
-export async function syncUnityPlannerCards(packets: Packet[], options: { sourceDigest?: string; actor?: string } = {}): Promise<number> {
+export async function syncUnityPlannerCards(packets: Packet[], options: { sourceDigest?: string; actor?: string; projectSlug?: string } = {}): Promise<number> {
   if (!databaseConfigured()) return 0;
   await ensureSchema();
   const database = requireDatabase();
-  const projectSlug = 'unity-plan';
+  // Defaults to the real board every production call site relies on; tests
+  // pass an isolated slug so WARD-04's coverage can run against the actual
+  // database without ever touching a real packet's card.
+  const projectSlug = options.projectSlug || 'unity-plan';
   await renameLegacyPacketIds(projectSlug);
   const owner = env.APP_LOGIN || 'superadmin';
   await database.insert(boardProjects).values({ slug: projectSlug, name: 'Unity implementation board', owner, visibility: 'private' }).onConflictDoNothing();
@@ -671,7 +674,19 @@ export async function syncUnityPlannerCards(packets: Packet[], options: { source
   const changedPacketIds: string[] = [];
   for (const packet of packets) {
     const lane = stateLane(packet.state);
-    const id = `unity-${packet.id.toLowerCase()}`;
+    // `board_project_cards.id` is a global text primary key, not scoped by
+    // (projectSlug, id) — every card_id-keyed table (tags, watchers,
+    // comments, activity) follows suit. That was safe while this function
+    // had exactly one caller, always `projectSlug: 'unity-plan'`. Now that
+    // WARD-04's own test suite calls it with an isolated slug, a bare
+    // `unity-${packet.id}` id would collide with the SAME id already used by
+    // the real production project — and onConflictDoNothing() would then
+    // silently no-op the insert while still reporting it as a change. The
+    // real project keeps its exact historical id format; any other slug gets
+    // one disambiguated by that slug, so two callers can never collide.
+    const id = projectSlug === 'unity-plan'
+      ? `unity-${packet.id.toLowerCase()}`
+      : `unity-${slugifyTag(projectSlug)}-${packet.id.toLowerCase()}`;
     const current = existing.get(id);
     // The item TEXT is source-owned; whether it is TICKED is board-owned.
     // Merge by item id so a completed handle survives an unrelated source
