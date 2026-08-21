@@ -127,6 +127,38 @@
     const response = await fetch('?/createEdge', { method: 'POST', body, headers: { accept: 'application/json' } });
     if (response.ok) { selectedNodeId = null; tool = 'select'; await invalidateAll(); }
   }
+  async function deleteSelected() {
+    if (selectedNodeId) {
+      if (!confirm('Remove this graph object?')) return;
+      const body = new FormData();
+      body.set('id', selectedNodeId);
+      body.set('revision', String(data.graph.settings.revision));
+      const response = await fetch('?/deleteNode', { method: 'POST', body, headers: { accept: 'application/json' } });
+      if (response.ok) { selectedNodeId = null; await invalidateAll(); }
+    } else if (selectedEdgeId) {
+      const body = new FormData();
+      body.set('id', selectedEdgeId);
+      body.set('revision', String(data.graph.settings.revision));
+      const response = await fetch('?/deleteEdge', { method: 'POST', body, headers: { accept: 'application/json' } });
+      if (response.ok) { selectedEdgeId = null; await invalidateAll(); }
+    }
+  }
+  // FigJam deletes the selection with Delete/Backspace and drops the current
+  // tool with Escape — both skipped while focus is in a text field so typing
+  // a title or a note body never gets hijacked.
+  function graphKeydown(event: KeyboardEvent) {
+    const tag = (event.target as HTMLElement | null)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (event.key === 'Escape') {
+      if (placing) { placing = null; return; }
+      if (selectedNodeId || selectedEdgeId) { selectedNodeId = null; selectedEdgeId = null; }
+      return;
+    }
+    if ((event.key === 'Delete' || event.key === 'Backspace') && data.canEdit && (selectedNodeId || selectedEdgeId)) {
+      event.preventDefault();
+      void deleteSelected();
+    }
+  }
   async function placeNode(kind: 'note' | 'group', x: number, y: number) {
     const body = new FormData();
     body.set('kind', kind);
@@ -170,6 +202,7 @@
 </script>
 
 <svelte:head><title>{data.project.name} · Graph mode</title></svelte:head>
+<svelte:window onkeydown={graphKeydown} />
 
 <main class={`graph-workspace graph-${data.graph.settings.background}`} {...chromeAttributes} style={chromeStyle}>
   <ProjectHeader project={data.project} active="graph" canEdit={data.canEdit} username={data.username} starred={data.starred} />
