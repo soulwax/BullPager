@@ -285,3 +285,28 @@ export type WikiRevision = {
   summary: string;
   createdAt: string;
 };
+
+export type SearchHitKind = 'card' | 'wiki' | 'file';
+
+/**
+ * One result from global search, from whichever pillar produced it.
+ *
+ * `href` is built server-side: each pillar owns how it is addressed, and the
+ * dropdown stays a dumb list rather than growing a routing table that has to
+ * be kept in step with four route shapes.
+ */
+export type SearchHit = {
+  kind: SearchHitKind;
+  id: string;
+  title: string;
+  href: string;
+  projectSlug: string;
+  projectName: string;
+  /** Where it lives: a lane, a wiki path, a folder. */
+  meta: string;
+  /** The match in context; plain text, never rendered as HTML. */
+  snippet: string;
+  archived: boolean;
+  /** Cards only, so the dropdown can show `#12`. */
+  cardNumber?: number;
+};

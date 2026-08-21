@@ -20,6 +20,9 @@
 /** Matches `[[Target]]` / `[[Target|Label]]`; neither part may contain `]`. */
 const LINK = /\[\[([^\]|]+?)(?:\|([^\]]*?))?\]\]/g;
 
+/** `[[#42]]` addresses a board card, not a wiki page. */
+const CARD_REF = /^#(\d{1,6})$/;
+
 /** Fenced blocks (``` or ~~~) and inline code spans, in source order. */
 const CODE = /(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g;
 
@@ -77,6 +80,11 @@ export function parseWikiLinks(body: string): WikiLink[] {
     for (const match of segment.text.matchAll(LINK)) {
       const target = match[1].trim();
       if (!target) continue;
+      // A card reference is a link out of the wiki, not a page in it. Without
+      // this, `[[#42]]` slugs to "42" and shows up as a page that ought to be
+      // written — on this page's link list *and* on the index's wanted-pages
+      // list, which is how it was first noticed.
+      if (CARD_REF.test(target)) continue;
       const slug = wikiSlug(target);
       if (!slug || found.has(slug)) continue;
       found.set(slug, { target, label: (match[2] ?? '').trim() || target, slug });
@@ -98,7 +106,13 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => E
  */
 export function renderWikiLinks(
   body: string,
-  options: { basePath: string; exists: (slug: string) => boolean }
+  options: {
+    basePath: string;
+    exists: (slug: string) => boolean;
+    /** Optional: resolves `[[#42]]` to a card on the same project's board. */
+    card?: (number: number) => ResolvedCard | null;
+    cardBasePath?: string;
+  }
 ): string {
   return segments(body)
     .map((segment) => {
@@ -106,6 +120,21 @@ export function renderWikiLinks(
       return segment.text.replace(LINK, (whole, rawTarget: string, rawLabel?: string) => {
         const target = rawTarget.trim();
         if (!target) return whole;
+
+        // `[[#42]]` crosses to the board rather than naming a wiki page, so it
+        // is resolved before the page lookup — otherwise "#42" would slug to
+        // "42" and offer to create a page with that name.
+        const cardRef = CARD_REF.exec(target);
+        if (cardRef && options.card && options.cardBasePath) {
+          const number = Number(cardRef[1]);
+          const card = options.card(number);
+          const shown = escapeHtml((rawLabel ?? '').trim() || (card ? card.title : target));
+          if (!card) {
+            return `<span class="wiki-card-link wiki-card-link-missing" title="No card #${number} on this board">${shown}</span>`;
+          }
+          return `<a class="wiki-card-link" href="${escapeHtml(`${options.cardBasePath}?card=${encodeURIComponent(card.id)}`)}" title="${escapeHtml(`${card.title} — ${card.lane}`)}"><span class="wiki-card-number">#${number}</span>${shown}</a>`;
+        }
+
         const slug = wikiSlug(target);
         if (!slug) return whole;
         const label = escapeHtml((rawLabel ?? '').trim() || target);
@@ -120,6 +149,40 @@ export function renderWikiLinks(
     })
     .join('');
 }
+
+/**
+ * `[[#42]]` references a board card by its number.
+ *
+ * The number is the handle a person already sees on every card front and in
+ * the card drawer's title, so it is the one identifier they can type from
+ * memory. A card id would be stable too, but nobody knows it; a card *title*
+ * changes and would rot the link.
+ *
+ * Deliberately the same `[[...]]` grammar as a page link: from the writer's
+ * side "link to the thing" is one gesture, and the leading `#` is what says
+ * which side of the project it lives on.
+ */
+
+export type CardRef = { number: number; label: string };
+
+/** Card numbers referenced from a body, in order, de-duplicated. */
+export function parseCardRefs(body: string): CardRef[] {
+  const found = new Map<number, CardRef>();
+  for (const segment of segments(body)) {
+    if (segment.code) continue;
+    for (const match of segment.text.matchAll(LINK)) {
+      const target = match[1].trim();
+      const ref = CARD_REF.exec(target);
+      if (!ref) continue;
+      const number = Number(ref[1]);
+      if (!Number.isFinite(number) || number <= 0 || found.has(number)) continue;
+      found.set(number, { number, label: (match[2] ?? '').trim() || target });
+    }
+  }
+  return [...found.values()];
+}
+
+export type ResolvedCard = { id: string; title: string; lane: string };
 
 export type WikiPageRef = { slug: string; title: string; body: string };
 

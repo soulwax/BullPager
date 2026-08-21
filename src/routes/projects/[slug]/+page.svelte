@@ -31,6 +31,7 @@
   import { invalidateAll } from "$app/navigation";
   import { marked } from "marked";
   import Archive from "@lucide/svelte/icons/archive";
+  import BookOpen from "@lucide/svelte/icons/book-open";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import Check from "@lucide/svelte/icons/check";
   import CheckCircle2 from "@lucide/svelte/icons/check-circle-2";
@@ -56,6 +57,8 @@
     form,
   }: {
     data: {
+      /** Wiki pages citing each card, keyed by card number. */
+      wikiRefs?: Record<number, { pageId: string; title: string }[]>;
       project: BoardProject;
       prefix: string;
       settings: Record<string, string>;
@@ -167,6 +170,10 @@
       }
     }, 250);
   }
+  // Wiki pages citing a card, keyed by card number in the load payload.
+  const wikiPagesFor = (cardNumber: number | undefined) =>
+    (cardNumber === undefined ? [] : (data.wikiRefs?.[cardNumber] ?? []));
+
   const isDefaultTag = (id: string) =>
     defaultProjectTags.some((tag) => tagId(data.project.slug, tag.slug) === id);
   let collapsed = $state<Record<string, boolean>>({});
@@ -2426,6 +2433,22 @@
             ><button type="submit">Add comment</button>
           </form>{/if}
       </section>
+      {#if wikiPagesFor(editingCard.cardNumber).length}
+        <!-- The reverse of a wiki's [[#42]]: a card shows the pages that cite
+             it, so context written in the wiki is reachable from the work
+             rather than only the other way round. -->
+        <section class="card-wiki-refs" aria-labelledby="card-wiki-title">
+          <div class="card-comments-heading">
+            <h3 id="card-wiki-title">Wiki</h3>
+            <span>{wikiPagesFor(editingCard.cardNumber).length}</span>
+          </div>
+          <ul>
+            {#each wikiPagesFor(editingCard.cardNumber) as ref (ref.pageId)}
+              <li><a href={`/projects/${data.project.slug}/wiki/${ref.pageId}`}><BookOpen /> {ref.title}</a></li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
       <section class="card-activity" aria-labelledby="card-activity-title">
         <div class="card-comments-heading">
           <h3 id="card-activity-title">Activity</h3>

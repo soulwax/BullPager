@@ -1212,6 +1212,32 @@ main[data-board-theme] > .page-intro { margin: -.1rem 0 .6rem; }
 }
 .wiki-link-missing:hover { text-decoration: none; border-bottom-style: solid; }
 
+/* A card reference is deliberately not styled like a page link: it leaves the
+   wiki for the board, so it reads as a chip carrying the card's own number. */
+/* The card drawer's wiki section: same rhythm as its comments and activity. */
+[data-board-theme] .card-wiki-refs ul { display: grid; gap: .28rem; padding: 0; margin: 0; list-style: none; }
+[data-board-theme] .card-wiki-refs a { display: inline-flex; align-items: center; gap: .35rem; color: var(--overlay-accent, var(--accent)); font-size: .78rem; text-decoration: none; }
+[data-board-theme] .card-wiki-refs a:hover { text-decoration: underline; text-underline-offset: .18rem; }
+[data-board-theme] .card-wiki-refs a :global(svg) { width: .85rem; height: .85rem; }
+
+.wiki-card-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .3rem;
+  padding: .05rem .4rem;
+  border: 1px solid var(--card-line);
+  border-radius: 99px;
+  color: var(--card-ink);
+  background: var(--card-fill);
+  font-size: .92em;
+  font-weight: 650;
+  text-decoration: none;
+}
+.wiki-card-link:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--card-line)); color: var(--overlay-accent, var(--accent)); }
+.wiki-card-number { color: var(--card-ink-faint); font-variant-numeric: tabular-nums; font-weight: 800; }
+/* A reference to a card that no longer exists is inert, not a dead link. */
+.wiki-card-link-missing { color: var(--card-ink-faint); border-style: dashed; cursor: default; }
+
 .wiki-editor { display: grid; gap: .6rem; }
 .wiki-editor label { display: grid; gap: .25rem; color: var(--card-ink-soft); font-size: .72rem; font-weight: 700; }
 .wiki-editor input, .wiki-editor textarea {

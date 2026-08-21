@@ -1611,6 +1611,15 @@ small.over-wip { color: #ff9b7a; font-weight: 700; }
 .nav-search-card-title { font-size: .84rem; font-weight: 700; }
 .nav-search-archived { margin-left: .4rem; padding: .05rem .35rem; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: .6rem; font-weight: 700; text-transform: uppercase; }
 .nav-search-card-meta { color: var(--muted); font-size: .68rem; }
+/* Global search now spans three pillars, so each hit says which one it came
+   from — an icon plus a group heading — and carries the matched line. */
+.nav-search-group { padding: .45rem .6rem .15rem; margin: 0; color: var(--muted); font-size: .6rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.nav-search-group:first-child { padding-top: .2rem; }
+.nav-search-results a { grid-template-columns: 1.1rem minmax(0, 1fr); column-gap: .45rem; align-items: start; }
+.nav-search-kind { display: grid; place-items: center; grid-row: 1 / span 3; margin-top: .1rem; color: var(--muted); }
+.nav-search-kind :global(svg) { width: .9rem; height: .9rem; }
+.nav-search-snippet { overflow: hidden; color: var(--ink-soft); font-size: .68rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.nav-search-card-number { margin-right: .3rem; }
 .nav-search-status { margin: 0; padding: .6rem; color: var(--muted); font-size: .78rem; text-align: center; }
 @media (max-width: 900px) { .nav-search { display: none; } }
 

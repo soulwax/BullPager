@@ -5,12 +5,13 @@ import {
   getWikiPage,
   listStarredProjectSlugs,
   listWikiPages,
+  listProjectCards,
   listWikiRevisions,
   recordProjectActivity,
   saveWikiPage
 } from '$lib/server/persistence';
 import { loadProjectChrome } from '$lib/server/projectChrome';
-import { backlinksFor, parseWikiLinks } from '$lib/wikiLinks';
+import { backlinksFor, parseCardRefs, parseWikiLinks } from '$lib/wikiLinks';
 import { isValidPageId } from '$lib/wikiFiles';
 
 const canEdit = (role: string | undefined) => ['superadmin', 'admin', 'editor'].includes(role ?? '');
@@ -23,12 +24,23 @@ export async function load({ params, locals }) {
   // to write it. Send the reader to the composer with the title filled in.
   if (!page) throw redirect(303, `/projects/${params.slug}/wiki?new=${encodeURIComponent(params.page)}`);
 
-  const [pages, revisions, starred, chrome] = await Promise.all([
+  const [pages, revisions, starred, chrome, cards] = await Promise.all([
     listWikiPages(params.slug),
     listWikiRevisions(page.path),
     listStarredProjectSlugs(locals.username ?? ''),
-    loadProjectChrome(params.slug)
+    loadProjectChrome(params.slug),
+    listProjectCards(params.slug)
   ]);
+
+  // `[[#42]]` reaches across to the board. Only the referenced cards travel in
+  // the payload — the page needs a few titles, not the whole board.
+  const byNumber = new Map(cards.map((card) => [card.cardNumber, card]));
+  const referencedCards = parseCardRefs(page.body).map((ref) => {
+    const card = byNumber.get(ref.number);
+    return card
+      ? { number: ref.number, id: card.id, title: card.title, lane: card.lane, archived: card.archived }
+      : { number: ref.number, id: '', title: '', lane: '', archived: false };
+  });
 
   return {
     project,
@@ -41,6 +53,7 @@ export async function load({ params, locals }) {
       page.pageId
     ).map((entry) => ({ pageId: entry.slug, title: entry.title })),
     revisions,
+    referencedCards,
     canEdit: canEdit(locals.role),
     username: locals.username ?? '',
     starred: starred.has(params.slug),

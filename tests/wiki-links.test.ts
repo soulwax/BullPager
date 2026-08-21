@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   backlinksFor,
+  parseCardRefs,
   isValidWikiSlug,
   missingPages,
   parseWikiLinks,
@@ -70,6 +71,12 @@ describe('parseWikiLinks', () => {
 
   it('skips an empty target rather than emitting a link to nowhere', () => {
     expect(parseWikiLinks('[[   ]] and [[|label]]')).toEqual([]);
+  });
+
+  it('does not treat a card reference as a page link', () => {
+    // Otherwise `[[#42]]` slugs to "42" and is reported as a page that should
+    // be written, both here and in the index's wanted-pages list.
+    expect(parseWikiLinks('[[#42]] and [[Runbook]]').map((link) => link.slug)).toEqual(['runbook']);
   });
 });
 
@@ -145,6 +152,11 @@ describe('missingPages', () => {
     expect(missing[0].from).toEqual(['a', 'b']);
   });
 
+  it('never asks anyone to write a page for a card reference', () => {
+    const pages = [{ slug: 'a', title: 'A', body: 'Blocked by [[#42]] and [[#9999|gone]].' }];
+    expect(missingPages(pages)).toEqual([]);
+  });
+
   it('says nothing is missing when every link resolves', () => {
     const pages = [
       { slug: 'a', title: 'A', body: '[[B]]' },
@@ -170,5 +182,76 @@ describe('wikiExcerpt', () => {
   it('truncates with an ellipsis and returns empty for an empty page', () => {
     expect(wikiExcerpt('x'.repeat(300))).toHaveLength(160);
     expect(wikiExcerpt('   \n\n  ')).toBe('');
+  });
+});
+
+const renderWithCards = (body: string, cards: Record<number, { id: string; title: string; lane: string }>) =>
+  renderWikiLinks(body, {
+    basePath: '/projects/demo/wiki',
+    cardBasePath: '/projects/demo',
+    exists: () => false,
+    card: (number) => cards[number] ?? null
+  });
+
+describe('parseCardRefs', () => {
+  it('reads a board card reference written as [[#42]]', () => {
+    expect(parseCardRefs('Blocked by [[#42]].')).toEqual([{ number: 42, label: '#42' }]);
+  });
+
+  it('keeps a label when one is given', () => {
+    expect(parseCardRefs('[[#7|the import packet]]')).toEqual([{ number: 7, label: 'the import packet' }]);
+  });
+
+  it('de-duplicates repeated references to one card', () => {
+    expect(parseCardRefs('[[#3]] and later [[#3|again]]')).toHaveLength(1);
+  });
+
+  it('is not confused by an ordinary page link', () => {
+    expect(parseCardRefs('[[Runbook]] and [[#5]]').map((ref) => ref.number)).toEqual([5]);
+  });
+
+  it('ignores references inside code, like every other link', () => {
+    expect(parseCardRefs('```\n[[#9]]\n```')).toEqual([]);
+  });
+
+  it('rejects a non-number and a zero', () => {
+    expect(parseCardRefs('[[#abc]] [[#0]] [[#]]')).toEqual([]);
+  });
+});
+
+describe('rendering card references', () => {
+  const cards = { 42: { id: 'card-42', title: 'Build the importer', lane: 'In progress' } };
+
+  it('links a known card to its drawer on the board', () => {
+    const html = renderWithCards('See [[#42]].', cards);
+    expect(html).toContain('href="/projects/demo?card=card-42"');
+    expect(html).toContain('Build the importer');
+    expect(html).toContain('wiki-card-number');
+  });
+
+  it('shows the card title rather than the raw number', () => {
+    expect(renderWithCards('[[#42]]', cards)).toContain('>Build the importer</a>');
+  });
+
+  it('prefers an explicit label over the card title', () => {
+    expect(renderWithCards('[[#42|that packet]]', cards)).toContain('>that packet</a>');
+  });
+
+  it('renders a reference to a card that does not exist as inert, not as a broken page link', () => {
+    const html = renderWithCards('[[#99]]', cards);
+    expect(html).toContain('wiki-card-link-missing');
+    expect(html).not.toContain('<a');
+    expect(html).not.toContain('wiki?new=');
+  });
+
+  it('escapes the card title, which is user-supplied', () => {
+    const html = renderWithCards('[[#1]]', { 1: { id: 'c1', title: '<img src=x onerror=alert(1)>', lane: 'Todo' } });
+    expect(html).not.toContain('<img');
+    expect(html).toContain('&lt;img');
+  });
+
+  it('falls back to a plain page link when no card resolver is supplied', () => {
+    const html = renderWikiLinks('[[#42]]', { basePath: '/projects/demo/wiki', exists: () => false });
+    expect(html).toContain('wiki-link-missing');
   });
 });

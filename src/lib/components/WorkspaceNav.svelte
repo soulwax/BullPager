@@ -4,8 +4,10 @@
   import MoreHorizontal from "@lucide/svelte/icons/more-horizontal";
   import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
+  import BookOpen from "@lucide/svelte/icons/book-open";
+  import Cloud from "@lucide/svelte/icons/cloud";
   import Avatar from "$lib/components/Avatar.svelte";
-  import type { SearchCardResult, UserRole } from "$lib/types";
+  import type { SearchHit, SearchHitKind, UserRole } from "$lib/types";
 
   let { username = "", role }: { username?: string; role?: UserRole } =
     $props();
@@ -16,7 +18,7 @@
   const isActive = (path: string) => page.url.pathname.startsWith(path);
 
   let query = $state("");
-  let results = $state<SearchCardResult[]>([]);
+  let results = $state<SearchHit[]>([]);
   let open = $state(false);
   let searching = $state(false);
   let activeIndex = $state(-1);
@@ -31,7 +33,7 @@
     searching = true;
     try {
       const response = await fetch(`/search?q=${encodeURIComponent(value)}`);
-      const body = (await response.json()) as { results?: SearchCardResult[] };
+      const body = (await response.json()) as { results?: SearchHit[] };
       results = body.results ?? [];
       open = true;
       activeIndex = -1;
@@ -52,9 +54,21 @@
     activeIndex = -1;
   }
 
-  function resultHref(result: SearchCardResult) {
-    return `/projects/${result.projectSlug}?card=${encodeURIComponent(result.cardId)}`;
-  }
+  // Grouping is presentational only: `results` stays one flat, ordered list so
+  // arrow-key navigation and `activeIndex` keep working across the groups.
+  const GROUP_LABELS: Record<SearchHitKind, string> = {
+    card: "Cards",
+    wiki: "Wiki",
+    file: "Files",
+  };
+  const GROUP_ORDER: SearchHitKind[] = ["card", "wiki", "file"];
+  const groups = $derived(
+    GROUP_ORDER.map((kind) => ({
+      kind,
+      label: GROUP_LABELS[kind],
+      hits: results.filter((hit) => hit.kind === kind),
+    })).filter((group) => group.hits.length > 0),
+  );
 
   function onKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
@@ -71,7 +85,7 @@
       activeIndex = Math.max(activeIndex - 1, 0);
     } else if (event.key === "Enter" && activeIndex >= 0) {
       event.preventDefault();
-      window.location.href = resultHref(results[activeIndex]);
+      window.location.href = results[activeIndex].href;
     }
   }
 </script>
@@ -119,8 +133,8 @@
         onfocus={() => {
           if (results.length) open = true;
         }}
-        placeholder="Search all boards"
-        aria-label="Search cards across every board"
+        placeholder="Search cards, wiki, and files"
+        aria-label="Search cards, wiki pages, and files across every board"
         aria-expanded={open}
         role="combobox"
         aria-controls="nav-search-results"
@@ -129,33 +143,43 @@
         <div id="nav-search-results" class="nav-search-results" role="listbox">
           {#if searching}<p class="nav-search-status">Searching…</p>
           {:else if results.length}
-            <ol>
-              {#each results as result, index (result.cardId)}
-                <li role="option" aria-selected={index === activeIndex}>
-                  <a
-                    href={resultHref(result)}
-                    class:active={index === activeIndex}
-                    onmouseenter={() => {
-                      activeIndex = index;
-                    }}
-                  >
-                    <span class="nav-search-card-number"
-                      >#{result.cardNumber}</span
+            {#each groups as group (group.kind)}
+              <p class="nav-search-group">{group.label}</p>
+              <ol>
+                {#each group.hits as hit (hit.kind + hit.id)}
+                  {@const index = results.indexOf(hit)}
+                  <li role="option" aria-selected={index === activeIndex}>
+                    <a
+                      href={hit.href}
+                      class:active={index === activeIndex}
+                      onmouseenter={() => {
+                        activeIndex = index;
+                      }}
                     >
-                    <span class="nav-search-card-title"
-                      >{result.title}{#if result.archived}<span
-                          class="nav-search-archived">Archived</span
-                        >{/if}</span
-                    >
-                    <span class="nav-search-card-meta"
-                      >{result.projectName} · {result.lane}</span
-                    >
-                  </a>
-                </li>
-              {/each}
-            </ol>
+                      <span class="nav-search-kind" aria-hidden="true">
+                        {#if hit.kind === "card"}<LayoutGrid />{:else if hit.kind === "wiki"}<BookOpen
+                          />{:else}<Cloud />{/if}
+                      </span>
+                      <span class="nav-search-card-title"
+                        >{#if hit.kind === "card"}<span
+                            class="nav-search-card-number">#{hit.cardNumber}</span
+                          >{/if}{hit.title}{#if hit.archived}<span
+                            class="nav-search-archived">Archived</span
+                          >{/if}</span
+                      >
+                      {#if hit.snippet}<span class="nav-search-snippet"
+                          >{hit.snippet}</span
+                        >{/if}
+                      <span class="nav-search-card-meta"
+                        >{hit.projectName} · {hit.meta}</span
+                      >
+                    </a>
+                  </li>
+                {/each}
+              </ol>
+            {/each}
           {:else}
-            <p class="nav-search-status">No cards match “{query}”.</p>
+            <p class="nav-search-status">Nothing matches “{query}”.</p>
           {/if}
         </div>
       {/if}

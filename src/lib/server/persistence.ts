@@ -1,9 +1,11 @@
 import { and, desc, eq, gte, ilike, inArray, lt, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, SearchCardResult, TransitionRecord, UserRole, WikiPage, WikiRevision } from '$lib/types';
+import type { BoardProject, BoardUser, GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphSettings, Packet, PacketNote, PacketState, ProjectActivity, ProjectCard, ProjectCardAttachment, ProjectChecklistItem, ProjectComment, ProjectFile, ProjectFolder, ProjectTag, ProjectViewState, SearchCardResult, SearchHit, TransitionRecord, UserRole, WikiPage, WikiRevision } from '$lib/types';
 import { defaultProjectTags, slugifyTag, tagColors, tagId, tagPalette } from '$lib/projectTags';
-import { isValidPageId, pageIdFromPath, parseWikiFile, serializeWikiFile, titleFor, wikiPathFor } from '$lib/wikiFiles';
+import { isValidPageId, pageIdFromPath, parseWikiFile, serializeWikiFile, titleFor, wikiPathFor, WIKI_ROOT } from '$lib/wikiFiles';
+import { snippetAround } from '$lib/searchSnippet';
+import { parseCardRefs } from '$lib/wikiLinks';
 import { databaseConfigured, db, neonClient } from './db';
 import { cacheDelete, cached } from './cache';
 import { boardProjectActivity, boardProjectCardAttachments, boardProjectCardTags, boardProjectCards, boardProjectCardWatchers, boardProjectComments, boardProjectFiles, boardProjectFolders, boardProjectGraphEdges, boardProjectWikiRevisions, boardProjectGraphNodes, boardProjectGraphs, boardProjectStars, boardProjectTags, boardProjectViews, boardProjects, boardSessions, boardSettings, boardUsers, loginAttempts, packetNotes, packetTransitions } from './db/schema';
@@ -500,6 +502,138 @@ export async function searchProjectCards(query: string, limit = 20): Promise<Sea
     .orderBy(boardProjectCards.archived, desc(boardProjectCards.updatedAt))
     .limit(Math.min(Math.max(1, limit), 50));
   return rows.map((row) => ({ ...row, cardNumber: row.cardNumber ?? 0 }));
+}
+
+/**
+ * Global search across every pillar: board cards, wiki pages, and cloud files.
+ *
+ * Three separate queries rather than one SQL union, because the three rank and
+ * shape differently and a union would have to flatten them into a lowest
+ * common denominator anyway. They run concurrently, so the cost is one round
+ * trip, and the endpoint caches the whole thing in Redis.
+ *
+ * Wiki pages and files come from the same table — a wiki page *is* a file at
+ * `wiki/**.md` — so the file query excludes that prefix. Without it every wiki
+ * page would appear twice, once under each heading.
+ */
+/**
+ * Four per kind, not more: the point of a cross-pillar search is seeing that a
+ * word appears in the wiki *and* on a card. A generous card limit pushes the
+ * other two groups below the fold and quietly restores the card-only search
+ * this replaced.
+ */
+export async function searchProjectContent(query: string, limitPerKind = 4): Promise<SearchHit[]> {
+  if (!databaseConfigured()) return [];
+  const clean = query.trim();
+  if (clean.length < 2) return [];
+  await ensureSchema();
+  const pattern = `%${clean.replace(/[%_\\]/g, (match) => `\\${match}`)}%`;
+  const database = requireDatabase();
+  const take = Math.min(Math.max(1, limitPerKind), 20);
+  const wikiPrefix = `${WIKI_ROOT}/%`;
+
+  const [cards, files] = await Promise.all([
+    database
+      .select({
+        id: boardProjectCards.id,
+        cardNumber: boardProjectCards.cardNumber,
+        title: boardProjectCards.title,
+        details: boardProjectCards.details,
+        lane: boardProjectCards.lane,
+        archived: boardProjectCards.archived,
+        projectSlug: boardProjectCards.projectSlug,
+        projectName: boardProjects.name
+      })
+      .from(boardProjectCards)
+      .innerJoin(boardProjects, eq(boardProjects.slug, boardProjectCards.projectSlug))
+      .where(or(ilike(boardProjectCards.title, pattern), ilike(boardProjectCards.details, pattern)))
+      .orderBy(boardProjectCards.archived, desc(boardProjectCards.updatedAt))
+      .limit(take),
+    database
+      .select({
+        id: boardProjectFiles.id,
+        path: boardProjectFiles.path,
+        content: boardProjectFiles.content,
+        mimeType: boardProjectFiles.mimeType,
+        projectSlug: boardProjectFiles.projectSlug,
+        projectName: boardProjects.name
+      })
+      .from(boardProjectFiles)
+      .innerJoin(boardProjects, eq(boardProjects.slug, boardProjectFiles.projectSlug))
+      .where(or(ilike(boardProjectFiles.path, pattern), ilike(boardProjectFiles.content, pattern)))
+      .orderBy(desc(boardProjectFiles.updatedAt))
+      .limit(take * 3)
+  ]);
+
+  const hits: SearchHit[] = cards.map((row) => ({
+    kind: 'card' as const,
+    id: row.id,
+    cardNumber: row.cardNumber ?? 0,
+    title: row.title,
+    href: `/projects/${row.projectSlug}?card=${encodeURIComponent(row.id)}`,
+    projectSlug: row.projectSlug,
+    projectName: row.projectName,
+    meta: row.lane,
+    snippet: snippetAround(row.details ?? '', clean),
+    archived: row.archived
+  }));
+
+  const wiki: SearchHit[] = [];
+  const plain: SearchHit[] = [];
+  for (const row of files) {
+    const pageId = pageIdFromPath(row.path);
+    if (pageId) {
+      const { meta, body } = parseWikiFile(row.content);
+      wiki.push({
+        kind: 'wiki',
+        id: row.id,
+        title: titleFor(pageId, meta, body),
+        href: `/projects/${row.projectSlug}/wiki/${pageId}`,
+        projectSlug: row.projectSlug,
+        projectName: row.projectName,
+        meta: row.path,
+        snippet: snippetAround(body, clean),
+        archived: false
+      });
+    } else {
+      plain.push({
+        kind: 'file',
+        id: row.id,
+        title: row.path.split('/').pop() ?? row.path,
+        href: `/projects/${row.projectSlug}/files?file=${encodeURIComponent(row.path)}`,
+        projectSlug: row.projectSlug,
+        projectName: row.projectName,
+        meta: row.path,
+        // A binary file has no readable content; its path is the only context.
+        snippet: row.mimeType.startsWith('text/') ? snippetAround(row.content, clean) : row.mimeType,
+        archived: false
+      });
+    }
+  }
+
+  return [...hits, ...wiki.slice(0, take), ...plain.slice(0, take)];
+}
+
+/**
+ * Which wiki pages cite which card, for one project.
+ *
+ * Returned as a map keyed by card number so the board can look up any card in
+ * one pass — computing this per open card would re-read and re-parse the whole
+ * wiki every time the drawer opens.
+ *
+ * The wiki is small (tens of pages) and already in the file table, so parsing
+ * it on demand is cheaper than maintaining a link index that could drift out
+ * of step with the files people edit directly in the cloud.
+ */
+export async function wikiCardReferences(projectSlug: string): Promise<Record<number, { pageId: string; title: string }[]>> {
+  const pages = await listWikiPages(projectSlug);
+  const byCard: Record<number, { pageId: string; title: string }[]> = {};
+  for (const page of pages) {
+    for (const ref of parseCardRefs(page.body)) {
+      (byCard[ref.number] ??= []).push({ pageId: page.pageId, title: page.title });
+    }
+  }
+  return byCard;
 }
 
 export async function getBoardProject(slug: string): Promise<BoardProject | null> {

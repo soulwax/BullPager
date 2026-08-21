@@ -9,6 +9,7 @@
   import ProjectHeader from '$lib/components/ProjectHeader.svelte';
   import History from '@lucide/svelte/icons/history';
   import Link2 from '@lucide/svelte/icons/link-2';
+  import LayoutGrid from '@lucide/svelte/icons/layout-grid';
   import Pencil from '@lucide/svelte/icons/pencil';
   import Pin from '@lucide/svelte/icons/pin';
   import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -21,6 +22,7 @@
       outgoing: WikiLink[];
       backlinks: { pageId: string; title: string }[];
       revisions: WikiRevision[];
+      referencedCards: { number: number; id: string; title: string; lane: string; archived: boolean }[];
       canEdit: boolean;
       username: string;
       starred: boolean;
@@ -73,7 +75,14 @@
     if (!sanitize) return '';
     const withLinks = renderWikiLinks(data.page.body, {
       basePath: `/projects/${data.project.slug}/wiki`,
-      exists: (slug) => known.has(slug)
+      cardBasePath: `/projects/${data.project.slug}`,
+      exists: (slug) => known.has(slug),
+      // `[[#42]]` opens the card drawer on the board rather than offering to
+      // create a wiki page called "42".
+      card: (number) => {
+        const hit = data.referencedCards.find((entry) => entry.number === number && entry.id);
+        return hit ? { id: hit.id, title: hit.title, lane: hit.lane } : null;
+      }
     });
     return sanitize(marked.parse(withLinks, { breaks: true, gfm: true }) as string);
   });
@@ -139,7 +148,7 @@
         </p>
       </header>
       {#if data.page.body.trim()}
-        <div class="wiki-body markdown-preview-block">{@html rendered}</div>
+        <div class="wiki-body">{@html rendered}</div>
       {:else}
         <p class="empty">This page is empty. {#if data.canEdit}Use <strong>Edit</strong> to write it.{/if}</p>
       {/if}
@@ -161,9 +170,30 @@
           {/each}
         </ul>
       {:else}
-        <p class="empty">None yet. Write <code>[[a page name]]</code> to link one.</p>
+        <p class="empty">None yet. Write <code>[[a page name]]</code> to link a page, or <code>[[#12]]</code> to link a card.</p>
       {/if}
     </section>
+
+    {#if data.referencedCards.length}
+      <section>
+        <h2><LayoutGrid /> Cards referenced</h2>
+        <ul class="wiki-link-list">
+          {#each data.referencedCards as ref (ref.number)}
+            <li>
+              {#if ref.id}
+                <a class="wiki-card-link" href={`/projects/${data.project.slug}?card=${encodeURIComponent(ref.id)}`}>
+                  <span class="wiki-card-number">#{ref.number}</span>{ref.title}
+                </a>
+              {:else}
+                <span class="wiki-card-link wiki-card-link-missing">
+                  <span class="wiki-card-number">#{ref.number}</span>no such card
+                </span>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
 
     <section>
       <h2><Link2 /> Pages linking here</h2>
