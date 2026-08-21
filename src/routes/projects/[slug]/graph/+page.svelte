@@ -3,6 +3,8 @@
   import { projectBackground } from '$lib/projectBackgrounds';
 
   import { invalidateAll } from '$app/navigation';
+  import { page } from '$app/state';
+  import { untrack } from 'svelte';
   import type { GraphEdge, GraphNode, GraphNodeKind } from '$lib/types';
   import { edgeAnchor } from '$lib/graphGeometry';
   import ProjectHeader from '$lib/components/ProjectHeader.svelte';
@@ -32,6 +34,34 @@
   let placing = $state<'note' | 'group' | null>(null);
   let showCreate = $state(false);
   let showStyleRules = $state(false);
+  // A graph node had no address of its own: selection lived only in local
+  // state, so nothing could link to one — not global search, not a wiki page,
+  // not a message to a colleague. `?node=<id>` gives every node a URL.
+  const requestedNodeId = $derived(page.url.searchParams.get('node'));
+  let focusedNodeId = $state<string | null>(null);
+
+  function centreOnNode(node: GraphNode) {
+    // Canvas space is the fixed 1600x900 viewBox, not client pixels, so the
+    // middle is a constant and this stays correct at any window size.
+    panX = 800 - (node.x + node.width / 2) * zoom;
+    panY = 450 - (node.y + node.height / 2) * zoom;
+  }
+
+  $effect(() => {
+    const wanted = requestedNodeId;
+    // Re-centre only when the request changes, so a later pan is not yanked
+    // back to the node on every unrelated state update.
+    if (!wanted || wanted === focusedNodeId) return;
+    const node = data.graph.nodes.find((entry) => entry.id === wanted);
+    if (!node) return;
+    focusedNodeId = wanted;
+    untrack(() => {
+      selectedNodeId = wanted;
+      selectedEdgeId = null;
+      centreOnNode(node);
+    });
+  });
+
   let zoom = $state(1);
   let panX = $state(0);
   let panY = $state(0);

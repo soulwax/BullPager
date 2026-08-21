@@ -6,6 +6,7 @@
   import Search from "@lucide/svelte/icons/search";
   import BookOpen from "@lucide/svelte/icons/book-open";
   import Cloud from "@lucide/svelte/icons/cloud";
+  import Share2 from "@lucide/svelte/icons/share-2";
   import Avatar from "$lib/components/Avatar.svelte";
   import type { SearchHit, SearchHitKind, UserRole } from "$lib/types";
 
@@ -59,9 +60,13 @@
   const GROUP_LABELS: Record<SearchHitKind, string> = {
     card: "Cards",
     wiki: "Wiki",
+    graph: "Graph",
     file: "Files",
   };
-  const GROUP_ORDER: SearchHitKind[] = ["card", "wiki", "file"];
+  // Ordered by how specific an answer the pillar usually gives, not
+  // alphabetically: a card or a page answers a question, a file often just
+  // contains the word.
+  const GROUP_ORDER: SearchHitKind[] = ["card", "wiki", "graph", "file"];
   const groups = $derived(
     GROUP_ORDER.map((kind) => ({
       kind,
@@ -158,7 +163,7 @@
                     >
                       <span class="nav-search-kind" aria-hidden="true">
                         {#if hit.kind === "card"}<LayoutGrid />{:else if hit.kind === "wiki"}<BookOpen
-                          />{:else}<Cloud />{/if}
+                          />{:else if hit.kind === "graph"}<Share2 />{:else}<Cloud />{/if}
                       </span>
                       <span class="nav-search-card-title"
                         >{#if hit.kind === "card"}<span

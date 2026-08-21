@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { createBoardProject, getBoardProject, loadBoardSettings, saveBoardSettings } from '$lib/server/persistence';
+import { createBoardProject, getBoardProject, loadBoardSettings, saveBoardSettings, saveWikiPage } from '$lib/server/persistence';
+import { wikiSeedFor } from '$lib/wikiScaffold';
 import { projectTemplates, templateById } from '$lib/projectTemplates';
 
 function canCreate(role: string | undefined) {
@@ -56,6 +57,28 @@ export const actions = {
     } catch {
       return fail(409, { error: 'The project could not be created. Try a different slug.', name, slug, templateId });
     }
+
+    // Seed the wiki after the project exists, and never let it fail the
+    // creation: a project with an empty wiki is a working project, whereas
+    // rejecting the whole creation because a starter page did not write would
+    // be a bad trade. Sequential rather than parallel — the file store is
+    // unique on (slug, path) and these share a project.
+    for (const page of wikiSeedFor(template.id, name)) {
+      try {
+        await saveWikiPage({
+          projectSlug: slug,
+          pageId: page.id,
+          title: page.title,
+          body: page.body,
+          editor: owner,
+          summary: 'Created with the project',
+          pinned: page.pinned
+        });
+      } catch {
+        break;
+      }
+    }
+
     throw redirect(303, `/projects/${slug}?created=1`);
   }
 };

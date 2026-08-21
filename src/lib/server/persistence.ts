@@ -532,7 +532,7 @@ export async function searchProjectContent(query: string, limitPerKind = 4): Pro
   const take = Math.min(Math.max(1, limitPerKind), 20);
   const wikiPrefix = `${WIKI_ROOT}/%`;
 
-  const [cards, files] = await Promise.all([
+  const [cards, files, nodes] = await Promise.all([
     database
       .select({
         id: boardProjectCards.id,
@@ -562,7 +562,20 @@ export async function searchProjectContent(query: string, limitPerKind = 4): Pro
       .innerJoin(boardProjects, eq(boardProjects.slug, boardProjectFiles.projectSlug))
       .where(or(ilike(boardProjectFiles.path, pattern), ilike(boardProjectFiles.content, pattern)))
       .orderBy(desc(boardProjectFiles.updatedAt))
-      .limit(take * 3)
+      .limit(take * 3),
+    database
+      .select({
+        id: boardProjectGraphNodes.id,
+        kind: boardProjectGraphNodes.kind,
+        title: boardProjectGraphNodes.title,
+        body: boardProjectGraphNodes.body,
+        projectSlug: boardProjectGraphNodes.projectSlug,
+        projectName: boardProjects.name
+      })
+      .from(boardProjectGraphNodes)
+      .innerJoin(boardProjects, eq(boardProjects.slug, boardProjectGraphNodes.projectSlug))
+      .where(or(ilike(boardProjectGraphNodes.title, pattern), ilike(boardProjectGraphNodes.body, pattern)))
+      .limit(take)
   ]);
 
   const hits: SearchHit[] = cards.map((row) => ({
@@ -611,7 +624,19 @@ export async function searchProjectContent(query: string, limitPerKind = 4): Pro
     }
   }
 
-  return [...hits, ...wiki.slice(0, take), ...plain.slice(0, take)];
+  const graph: SearchHit[] = nodes.map((row) => ({
+    kind: 'graph' as const,
+    id: row.id,
+    title: row.title,
+    href: `/projects/${row.projectSlug}/graph?node=${encodeURIComponent(row.id)}`,
+    projectSlug: row.projectSlug,
+    projectName: row.projectName,
+    meta: row.kind,
+    snippet: snippetAround(row.body, clean),
+    archived: false
+  }));
+
+  return [...hits, ...wiki.slice(0, take), ...graph, ...plain.slice(0, take)];
 }
 
 /**

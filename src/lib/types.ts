@@ -286,7 +286,7 @@ export type WikiRevision = {
   createdAt: string;
 };
 
-export type SearchHitKind = 'card' | 'wiki' | 'file';
+export type SearchHitKind = 'card' | 'wiki' | 'file' | 'graph';
 
 /**
  * One result from global search, from whichever pillar produced it.

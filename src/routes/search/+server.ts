@@ -18,11 +18,11 @@ export async function GET({ url, locals }) {
   if (query.length < 2) return json({ results: [] });
   // Results are identical for every signed-in user (search spans all boards),
   // so the key deliberately excludes the username rather than fragmenting the
-  // cache per person for no difference in output. The `v2` segment retires
-  // entries cached when this returned cards only — a shape change has to
+  // cache per person for no difference in output. The version segment retires
+  // entries cached under an older result shape — adding a pillar has to
   // invalidate, or a warm cache serves the old shape into the new UI.
   const results = await cached(
-    `search:v2:${query.toLowerCase()}`,
+    `search:v3:${query.toLowerCase()}`,
     SEARCH_TTL_SECONDS,
     () => searchProjectContent(query)
   );
