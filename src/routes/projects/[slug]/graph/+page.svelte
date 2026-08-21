@@ -37,6 +37,10 @@
   let panY = $state(0);
   let drag: { id: string; startX: number; startY: number; nodeX: number; nodeY: number } | null = null;
   let resizing: { id: string; startX: number; startY: number; nodeWidth: number; nodeHeight: number } | null = null;
+  // Double-click a node's title to rename it in place, FigJam-style, instead
+  // of opening the full inspector form for a one-field change.
+  let renamingNodeId = $state<string | null>(null);
+  let renameDraft = $state('');
   let panning: { startX: number; startY: number; panX: number; panY: number } | null = null;
   const selectedNode = $derived(data.graph.nodes.find((node) => node.id === selectedNodeId) ?? null);
   const selectedEdge = $derived(data.graph.edges.find((edge) => edge.id === selectedEdgeId) ?? null);
@@ -76,6 +80,34 @@
     if (!data.canEdit) return;
     const p = point(event);
     resizing = { id: node.id, startX: p.x, startY: p.y, nodeWidth: node.width, nodeHeight: node.height };
+  }
+  function startRename(node: GraphNode, event: MouseEvent) {
+    event.stopPropagation();
+    if (!data.canEdit) return;
+    selectedNodeId = node.id;
+    renameDraft = node.title;
+    renamingNodeId = node.id;
+  }
+  async function commitRename(node: GraphNode) {
+    const title = renameDraft.trim();
+    renamingNodeId = null;
+    if (!title || title === node.title) return;
+    const body = new FormData();
+    body.set('id', node.id);
+    body.set('revision', String(data.graph.settings.revision));
+    body.set('title', title);
+    // updateNode replaces the whole object, so a rename has to resend the
+    // fields it isn't touching — otherwise the body, color, and collapsed
+    // state would silently reset to their form defaults.
+    body.set('body', node.body ?? '');
+    body.set('color', node.color);
+    body.set('collapsed', String(node.collapsed));
+    const response = await fetch('?/updateNode', { method: 'POST', body, headers: { accept: 'application/json' } });
+    if (response.ok) await invalidateAll();
+  }
+  function focusAndSelect(input: HTMLInputElement) {
+    input.focus();
+    input.select();
   }
   async function canvasDown(event: PointerEvent) {
     if ((event.target as Element)?.tagName !== 'svg') return;
@@ -234,7 +266,7 @@
           {#if source && target}{@const sourceCenter = { x: source.x + source.width / 2, y: source.y + source.height / 2 }}{@const targetCenter = { x: target.x + target.width / 2, y: target.y + target.height / 2 }}{@const from = edgeAnchor(source, targetCenter.x, targetCenter.y)}{@const to = edgeAnchor(target, sourceCenter.x, sourceCenter.y)}<line class:selected={selectedEdgeId === edge.id} class="graph-edge" role="button" tabindex="0" aria-label={`${edge.kind.replace('_', ' ')} connection`} x1={from.x} y1={from.y} x2={to.x} y2={to.y} marker-end="url(#graph-arrow)" onclick={(event) => { event.stopPropagation(); selectedEdgeId = edge.id; selectedNodeId = null; }} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { selectedEdgeId = edge.id; selectedNodeId = null; } }} /><text class="graph-edge-label" x={(from.x + to.x) / 2} y={(from.y + to.y) / 2}>{edge.label || edge.kind.replace('_', ' ')}</text>{/if}
         {/each}
         {#each activeNodes as node}
-          <g class:selected={selectedNodeId === node.id} class={`graph-node graph-node-${node.kind}`} style={`--node-color: ${nodeColor(node)}`} transform={`translate(${node.x},${node.y})`} role="button" tabindex="0" aria-label={`${node.kind}: ${node.title}`} aria-pressed={selectedNodeId === node.id} onpointerdown={(event) => selectNode(node, event)} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') selectedNodeId = node.id; }}><rect width={node.width} height={node.height} rx="12" /><text class="graph-node-kind" x="16" y="24">{node.kind}{node.cardId ? ' · linked card' : ''}</text><text class="graph-node-title" x="16" y="52">{node.title}</text>{#if node.body && !node.collapsed}<foreignObject x="16" y="66" width={node.width - 32} height={node.height - 76}><p xmlns="http://www.w3.org/1999/xhtml">{node.body}</p></foreignObject>{/if}{#if data.canEdit && selectedNodeId === node.id && tool === 'select'}<rect class="graph-node-resize-handle" x={node.width - 14} y={node.height - 14} width="14" height="14" rx="3" role="button" tabindex="0" aria-label={`Resize ${node.title}`} onpointerdown={(event) => startResize(node, event)} onkeydown={(event) => event.stopPropagation()}></rect>{/if}</g>
+          <g class:selected={selectedNodeId === node.id} class={`graph-node graph-node-${node.kind}`} style={`--node-color: ${nodeColor(node)}`} transform={`translate(${node.x},${node.y})`} role="button" tabindex="0" aria-label={`${node.kind}: ${node.title}`} aria-pressed={selectedNodeId === node.id} onpointerdown={(event) => selectNode(node, event)} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') selectedNodeId = node.id; }}><rect width={node.width} height={node.height} rx="12" /><text class="graph-node-kind" x="16" y="24">{node.kind}{node.cardId ? ' · linked card' : ''}</text>{#if renamingNodeId === node.id}<foreignObject x="14" y="38" width={node.width - 28} height="26"><input xmlns="http://www.w3.org/1999/xhtml" class="graph-node-rename-input" bind:value={renameDraft} maxlength="160" use:focusAndSelect onclick={(event) => event.stopPropagation()} onpointerdown={(event) => event.stopPropagation()} onblur={() => commitRename(node)} onkeydown={(event) => { if (event.key === 'Enter') { event.preventDefault(); (event.currentTarget as HTMLInputElement).blur(); } else if (event.key === 'Escape') { event.preventDefault(); renamingNodeId = null; } }} /></foreignObject>{:else}<text class="graph-node-title" x="16" y="52" role="button" tabindex="-1" ondblclick={(event) => startRename(node, event)}>{node.title}</text>{/if}{#if node.body && !node.collapsed}<foreignObject x="16" y="66" width={node.width - 32} height={node.height - 76}><p xmlns="http://www.w3.org/1999/xhtml">{node.body}</p></foreignObject>{/if}{#if data.canEdit && selectedNodeId === node.id && tool === 'select'}<rect class="graph-node-resize-handle" x={node.width - 14} y={node.height - 14} width="14" height="14" rx="3" role="button" tabindex="0" aria-label={`Resize ${node.title}`} onpointerdown={(event) => startResize(node, event)} onkeydown={(event) => event.stopPropagation()}></rect>{/if}</g>
         {/each}
       </g>
     </svg>{#if !activeNodes.length}<div class="graph-empty"><p class="eyebrow">EMPTY GRAPH</p><h2>Start with one idea.</h2><p>Add a note, group a phase, or link a card to make the relationships visible.</p><button type="button" onclick={() => { showCreate = true; }}>Add first object</button></div>{/if}</div>
